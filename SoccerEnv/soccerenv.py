@@ -388,7 +388,7 @@ def train_on_custom_env():
     # Train DQN (since we have discrete actions)
     print("🚀 Training DQN...")
     dqn_model = DQN("MlpPolicy", env, verbose=1, learning_rate=0.001)
-    dqn_model.learn(total_timesteps=50000)
+    dqn_model.learn(total_timesteps=100000)
     
     print("📊 Evaluating DQN...")
     dqn_mean, dqn_std = evaluate_policy(dqn_model, env, n_eval_episodes=20)
@@ -398,7 +398,7 @@ def train_on_custom_env():
     # Train PPO
     print("\n🚀 Training PPO...")
     ppo_model = PPO("MlpPolicy", env, verbose=1, learning_rate=0.0003)
-    ppo_model.learn(total_timesteps=50000)
+    ppo_model.learn(total_timesteps=100000)
     
     print("📊 Evaluating PPO...")
     ppo_mean, ppo_std = evaluate_policy(ppo_model, env, n_eval_episodes=20)
@@ -475,3 +475,666 @@ if __name__ == "__main__":
     # Uncomment to watch trained agent
     print("\nWatching trained agent...")
     watch_trained_agent()
+
+
+#     #####################################################################
+#     """
+# ENHANCED SOCCER ENVIRONMENT FOR NUBOTS RL STRATEGY
+# ============================================================
+
+# This implementation follows the requirements from the SENG4001A Interim Report
+# and incorporates the design specifications for the NUbots reinforcement learning
+# strategy project.
+
+# Key improvements based on the design document:
+# 1. 12-element state space as specified in Section 7.1
+# 2. Improved reward function aligned with project objectives
+# 3. Enhanced physics simulation for more realistic behavior
+# 4. Support for variable opponent strategies
+# 5. Performance metrics collection
+# 6. Domain randomization for better transfer learning
+
+# """
+
+# import numpy as np
+# import pygame
+# import gymnasium as gym
+# from gymnasium import spaces
+# from typing import Dict, Tuple, Optional, Any
+# import random
+# import math
+
+
+# class SoccerEnv(gym.Env):
+#     """
+#     Enhanced Soccer Environment for NUbots RL Strategy
+    
+#     This environment implements the specifications from the SENG4001A project:
+#     - 12-element state space (Section 7.1)
+#     - 4x4 meter field with configurable dimensions
+#     - Realistic physics simulation
+#     - Opponent behavior variations
+#     - Performance metrics tracking
+    
+#     State Space (12 elements):
+#         [0-2]: Robot pose (x, y, θ)
+#         [3-4]: Ball position (x, y) 
+#         [5-6]: Opponent position (x, y)
+#         [7-8]: Robot velocity (vx, vy)
+#         [9]: Distance to ball
+#         [10]: Distance to goal
+#         [11]: Game phase indicator
+    
+#     Action Space:
+#         3D continuous: [x_velocity, y_velocity, angular_velocity] ∈ [-1.0, 1.0]
+    
+#     Reward Structure:
+#         +100: Goal reached with ball possession
+#         +1: Maintaining ball possession per step
+#         +5: Moving closer to goal with ball
+#         -1: Losing ball possession
+#         -10: Collision with opponent
+#         -0.1: Time penalty (encourages efficiency)
+#     """
+    
+#     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 50}
+    
+#     def __init__(
+#         self,
+#         render_mode: Optional[str] = None,
+#         field_length: float = 4.0,
+#         field_width: float = 4.0,
+#         enable_domain_randomization: bool = True,
+#         opponent_strategy: str = "dynamic",
+#         max_episode_steps: int = 200
+#     ):
+#         super().__init__()
+        
+#         # Field dimensions (configurable as per requirements)
+#         self.field_length = field_length
+#         self.field_width = field_width
+#         self.max_episode_steps = max_episode_steps
+        
+#         # Physics parameters
+#         self.robot_radius = 0.15  # 15cm robot radius
+#         self.ball_radius = 0.065  # Standard soccer ball
+#         self.max_velocity = 1.0   # Max robot velocity (m/s)
+#         self.ball_friction = 0.95 # Ball deceleration factor
+        
+#         # Domain randomization settings
+#         self.enable_domain_randomization = enable_domain_randomization
+#         self.opponent_strategy = opponent_strategy
+        
+#         # State space: 12 elements as specified in Section 7.1
+#         self.observation_space = spaces.Box(
+#             low=np.array([
+#                 -self.field_length/2,  # robot_x
+#                 -self.field_width/2,   # robot_y  
+#                 -np.pi,                # robot_theta
+#                 -self.field_length/2,  # ball_x
+#                 -self.field_width/2,   # ball_y
+#                 -self.field_length/2,  # opponent_x
+#                 -self.field_width/2,   # opponent_y
+#                 -self.max_velocity,    # velocity_x
+#                 -self.max_velocity,    # velocity_y
+#                 0.0,                   # ball_distance
+#                 0.0,                   # goal_distance
+#                 0.0                    # game_phase
+#             ]),
+#             high=np.array([
+#                 self.field_length/2,   # robot_x
+#                 self.field_width/2,    # robot_y
+#                 np.pi,                 # robot_theta
+#                 self.field_length/2,   # ball_x
+#                 self.field_width/2,    # ball_y
+#                 self.field_length/2,   # opponent_x
+#                 self.field_width/2,    # opponent_y
+#                 self.max_velocity,     # velocity_x
+#                 self.max_velocity,     # velocity_y
+#                 self.field_length,     # ball_distance (max diagonal)
+#                 self.field_length,     # goal_distance
+#                 1.0                    # game_phase
+#             ]),
+#             dtype=np.float32
+#         )
+        
+#         # Action space: 3D continuous control
+#         self.action_space = spaces.Box(
+#             low=np.array([-1.0, -1.0, -1.0]),
+#             high=np.array([1.0, 1.0, 1.0]),
+#             dtype=np.float32
+#         )
+        
+#         # Rendering setup
+#         assert render_mode is None or render_mode in self.metadata["render_modes"]
+#         self.render_mode = render_mode
+#         self.window = None
+#         self.clock = None
+#         self.window_size = 800
+        
+#         # Performance metrics (as specified in evaluation design)
+#         self.reset_metrics()
+        
+#     def reset_metrics(self):
+#         """Reset performance tracking metrics"""
+#         self.episode_metrics = {
+#             "ball_possession_time": 0,
+#             "total_distance_traveled": 0,
+#             "goal_progress": 0,
+#             "collisions": 0,
+#             "falls": 0,
+#             "decision_count": 0,
+#             "successful_maneuvers": 0
+#         }
+        
+#     def reset(self, seed: Optional[int] = None, options: Optional[Dict] = None) -> Tuple[np.ndarray, Dict]:
+#         """Reset environment with domain randomization support"""
+#         super().reset(seed=seed)
+        
+#         # Reset metrics
+#         self.reset_metrics()
+#         self.steps = 0
+        
+#         # Domain randomization for field dimensions (±20% as per requirements)
+#         if self.enable_domain_randomization:
+#             length_variation = self.np_random.uniform(-0.2, 0.2)
+#             width_variation = self.np_random.uniform(-0.2, 0.2)
+#             self.current_field_length = self.field_length * (1 + length_variation)
+#             self.current_field_width = self.field_width * (1 + width_variation)
+#         else:
+#             self.current_field_length = self.field_length
+#             self.current_field_width = self.field_width
+            
+#         # Initialize robot position (left side)
+#         self.robot_position = np.array([
+#             -self.current_field_length/2 + 0.5,
+#             self.np_random.uniform(-self.current_field_width/4, self.current_field_width/4)
+#         ])
+#         self.robot_theta = self.np_random.uniform(-np.pi/4, np.pi/4)
+#         self.robot_velocity = np.array([0.0, 0.0])
+        
+#         # Initialize ball position (near robot)
+#         ball_offset = np.array([
+#             self.np_random.uniform(0.2, 0.4),
+#             self.np_random.uniform(-0.1, 0.1)
+#         ])
+#         self.ball_position = self.robot_position + ball_offset
+#         self.ball_velocity = np.array([0.0, 0.0])
+        
+#         # Initialize opponent (middle to right side)
+#         self.opponent_position = np.array([
+#             self.np_random.uniform(-0.5, self.current_field_length/2 - 0.5),
+#             self.np_random.uniform(-self.current_field_width/2 + 0.5, self.current_field_width/2 - 0.5)
+#         ])
+#         self.opponent_velocity = np.array([0.0, 0.0])
+        
+#         # Goal position (right side)
+#         self.goal_position = np.array([self.current_field_length/2, 0.0])
+        
+#         # Game state
+#         self.has_ball = False
+#         self.game_phase = 0.0  # 0=normal play, could be extended for penalties, etc.
+        
+#         # Update ball possession
+#         self._update_ball_possession()
+        
+#         observation = self._get_observation()
+#         info = self._get_info()
+        
+#         if self.render_mode == "human":
+#             self._render_frame()
+            
+#         return observation, info
+        
+#     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, Dict]:
+#         """Execute one environment step"""
+#         self.steps += 1
+#         self.episode_metrics["decision_count"] += 1
+        
+#         # Validate and clip action
+#         action = np.clip(action, -1.0, 1.0)
+        
+#         # Store previous state for reward calculation
+#         prev_robot_pos = self.robot_position.copy()
+#         prev_ball_distance = np.linalg.norm(self.robot_position - self.ball_position)
+#         prev_goal_distance = np.linalg.norm(self.robot_position - self.goal_position)
+#         prev_has_ball = self.has_ball
+        
+#         # Update robot state
+#         self._update_robot(action)
+        
+#         # Update opponent
+#         self._update_opponent()
+        
+#         # Update ball physics
+#         self._update_ball_physics()
+        
+#         # Update ball possession
+#         self._update_ball_possession()
+        
+#         # Calculate reward
+#         reward = self._calculate_reward(prev_goal_distance, prev_has_ball, prev_robot_pos)
+        
+#         # Check termination conditions
+#         terminated = self._check_terminated()
+#         truncated = self.steps >= self.max_episode_steps
+        
+#         # Update metrics
+#         self._update_metrics(prev_robot_pos)
+        
+#         observation = self._get_observation()
+#         info = self._get_info()
+        
+#         if self.render_mode == "human":
+#             self._render_frame()
+            
+#         return observation, reward, terminated, truncated, info
+        
+#     def _update_robot(self, action: np.ndarray):
+#         """Update robot position and orientation based on action"""
+#         dt = 1.0 / 50.0  # 50Hz simulation as per requirements
+        
+#         # Extract movement commands
+#         x_vel_cmd, y_vel_cmd, angular_vel_cmd = action
+        
+#         # Apply velocity limits and acceleration constraints
+#         max_accel = 2.0  # m/s²
+#         max_angular_accel = 3.0  # rad/s²
+        
+#         # Update linear velocity
+#         target_velocity = np.array([x_vel_cmd, y_vel_cmd]) * self.max_velocity
+#         vel_diff = target_velocity - self.robot_velocity
+#         vel_diff = np.clip(vel_diff, -max_accel * dt, max_accel * dt)
+#         self.robot_velocity += vel_diff
+        
+#         # Update angular velocity (simplified)
+#         self.angular_velocity = angular_vel_cmd * 2.0  # rad/s
+        
+#         # Update position and orientation
+#         self.robot_position += self.robot_velocity * dt
+#         self.robot_theta += self.angular_velocity * dt
+        
+#         # Keep theta in [-π, π]
+#         self.robot_theta = np.arctan2(np.sin(self.robot_theta), np.cos(self.robot_theta))
+        
+#         # Apply field boundaries with collision detection
+#         self.robot_position[0] = np.clip(
+#             self.robot_position[0], 
+#             -self.current_field_length/2 + self.robot_radius,
+#             self.current_field_length/2 - self.robot_radius
+#         )
+#         self.robot_position[1] = np.clip(
+#             self.robot_position[1],
+#             -self.current_field_width/2 + self.robot_radius,
+#             self.current_field_width/2 - self.robot_radius
+#         )
+        
+#     def _update_opponent(self):
+#         """Update opponent behavior based on strategy"""
+#         dt = 1.0 / 50.0
+        
+#         if self.opponent_strategy == "static":
+#             return
+#         elif self.opponent_strategy == "simple":
+#             # Simple ball-following behavior
+#             ball_direction = self.ball_position - self.opponent_position
+#             ball_distance = np.linalg.norm(ball_direction)
+#             if ball_distance > 0.1:
+#                 self.opponent_velocity = ball_direction / ball_distance * 0.3
+#             else:
+#                 self.opponent_velocity = np.array([0.0, 0.0])
+#         elif self.opponent_strategy == "dynamic":
+#             # More sophisticated opponent behavior
+#             to_ball = self.ball_position - self.opponent_position
+#             to_robot = self.robot_position - self.opponent_position
+            
+#             if self.has_ball:
+#                 # Try to intercept robot
+#                 self.opponent_velocity = to_robot / (np.linalg.norm(to_robot) + 1e-6) * 0.5
+#             else:
+#                 # Go for the ball
+#                 self.opponent_velocity = to_ball / (np.linalg.norm(to_ball) + 1e-6) * 0.4
+                
+#         # Update opponent position
+#         self.opponent_position += self.opponent_velocity * dt
+        
+#         # Apply field boundaries
+#         self.opponent_position[0] = np.clip(
+#             self.opponent_position[0],
+#             -self.current_field_length/2 + self.robot_radius,
+#             self.current_field_length/2 - self.robot_radius
+#         )
+#         self.opponent_position[1] = np.clip(
+#             self.opponent_position[1],
+#             -self.current_field_width/2 + self.robot_radius,
+#             self.current_field_width/2 - self.robot_radius
+#         )
+        
+#     def _update_ball_physics(self):
+#         """Update ball position with physics simulation"""
+#         dt = 1.0 / 50.0
+        
+#         # Apply friction to ball
+#         self.ball_velocity *= self.ball_friction
+        
+#         # Update ball position
+#         self.ball_position += self.ball_velocity * dt
+        
+#         # Ball-field boundary collisions
+#         if (self.ball_position[0] <= -self.current_field_length/2 + self.ball_radius or
+#             self.ball_position[0] >= self.current_field_length/2 - self.ball_radius):
+#             self.ball_velocity[0] *= -0.8  # Some energy loss
+            
+#         if (self.ball_position[1] <= -self.current_field_width/2 + self.ball_radius or
+#             self.ball_position[1] >= self.current_field_width/2 - self.ball_radius):
+#             self.ball_velocity[1] *= -0.8
+            
+#         # Clamp ball to field
+#         self.ball_position[0] = np.clip(
+#             self.ball_position[0],
+#             -self.current_field_length/2 + self.ball_radius,
+#             self.current_field_length/2 - self.ball_radius
+#         )
+#         self.ball_position[1] = np.clip(
+#             self.ball_position[1],
+#             -self.current_field_width/2 + self.ball_radius,
+#             self.current_field_width/2 - self.ball_radius
+#         )
+        
+#     def _update_ball_possession(self):
+#         """Update ball possession and handle ball-robot interactions"""
+#         robot_to_ball = self.ball_position - self.robot_position
+#         distance_to_ball = np.linalg.norm(robot_to_ball)
+        
+#         # Ball possession threshold
+#         possession_threshold = self.robot_radius + self.ball_radius + 0.1
+        
+#         if distance_to_ball <= possession_threshold:
+#             if not self.has_ball:
+#                 self.has_ball = True
+                
+#             # Ball follows robot when in possession
+#             desired_ball_pos = (self.robot_position + 
+#                               np.array([np.cos(self.robot_theta), np.sin(self.robot_theta)]) * 
+#                               (self.robot_radius + self.ball_radius + 0.05))
+            
+#             # Smooth ball movement towards desired position
+#             self.ball_velocity = (desired_ball_pos - self.ball_position) * 5.0
+#         else:
+#             if self.has_ball and distance_to_ball > possession_threshold * 1.5:
+#                 self.has_ball = False
+                
+#         # Check opponent ball possession
+#         opponent_to_ball = self.ball_position - self.opponent_position
+#         if np.linalg.norm(opponent_to_ball) <= possession_threshold:
+#             self.has_ball = False
+            
+#     def _calculate_reward(self, prev_goal_distance: float, prev_has_ball: bool, prev_pos: np.ndarray) -> float:
+#         """Calculate reward based on current state and actions"""
+#         reward = 0.0
+        
+#         # Time penalty (encourages efficiency)
+#         reward -= 0.1
+        
+#         # Ball possession reward
+#         if self.has_ball:
+#             reward += 1.0  # Continuous possession reward
+#             self.episode_metrics["ball_possession_time"] += 1
+            
+#             # Progress toward goal reward
+#             current_goal_distance = np.linalg.norm(self.robot_position - self.goal_position)
+#             if current_goal_distance < prev_goal_distance:
+#                 progress_reward = (prev_goal_distance - current_goal_distance) * 10.0
+#                 reward += progress_reward
+#                 self.episode_metrics["goal_progress"] += progress_reward
+#         else:
+#             # Penalty for losing ball
+#             if prev_has_ball:
+#                 reward -= 1.0
+                
+#         # Goal reached with ball possession
+#         goal_distance = np.linalg.norm(self.robot_position - self.goal_position)
+#         if goal_distance < 0.3 and self.has_ball:
+#             reward += 100.0
+#             self.episode_metrics["successful_maneuvers"] += 1
+            
+#         # Collision penalty
+#         robot_opponent_distance = np.linalg.norm(self.robot_position - self.opponent_position)
+#         if robot_opponent_distance < (self.robot_radius * 2):
+#             reward -= 10.0
+#             self.episode_metrics["collisions"] += 1
+            
+#         # Boundary penalty (soft constraint)
+#         if (abs(self.robot_position[0]) > self.current_field_length/2 - 0.2 or
+#             abs(self.robot_position[1]) > self.current_field_width/2 - 0.2):
+#             reward -= 0.5
+            
+#         return reward
+        
+#     def _check_terminated(self) -> bool:
+#         """Check if episode should terminate"""
+#         # Success: reached goal with ball
+#         goal_distance = np.linalg.norm(self.robot_position - self.goal_position)
+#         if goal_distance < 0.3 and self.has_ball:
+#             return True
+            
+#         # Failure: major collision
+#         robot_opponent_distance = np.linalg.norm(self.robot_position - self.opponent_position)
+#         if robot_opponent_distance < self.robot_radius:
+#             return True
+            
+#         # Ball stationary for too long
+#         if np.linalg.norm(self.ball_velocity) < 0.01 and not self.has_ball:
+#             return True
+            
+#         return False
+        
+#     def _get_observation(self) -> np.ndarray:
+#         """Get 12-element observation as specified in design document"""
+#         ball_distance = np.linalg.norm(self.robot_position - self.ball_position)
+#         goal_distance = np.linalg.norm(self.robot_position - self.goal_position)
+        
+#         observation = np.array([
+#             self.robot_position[0],      # [0] robot_x
+#             self.robot_position[1],      # [1] robot_y  
+#             self.robot_theta,            # [2] robot_theta
+#             self.ball_position[0],       # [3] ball_x
+#             self.ball_position[1],       # [4] ball_y
+#             self.opponent_position[0],   # [5] opponent_x
+#             self.opponent_position[1],   # [6] opponent_y
+#             self.robot_velocity[0],      # [7] velocity_x
+#             self.robot_velocity[1],      # [8] velocity_y
+#             ball_distance,               # [9] ball_distance
+#             goal_distance,               # [10] goal_distance
+#             self.game_phase              # [11] game_phase
+#         ], dtype=np.float32)
+        
+#         return observation
+        
+#     def _get_info(self) -> Dict[str, Any]:
+#         """Get additional environment information"""
+#         return {
+#             "has_ball": self.has_ball,
+#             "steps": self.steps,
+#             "metrics": self.episode_metrics.copy(),
+#             "field_dimensions": (self.current_field_length, self.current_field_width),
+#             "success_criteria": {
+#                 "goal_reached": np.linalg.norm(self.robot_position - self.goal_position) < 0.3 and self.has_ball,
+#                 "ball_possession_rate": self.episode_metrics["ball_possession_time"] / max(self.steps, 1),
+#                 "collision_count": self.episode_metrics["collisions"]
+#             }
+#         }
+        
+#     def _update_metrics(self, prev_pos: np.ndarray):
+#         """Update performance metrics"""
+#         distance_traveled = np.linalg.norm(self.robot_position - prev_pos)
+#         self.episode_metrics["total_distance_traveled"] += distance_traveled
+        
+#     def _render_frame(self):
+#         """Render the environment"""
+#         if self.window is None and self.render_mode == "human":
+#             pygame.init()
+#             pygame.display.init()
+#             self.window = pygame.display.set_mode((self.window_size, self.window_size))
+            
+#         if self.clock is None and self.render_mode == "human":
+#             self.clock = pygame.time.Clock()
+            
+#         canvas = pygame.Surface((self.window_size, self.window_size))
+#         canvas.fill((34, 139, 34))  # Green field
+        
+#         # Scale factor for rendering
+#         scale = self.window_size / max(self.current_field_length, self.current_field_width)
+#         center_x, center_y = self.window_size // 2, self.window_size // 2
+        
+#         def world_to_screen(pos):
+#             return (
+#                 int(center_x + pos[0] * scale),
+#                 int(center_y - pos[1] * scale)  # Flip Y axis
+#             )
+            
+#         # Draw field boundaries
+#         field_rect = pygame.Rect(
+#             center_x - self.current_field_length * scale // 2,
+#             center_y - self.current_field_width * scale // 2,
+#             self.current_field_length * scale,
+#             self.current_field_width * scale
+#         )
+#         pygame.draw.rect(canvas, (255, 255, 255), field_rect, 3)
+        
+#         # Draw goal
+#         goal_pos = world_to_screen(self.goal_position)
+#         pygame.draw.circle(canvas, (255, 215, 0), goal_pos, int(20 * scale))
+        
+#         # Draw opponent
+#         opponent_pos = world_to_screen(self.opponent_position)
+#         pygame.draw.circle(canvas, (255, 0, 0), opponent_pos, int(self.robot_radius * scale))
+        
+#         # Draw ball
+#         ball_pos = world_to_screen(self.ball_position)
+#         ball_color = (255, 255, 255) if not self.has_ball else (0, 255, 0)
+#         pygame.draw.circle(canvas, ball_color, ball_pos, int(self.ball_radius * scale))
+        
+#         # Draw robot
+#         robot_pos = world_to_screen(self.robot_position)
+#         robot_color = (0, 0, 255) if not self.has_ball else (0, 255, 255)
+#         pygame.draw.circle(canvas, robot_color, robot_pos, int(self.robot_radius * scale))
+        
+#         # Draw robot orientation
+#         orientation_end = world_to_screen(
+#             self.robot_position + 0.2 * np.array([np.cos(self.robot_theta), np.sin(self.robot_theta)])
+#         )
+#         pygame.draw.line(canvas, (255, 255, 255), robot_pos, orientation_end, 2)
+        
+#         # Draw metrics
+#         if self.render_mode == "human":
+#             font = pygame.font.Font(None, 24)
+#             metrics_text = [
+#                 f"Step: {self.steps}",
+#                 f"Ball Possession: {self.has_ball}",
+#                 f"Distance to Goal: {np.linalg.norm(self.robot_position - self.goal_position):.2f}m",
+#                 f"Collisions: {self.episode_metrics['collisions']}"
+#             ]
+            
+#             for i, text in enumerate(metrics_text):
+#                 text_surface = font.render(text, True, (255, 255, 255))
+#                 canvas.blit(text_surface, (10, 10 + i * 25))
+        
+#         if self.render_mode == "human":
+#             self.window.blit(canvas, canvas.get_rect())
+#             pygame.event.pump()
+#             pygame.display.update()
+#             self.clock.tick(self.metadata["render_fps"])
+#         else:  # rgb_array
+#             return np.transpose(
+#                 np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
+#             )
+            
+#     def close(self):
+#         """Close the environment"""
+#         if self.window is not None:
+#             pygame.display.quit()
+#             pygame.quit()
+
+
+# # TESTING AND EVALUATION FUNCTIONS
+# def test_enhanced_environment():
+#     """Test the enhanced environment with improved features"""
+#     print("🎮 Testing Enhanced Soccer Environment")
+#     print("=" * 50)
+    
+#     env = SoccerEnv(
+#         render_mode="human",
+#         enable_domain_randomization=True,
+#         opponent_strategy="dynamic"
+#     )
+    
+#     observation, info = env.reset(seed=42)
+#     print(f"Initial observation shape: {observation.shape}")
+#     print(f"Observation space: {env.observation_space}")
+#     print(f"Action space: {env.action_space}")
+#     print(f"Initial info: {info}")
+    
+#     total_reward = 0
+#     for step in range(200):
+#         # Random action for testing
+#         action = env.action_space.sample()
+#         observation, reward, terminated, truncated, info = env.step(action)
+#         total_reward += reward
+        
+#         if step % 20 == 0:
+#             print(f"Step {step}: Reward={reward:.3f}, Has ball={info['has_ball']}, "
+#                   f"Success criteria={info['success_criteria']}")
+            
+#         if terminated or truncated:
+#             print(f"Episode finished at step {step}")
+#             print(f"Final metrics: {info['metrics']}")
+#             print(f"Total reward: {total_reward:.2f}")
+#             break
+            
+#     env.close()
+
+
+# def benchmark_environment_performance():
+#     """Benchmark environment performance for training"""
+#     print("\n⚡ Benchmarking Environment Performance")
+#     print("=" * 40)
+    
+#     env = SoccerEnv(render_mode=None)  # No rendering for speed
+    
+#     import time
+#     start_time = time.time()
+    
+#     num_episodes = 100
+#     total_steps = 0
+    
+#     for episode in range(num_episodes):
+#         obs, info = env.reset()
+#         episode_steps = 0
+        
+#         while episode_steps < 200:
+#             action = env.action_space.sample()
+#             obs, reward, terminated, truncated, info = env.step(action)
+#             episode_steps += 1
+#             total_steps += 1
+            
+#             if terminated or truncated:
+#                 break
+                
+#     end_time = time.time()
+#     duration = end_time - start_time
+    
+#     print(f"Completed {num_episodes} episodes in {duration:.2f} seconds")
+#     print(f"Average steps per episode: {total_steps / num_episodes:.1f}")
+#     print(f"Steps per second: {total_steps / duration:.1f}")
+#     print(f"Episodes per second: {num_episodes / duration:.1f}")
+    
+#     env.close()
+
+
+# if __name__ == "__main__":
+#     # Test the enhanced environment
+#     test_enhanced_environment()
+    
+#     # Benchmark performance
+#     benchmark_environment_performance()
