@@ -153,7 +153,7 @@ def test_random_baseline():
     total_reward = 0
     steps = 0
     
-    for step in range(1000):
+    for step in range(1000000):
         # Random action
         action = env.action_space.sample()
         obs, reward, terminated, truncated, _ = env.step(action)
