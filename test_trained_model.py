@@ -1,10 +1,10 @@
-# test_trained_model.py - Watch your trained robot play!
+# test_trained_model.py - Watch the trained robot play by loading the correct models
 import time
 from stable_baselines3 import PPO, DDPG
-from simplesoccerenv import SimpleSoccerEnv
+from SoccerEnv.soccerenv import SoccerEnv
 import numpy as np
 
-def watch_trained_robot(model_name="soccer_rl_ppo", episodes=5):
+def watch_trained_robot(model_name="soccer_rl_ppo_final", episodes=5):
     """
     Watch your trained robot play soccer with visual rendering
     """
@@ -19,11 +19,11 @@ def watch_trained_robot(model_name="soccer_rl_ppo", episodes=5):
             model = DDPG.load(model_name)
             print("✅ DDPG model loaded successfully!")
         else:
-            print("❌ Unknown model type. Use 'soccer_rl_ppo' or 'soccer_rl_ddpg'")
+            print("❌ Unknown model type. Use 'soccer_rl_ppo_final' or 'soccer_rl_ddpg_final'")
             return
         
         # Create environment with human rendering
-        env = SimpleSoccerEnv(render_mode="human")
+        env = SoccerEnv(render_mode="human")
         print("🎯 Starting visual test...")
         print("Watch the blue robot (your AI) try to get the white ball to the yellow goal!")
         print("Red robot is the opponent. Close the window to stop.\n")
@@ -62,7 +62,7 @@ def watch_trained_robot(model_name="soccer_rl_ppo", episodes=5):
                 if robot_x > 320:  # Near goal
                     reached_goal = True
                 
-                # Add small delay so you can see what's happening
+                # Add small delay to see what is going on
                 time.sleep(0.02)  # 50 FPS
                 
                 if terminated:
@@ -133,7 +133,7 @@ def compare_models():
     print("🥊 Comparing PPO vs DDPG models")
     print("Testing each model for 3 episodes...\n")
     
-    models_to_test = ["soccer_rl_ppo", "soccer_rl_ddpg"]
+    models_to_test = ["soccer_rl_ppo_final", "soccer_rl_ddpg_final"]
     
     for model_name in models_to_test:
         print(f"{'='*50}")
@@ -147,13 +147,13 @@ def test_random_baseline():
     """Test random policy for comparison"""
     print("🎲 Testing random policy (baseline)...")
     
-    env = SimpleSoccerEnv(render_mode="human")
+    env = SoccerEnv(render_mode="human")
     
     obs, _ = env.reset()
     total_reward = 0
     steps = 0
     
-    for step in range(1000000):
+    for step in range(500): # Used to be 1000000
         # Random action
         action = env.action_space.sample()
         obs, reward, terminated, truncated, _ = env.step(action)

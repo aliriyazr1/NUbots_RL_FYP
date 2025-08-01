@@ -1,16 +1,16 @@
-# train_soccer_rl.py - FIXED VERSION for proper RL training
+# train_soccer_rl.py - For RL training
 import numpy as np
 import matplotlib.pyplot as plt
 from stable_baselines3 import PPO, DDPG
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import EvalCallback
-from simplesoccerenv import SimpleSoccerEnv
+from SoccerEnv.soccerenv import SoccerEnv
 import os
 
 def create_monitored_env():
     """Create environment with monitoring wrapper"""
-    env = SimpleSoccerEnv()
+    env = SoccerEnv()
     env = Monitor(env)  # This wrapper logs episode rewards and lengths
     return env
 
@@ -26,16 +26,18 @@ def train_ppo_agent():
     model = PPO(
         policy="MlpPolicy",
         env=train_env,
-        learning_rate=3e-4,      # Standard learning rate for PPO
-        n_steps=2048,            # Number of steps to run for each environment per update
+        learning_rate=1e-3,      # Standard learning rate for PPO (First I put 3e-4 but too slow to improve then 1e-3 but still too long)
+        n_steps=1024,            # Number of steps to run for each environment per update (USed to be 2048)
         batch_size=64,           # Minibatch size
-        n_epochs=10,             # Number of epochs when optimizing the surrogate loss
-        gamma=0.99,              # Discount factor
+        n_epochs=5,              # Number of epochs when optimising the surrogate loss (used to be 10)
+        gamma=0.97,              # Discount factor (Used to be 0.99)
         gae_lambda=0.95,         # Factor for trade-off of bias vs variance for GAE
-        clip_range=0.2,          # Clipping parameter
-        ent_coef=0.01,           # Entropy coefficient for exploration
+        clip_range=0.15,          # Clipping parameter (Used to be 0.2)
+        ent_coef=0.1,           # Entropy coefficient for exploration (used to be 0.05)
+        vf_coef=0.5,             # Value function coefficient
+        max_grad_norm=0.5,       # Gradient clipping
         verbose=1,               # Print training progress
-        device="cuda"             # Use GPU (CPU more stable for small envs but trying out GPU if possible)
+        device="cpu"             # Use GPU (CPU more stable for small envs but trying out GPU if possible)
     )
     
     # Create evaluation callback
@@ -53,8 +55,8 @@ def train_ppo_agent():
     print("Watch for increasing episode rewards - that means learning is happening!")
     
     #TODO: Once the model is proving effective on small batches, increase the number of timesteps for both algos PPO and DDPG
-    # Train the model - 100000 timesteps for better learning but to check if things are going in the right direction
-    total_timesteps = 100000
+    # Train the model - (50000 for quick testing) but 100000 timesteps for better learning but to check if things are going in the right direction
+    total_timesteps = 50000
     model.learn(
         total_timesteps=total_timesteps,
         callback=eval_callback,
@@ -92,10 +94,10 @@ def train_ddpg_agent():
         learning_starts=1000,    # How many steps to collect before training
         batch_size=128,          # Batch size for training
         tau=0.005,               # Soft update coefficient for target networks
-        gamma=0.99,              # Discount factor
+        gamma=0.97,              # Discount factor (Used to be 0.99)
         action_noise=None,       # Let DDPG handle exploration
         verbose=1,
-        device="cuda"
+        device="cpu"
     )
     
     # Create evaluation callback
@@ -112,7 +114,7 @@ def train_ddpg_agent():
     print("Starting DDPG training...")
     
     # Train the model
-    total_timesteps = 100000
+    total_timesteps = 250000
     model.learn(
         total_timesteps=total_timesteps,
         callback=eval_callback,
@@ -302,12 +304,12 @@ if __name__ == "__main__":
 # from stable_baselines3.common.evaluation import evaluate_policy
 # from stable_baselines3.common.monitor import Monitor
 # from stable_baselines3.common.callbacks import EvalCallback
-# from simplesoccerenv import SimpleSoccerEnv
+# from soccerenv import SoccerEnv
 # import gymnasium as gym
 
 # def create_monitored_env():
 #     """Create environment with monitoring wrapper"""
-#     env = SimpleSoccerEnv()
+#     env = SoccerEnv()
 #     env = Monitor(env)  # This wrapper logs episode rewards and lengths
 #     return env
 
@@ -318,7 +320,7 @@ if __name__ == "__main__":
     
 #     # Create environments
 #     def make_env():
-#         return SimpleSoccerEnv()
+#         return SoccerEnv()
     
 #     # Results storage
 #     results = {}
