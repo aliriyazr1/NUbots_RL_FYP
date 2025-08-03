@@ -4,7 +4,7 @@ from stable_baselines3 import PPO, DDPG
 from SoccerEnv.soccerenv import SoccerEnv
 import numpy as np
 
-def watch_trained_robot(model_name="soccer_rl_ppo_final", episodes=5):
+def watch_trained_robot(model_name="soccer_rl_ppo_final", episodes=5, difficulty="medium"):
     """
     Watch your trained robot play soccer with visual rendering
     """
@@ -23,13 +23,14 @@ def watch_trained_robot(model_name="soccer_rl_ppo_final", episodes=5):
             return
         
         # Create environment with human rendering
-        env = SoccerEnv(render_mode="human")
+        env = SoccerEnv(render_mode="human", difficulty=difficulty)
         print("🎯 Starting visual test...")
         print("Watch the blue robot (your AI) try to get the white ball to the yellow goal!")
         print("Red robot is the opponent. Close the window to stop.\n")
         
         successful_episodes = 0
         total_rewards = []
+        got_ball_episodes = 0
         
         for episode in range(episodes):
             print(f"\n🏁 Episode {episode + 1}/{episodes}")
@@ -42,8 +43,10 @@ def watch_trained_robot(model_name="soccer_rl_ppo_final", episodes=5):
             # Track if robot gets ball and reaches goal
             had_ball = False
             reached_goal = False
+            max_progress_to_goal = 0
+            ball_possession_time = 0
             
-            for step in range(1000):  # Max 1000 steps per episode
+            for step in range(env.max_steps):  # Used to be Max 1000 steps per episode
                 # Get action from trained model
                 action, _ = model.predict(obs, deterministic=True)
                 
@@ -56,20 +59,22 @@ def watch_trained_robot(model_name="soccer_rl_ppo_final", episodes=5):
                 has_ball_now = obs[11] > 0.5  # Ball possession flag
                 if has_ball_now:
                     had_ball = True
+                    ball_possession_time += 1
                 
                 # Check if reached goal area
-                robot_x = (obs[0] * 200) + 200  # Convert back to pixel coordinates
+                robot_x = (obs[0] * 200) + 200  # Convert normalised obs back to pixel coordinates
+                progress_to_goal = max(0, robot_x - 100) / 300  # Progress from left side to goal
+                max_progress_to_goal = max(max_progress_to_goal, progress_to_goal)
+
                 if robot_x > 320:  # Near goal
                     reached_goal = True
                 
                 # Add small delay to see what is going on
-                time.sleep(0.02)  # 50 FPS
+                time.sleep(0.03)  # 33 FPS
                 
                 if terminated:
                     # Check if it's a successful termination (ball in goal)
-                    ball_x = (obs[3] * 200) + 200
-                    ball_y = (obs[4] * 200) + 200
-                    if ball_x > 340 and 160 < ball_y < 240:
+                    if env._check_goal():
                         episode_successful = True
                         successful_episodes += 1
                         print(f"   🎉 SUCCESS! Robot scored a goal!")
@@ -78,19 +83,21 @@ def watch_trained_robot(model_name="soccer_rl_ppo_final", episodes=5):
                     break
                 
                 if truncated:
-                    print(f"   ⏰ Episode timeout (took too long)")
+                    print(f"   ⏰ Episode timeout (reached {env.max_steps} steps)")
                     break
             
             total_rewards.append(total_reward)
+            if had_ball:
+                got_ball_episodes += 1
             
             # Episode summary
             print(f"   📊 Reward: {total_reward:.2f}")
             print(f"   👟 Steps: {steps}")
             print(f"   ⚽ Had ball: {'Yes' if had_ball else 'No'}")
-            print(f"   🥅 Reached goal area: {'Yes' if reached_goal else 'No'}")
-            
+            print(f"   🥅 Max progress to goal: {max_progress_to_goal*100:.1f}%")
+            print(f"   ⏱️  Ball possession time: {ball_possession_time} steps")            
             # Wait a moment between episodes
-            time.sleep(1)
+            time.sleep(1.5)
         
         env.close()
         
@@ -134,14 +141,40 @@ def compare_models():
     print("Testing each model for 3 episodes...\n")
     
     models_to_test = ["soccer_rl_ppo_final", "soccer_rl_ddpg_final"]
-    
+    difficulties = ["easy", "medium", "hard"]
+    results = {}
+
     for model_name in models_to_test:
         print(f"{'='*50}")
         print(f"Testing {model_name.upper()}")
         print(f"{'='*50}")
-        watch_trained_robot(model_name, episodes=3)
+        model_results = {}
+
+        for difficulty in difficulties:
+            print(f"\n🎯 Difficulty: {difficulty.title()}")
+            result = watch_trained_robot(model_name, episodes=3, difficulty=difficulty)
+            
+            if result:
+                model_results[difficulty] = result
+                print(f"   Summary: {result['success_rate']:.1f}% goals, {result['avg_reward']:.1f} avg reward")
+            
+            if len(difficulties) > 1:  # Only pause if testing multiple difficulties
+                input("   Press Enter to continue...")
+        results[model_name] = model_results
         
-        input("\nPress Enter to test next model...")
+        if len(models_to_test) > 1:  # Only pause if testing multiple models
+            input(f"\n✅ {model_name} testing complete. Press Enter for next model...")
+
+    # Final comparison summary
+    print(f"\n{'='*60}")
+    print("🏆 FINAL MODEL COMPARISON SUMMARY")
+    print(f"{'='*60}")
+
+    for model_name, model_results in results.items():
+        print(f"\n🧠 {model_name.upper()}:")
+        for difficulty, result in model_results.items():
+            print(f"   {difficulty.title()}: {result['success_rate']:.1f}% goals, {result['avg_reward']:.1f} reward")
+    
 
 def test_random_baseline():
     """Test random policy for comparison"""
@@ -153,14 +186,14 @@ def test_random_baseline():
     total_reward = 0
     steps = 0
     
-    for step in range(500): # Used to be 1000000
+    for step in range(env.max_steps): # Used to be 1000000
         # Random action
         action = env.action_space.sample()
         obs, reward, terminated, truncated, _ = env.step(action)
         total_reward += reward
         steps += 1
         
-        time.sleep(0.02)  # Slow it down so you can watch
+        time.sleep(0.02)  # Slow it down so we can watch
         
         if terminated or truncated:
             break
@@ -182,9 +215,9 @@ if __name__ == "__main__":
     choice = input("\nEnter choice (1-4): ").strip()
     
     if choice == "1":
-        watch_trained_robot("soccer_rl_ppo", episodes=5)
+        watch_trained_robot("soccer_rl_ppo_final", episodes=5, difficulty="medium")
     elif choice == "2":
-        watch_trained_robot("soccer_rl_ddpg", episodes=5)
+        watch_trained_robot("soccer_rl_ddpg_final", episodes=5, difficulty="medium")
     elif choice == "3":
         compare_models()
     elif choice == "4":

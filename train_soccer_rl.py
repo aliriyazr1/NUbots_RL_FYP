@@ -4,13 +4,75 @@ import matplotlib.pyplot as plt
 from stable_baselines3 import PPO, DDPG
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.callbacks import EvalCallback, BaseCallback
 from SoccerEnv.soccerenv import SoccerEnv
 import os
+import torch
 
-def create_monitored_env():
+class ProgressTracker(BaseCallback):
+    """Track learning progress and switch difficulty for both training and evaluation"""
+    
+    def __init__(self, train_env_wrapper, eval_env_wrapper):
+        super().__init__()
+        self.train_env_wrapper = train_env_wrapper
+        self.eval_env_wrapper = eval_env_wrapper
+        self.episode_rewards = []
+        self.last_20_rewards = []
+        self.step_count = 0
+        self.current_difficulty = "easy"
+        
+    def _on_step(self):
+        self.step_count += 1
+        
+        # Check if episode ended
+        if self.locals.get('dones', [False])[0]:
+            episode_reward = self.locals.get('infos', [{}])[0].get('episode', {}).get('r', 0)
+            if episode_reward != 0:
+                self.episode_rewards.append(episode_reward)
+                self.last_20_rewards.append(episode_reward)
+                if len(self.last_20_rewards) > 20:
+                    self.last_20_rewards.pop(0)
+        
+        # Print progress every 10000 steps
+        if self.step_count % 10000 == 0 and len(self.last_20_rewards) >= 10:
+            avg_reward = np.mean(self.last_20_rewards)
+            print(f"\n📈 Step {self.step_count}: Recent avg reward = {avg_reward:.2f}")
+            
+            # Curriculum progression
+            if self.current_difficulty == "easy" and avg_reward > 6:
+                print("🎯 PROGRESSING TO MEDIUM DIFFICULTY!")
+                self.current_difficulty = "medium"
+                
+                # Update BOTH environments
+                self.train_env_wrapper.env.difficulty = "medium"
+                self.train_env_wrapper.env.max_steps = 200
+                self.train_env_wrapper.env.possession_distance = 40.0
+                self.train_env_wrapper.env.collision_distance = 25.0
+                
+                self.eval_env_wrapper.env.difficulty = "medium"
+                self.eval_env_wrapper.env.max_steps = 200
+                self.eval_env_wrapper.env.possession_distance = 40.0
+                self.eval_env_wrapper.env.collision_distance = 25.0
+            elif self.current_difficulty == "medium" and avg_reward > 10:
+                print("🎯 PROGRESSING TO HARD DIFFICULTY!")  
+                self.current_difficulty = "hard"
+                
+                # Update BOTH environments
+                self.train_env_wrapper.env.difficulty = "hard"
+                self.train_env_wrapper.env.max_steps = 250
+                self.train_env_wrapper.env.possession_distance = 35.0
+                self.train_env_wrapper.env.collision_distance = 30.0
+                
+                self.eval_env_wrapper.env.difficulty = "hard"
+                self.eval_env_wrapper.env.max_steps = 250
+                self.eval_env_wrapper.env.possession_distance = 35.0
+                self.eval_env_wrapper.env.collision_distance = 30.0
+        
+        return True
+    
+def create_monitored_env(difficulty="easy"):
     """Create environment with monitoring wrapper"""
-    env = SoccerEnv()
+    env = SoccerEnv(difficulty=difficulty)
     env = Monitor(env)  # This wrapper logs episode rewards and lengths
     return env
 
@@ -18,37 +80,53 @@ def train_ppo_agent():
     """Train PPO agent with proper hyperparameters"""
     print("🚀 Training PPO Agent...")
     
-    # Create training and evaluation environments
-    train_env = create_monitored_env()
-    eval_env = create_monitored_env()
+    # Create training and evaluation environments starting with "easy" difficulty
+    train_env = create_monitored_env("easy")
+    eval_env = create_monitored_env("easy")
     
     # Create model with hyperparameters for continuous control
     model = PPO(
         policy="MlpPolicy",
         env=train_env,
-        learning_rate=1e-3,      # Standard learning rate for PPO (First I put 3e-4 but too slow to improve then 1e-3 but still too long)
-        n_steps=1024,            # Number of steps to run for each environment per update (USed to be 2048)
+        learning_rate=1e-3,      # Learning rate for PPO (First I put 3e-4 but too slow to improve then 1e-3 but still too long)
+
+        # Training stability
+        n_steps=2048,            # Number of steps to run for each environment per update (USed to be 2048)
         batch_size=64,           # Minibatch size
         n_epochs=5,              # Number of epochs when optimising the surrogate loss (used to be 10)
+        
+        # Exploration VS Exploitation
         gamma=0.97,              # Discount factor (Used to be 0.99)
         gae_lambda=0.95,         # Factor for trade-off of bias vs variance for GAE
         clip_range=0.15,          # Clipping parameter (Used to be 0.2)
         ent_coef=0.1,           # Entropy coefficient for exploration (used to be 0.05)
+        
+        # Stability settings
         vf_coef=0.5,             # Value function coefficient
         max_grad_norm=0.5,       # Gradient clipping
+
+        # Network architecture for stability
+        policy_kwargs=dict(
+            net_arch=[64, 64],           # Smaller, more stable network
+            activation_fn=torch.nn.Tanh, # More stable than ReLU
+        ),
+
         verbose=1,               # Print training progress
         device="cpu"             # Use GPU (CPU more stable for small envs but trying out GPU if possible)
     )
     
+    # Progress tracking
+    progress_cb = ProgressTracker(train_env, eval_env)
+
     # Create evaluation callback
     eval_callback = EvalCallback(
         eval_env,
         best_model_save_path="./models/",
         log_path="./logs/",
-        eval_freq=5000,          # Evaluate every 5000 steps
+        eval_freq=15000,          # Evaluate every 15000 steps
         deterministic=True,
         render=False,
-        n_eval_episodes=10
+        n_eval_episodes=5
     )
     
     print("Starting PPO training... This may take 5-15 minutes depending on your computer.")
@@ -56,24 +134,49 @@ def train_ppo_agent():
     
     #TODO: Once the model is proving effective on small batches, increase the number of timesteps for both algos PPO and DDPG
     # Train the model - (50000 for quick testing) but 100000 timesteps for better learning but to check if things are going in the right direction
-    total_timesteps = 50000
-    model.learn(
-        total_timesteps=total_timesteps,
-        callback=eval_callback,
-        progress_bar=True
-    )
+    total_timesteps = 250000
+    try:
+        model.learn(
+            total_timesteps=total_timesteps,
+            callback=[progress_cb, eval_callback],
+            progress_bar=True
+        )
+        
+        # Save the final model
+        model.save("soccer_rl_ppo_final")
+        print("✅ PPO training completed! Model saved as 'soccer_rl_ppo_final'")
+
+        
+        # Test on all difficulties
+        # Evaluation on randomised scenarios
+        print("\n📊 Testing on all difficulty levels...")
+        final_results = {}
+
+        for diff in ["easy", "medium", "hard"]:
+            test_env = create_monitored_env(diff)
+            mean_reward, std_reward = evaluate_policy(model, test_env, n_eval_episodes=10)
+            final_results[diff] = (mean_reward, std_reward)
+            print(f"  {diff.title()}: {mean_reward:.2f} ± {std_reward:.2f}")
+            test_env.close()
+        
+        # Check if curriculum actually worked
+        easy_score = final_results["easy"][0]
+        hard_score = final_results["hard"][0]
+        
+        if easy_score > hard_score:
+            print("✅ Curriculum working! Robot performs better on easier difficulties")
+        else:
+            print("⚠️  Curriculum might need tuning - similar performance across difficulties")
+        
+    except Exception as e:
+        print(f"❌ Training error: {e}")
+        # Save partial progress
+        model.save("soccer_rl_ppo_partial")
+        print("💾 Partial model saved")
     
-    # Save the final model
-    model.save("soccer_rl_ppo_final")
-    print("✅ PPO training completed! Model saved as 'soccer_rl_ppo_final'")
-    
-    # Evaluation on randomised scenarios
-    print("\n📊 Evaluating on randomised scenarios...")
-    mean_reward, std_reward = evaluate_policy(model, eval_env, n_eval_episodes=20)
-    print(f"Performance on random scenarios: {mean_reward:.2f} ± {std_reward:.2f}")
-    
-    train_env.close()
-    eval_env.close()
+    finally:
+        train_env.close()
+        eval_env.close()
     
     return model
 
@@ -82,8 +185,8 @@ def train_ddpg_agent():
     print("🚀 Training DDPG Agent...")
     
     # Create environments
-    train_env = create_monitored_env()
-    eval_env = create_monitored_env()
+    train_env = create_monitored_env("medium")
+    eval_env = create_monitored_env("medium")
     
     # Create DDPG model
     model = DDPG(
@@ -91,11 +194,17 @@ def train_ddpg_agent():
         env=train_env,
         learning_rate=1e-3,      # Learning rate for DDPG
         buffer_size=100000,      # Size of the replay buffer
-        learning_starts=1000,    # How many steps to collect before training
+        learning_starts=2000,    # How many steps to collect before training, to encourage more initial exploration
         batch_size=128,          # Batch size for training
         tau=0.005,               # Soft update coefficient for target networks
         gamma=0.97,              # Discount factor (Used to be 0.99)
         action_noise=None,       # Let DDPG handle exploration
+        
+        # Stability settings
+        policy_kwargs=dict(
+            net_arch=[64, 64],   # Smaller network
+        ),
+
         verbose=1,
         device="cpu"
     )
@@ -105,32 +214,37 @@ def train_ddpg_agent():
         eval_env,
         best_model_save_path="./models/",
         log_path="./logs/",
-        eval_freq=5000,
+        eval_freq=15000,
         deterministic=True,
         render=False,
-        n_eval_episodes=10
+        n_eval_episodes=5
     )
     
     print("Starting DDPG training...")
     
     # Train the model
-    total_timesteps = 250000
-    model.learn(
-        total_timesteps=total_timesteps,
-        callback=eval_callback,
-        progress_bar=True
-    )
+    try:
+        total_timesteps = 250000
+        model.learn(
+            total_timesteps=total_timesteps,
+            callback=eval_callback,
+            progress_bar=True
+        )
+        
+        # Save the final model
+        model.save("soccer_rl_ddpg_final")
+        print("✅ DDPG training completed! Model saved as 'soccer_rl_ddpg_final'")
+        # Quick evaluation
+        mean_reward, std_reward = evaluate_policy(model, eval_env, n_eval_episodes=10)
+        print(f"📊 Final DDPG Performance: {mean_reward:.2f} ± {std_reward:.2f}")
     
-    # Save the final model
-    model.save("soccer_rl_ddpg_final")
-    print("✅ DDPG training completed! Model saved as 'soccer_rl_ddpg_final'")
-    
-    # Quick evaluation
-    mean_reward, std_reward = evaluate_policy(model, eval_env, n_eval_episodes=20)
-    print(f"📊 Final DDPG Performance: {mean_reward:.2f} ± {std_reward:.2f}")
-    
-    train_env.close()
-    eval_env.close()
+    except Exception as e:
+        print(f"❌ DDPG training error: {e}")
+        model.save("soccer_rl_ddpg_partial")
+
+    finally:
+        train_env.close()
+        eval_env.close()
     
     return model
 
@@ -296,252 +410,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# # train_soccer_rl.py - Train RL agents on the simple soccer environment
-# import numpy as np
-# import matplotlib.pyplot as plt
-# from stable_baselines3 import PPO, DDPG
-# from stable_baselines3.common.evaluation import evaluate_policy
-# from stable_baselines3.common.monitor import Monitor
-# from stable_baselines3.common.callbacks import EvalCallback
-# from soccerenv import SoccerEnv
-# import gymnasium as gym
-
-# def create_monitored_env():
-#     """Create environment with monitoring wrapper"""
-#     env = SoccerEnv()
-#     env = Monitor(env)  # This wrapper logs episode rewards and lengths
-#     return env
-
-# def train_and_compare_algorithms():
-#     """Train multiple RL algorithms and compare performance"""
-    
-#     print("🚀 Starting RL Training for Soccer Environment...")
-    
-#     # Create environments
-#     def make_env():
-#         return SoccerEnv()
-    
-#     # Results storage
-#     results = {}
-#     models = {}
-    
-#     # Training parameters
-#     total_timesteps = 50000
-#     n_eval_episodes = 20
-    
-#     # Algorithms to test (as per your FYP requirements)
-#     algorithms = {
-#         'PPO': PPO,
-#         'DDPG': DDPG
-#     }
-    
-#     for algo_name, algo_class in algorithms.items():
-#         print(f"\n🧠 Training {algo_name}...")
-        
-#         # Create environment
-#         env = make_env()
-        
-#         # Create model
-#         if algo_name == 'DQN':
-#             # DQN requires discrete actions, so we'll skip it for now
-#             # since our environment has continuous actions
-#             print(f"⚠️ Skipping {algo_name} - requires discrete actions")
-#             continue
-        
-#         if algo_name == 'DDPG':
-#             model = algo_class("MlpPolicy", env, verbose=1, learning_rate=0.001)
-#         else:  # PPO
-#             model = algo_class("MlpPolicy", env, verbose=1, learning_rate=0.0003)
-        
-#         # Train model
-#         model.learn(total_timesteps=total_timesteps)
-        
-#         # Evaluate model
-#         print(f"📊 Evaluating {algo_name}...")
-#         mean_reward, std_reward = evaluate_policy(
-#             model, env, n_eval_episodes=n_eval_episodes, deterministic=True
-#         )
-        
-#         # Store results
-#         results[algo_name] = (mean_reward, std_reward)
-#         models[algo_name] = model
-        
-#         print(f"✅ {algo_name} Results: {mean_reward:.2f} ± {std_reward:.2f}")
-        
-#         # Save model
-#         model.save(f"soccer_rl_{algo_name.lower()}")
-        
-#         env.close()
-    
-#     # Plot comparison
-#     if results:
-#         plot_results(results)
-    
-#     return results, models
-
-# def plot_results(results):
-#     """Plot algorithm comparison"""
-#     algorithms = list(results.keys())
-#     means = [results[algo][0] for algo in algorithms]
-#     stds = [results[algo][1] for algo in algorithms]
-    
-#     plt.figure(figsize=(10, 6))
-#     bars = plt.bar(algorithms, means, yerr=stds, capsize=5, alpha=0.7)
-#     plt.title("RL Algorithm Performance Comparison\nSimple Soccer Environment")
-#     plt.ylabel("Mean Episode Reward")
-#     plt.grid(True, alpha=0.3)
-    
-#     # Add value labels on bars
-#     for bar, mean, std in zip(bars, means, stds):
-#         height = bar.get_height()
-#         plt.text(bar.get_x() + bar.get_width()/2., height + std + 1,
-#                 f'{mean:.1f}±{std:.1f}', ha='center', va='bottom')
-    
-#     plt.tight_layout()
-#     plt.savefig("soccer_rl_comparison.png", dpi=300, bbox_inches='tight')
-#     plt.show()
-
-# def test_trained_model(model_name="soccer_rl_ppo"):
-#     """Test a trained model"""
-#     print(f"🎮 Testing trained model: {model_name}")
-    
-#     try:
-#         # Load model
-#         if "ppo" in model_name.lower():
-#             model = PPO.load(model_name)
-#         elif "ddpg" in model_name.lower():
-#             model = DDPG.load(model_name)
-#         else:
-#             print("❌ Unknown model type")
-#             return
-        
-#         # Create environment with rendering
-#         env = SimpleSoccerEnv(render_mode="human")
-        
-#         # Test episodes
-#         for episode in range(5):
-#             obs, _ = env.reset()
-#             total_reward = 0
-#             steps = 0
-            
-#             print(f"\n🎯 Episode {episode + 1}")
-            
-#             for step in range(1000):
-#                 action, _ = model.predict(obs, deterministic=True)
-#                 obs, reward, terminated, truncated, _ = env.step(action)
-#                 total_reward += reward
-#                 steps += 1
-                
-#                 if terminated or truncated:
-#                     break
-            
-#             print(f"Episode {episode + 1}: {total_reward:.2f} reward, {steps} steps")
-            
-#         env.close()
-        
-#     except FileNotFoundError:
-#         print(f"❌ Model {model_name} not found. Train a model first!")
-
-# def benchmark_performance():
-#     """Benchmark performance metrics for FYP evaluation"""
-#     print("📈 Running Performance Benchmark...")
-    
-#     # Create environment
-#     env = SimpleSoccerEnv()
-    
-#     # Test random policy (baseline)
-#     print("Testing random policy...")
-#     random_rewards = []
-#     random_success_rate = 0
-    
-#     for episode in range(100):
-#         obs, _ = env.reset()
-#         episode_reward = 0
-#         success = False
-        
-#         for step in range(1000):
-#             action = env.action_space.sample()
-#             obs, reward, terminated, truncated, _ = env.step(action)
-#             episode_reward += reward
-            
-#             if terminated:
-#                 # Check if it's a success (ball in goal)
-#                 if env.ball_pos[0] > 340 and 160 < env.ball_pos[1] < 240:
-#                     success = True
-#                 break
-            
-#             if truncated:
-#                 break
-        
-#         random_rewards.append(episode_reward)
-#         if success:
-#             random_success_rate += 1
-    
-#     random_success_rate /= 100
-    
-#     print(f"🎲 Random Policy Results:")
-#     print(f"   Mean reward: {np.mean(random_rewards):.2f} ± {np.std(random_rewards):.2f}")
-#     print(f"   Success rate: {random_success_rate:.1%}")
-    
-#     # Try to test trained model if available
-#     try:
-#         model = PPO.load("soccer_rl_ppo")
-#         print("\nTesting trained PPO model...")
-        
-#         trained_rewards = []
-#         trained_success_rate = 0
-        
-#         for episode in range(100):
-#             obs, _ = env.reset()
-#             episode_reward = 0
-#             success = False
-            
-#             for step in range(1000):
-#                 action, _ = model.predict(obs, deterministic=True)
-#                 obs, reward, terminated, truncated, _ = env.step(action)
-#                 episode_reward += reward
-                
-#                 if terminated:
-#                     if env.ball_pos[0] > 340 and 160 < env.ball_pos[1] < 240:
-#                         success = True
-#                     break
-                
-#                 if truncated:
-#                     break
-            
-#             trained_rewards.append(episode_reward)
-#             if success:
-#                 trained_success_rate += 1
-        
-#         trained_success_rate /= 100
-        
-#         print(f"🧠 Trained PPO Results:")
-#         print(f"   Mean reward: {np.mean(trained_rewards):.2f} ± {np.std(trained_rewards):.2f}")
-#         print(f"   Success rate: {trained_success_rate:.1%}")
-        
-#         # Calculate improvement
-#         improvement = (np.mean(trained_rewards) - np.mean(random_rewards)) / abs(np.mean(random_rewards)) * 100
-#         print(f"   Improvement: {improvement:.1f}%")
-        
-#         # Check FYP success criteria
-#         print(f"\n📊 FYP Success Criteria Check:")
-#         print(f"   ✅ Success rate > 60%: {trained_success_rate > 0.6}")
-#         print(f"   ✅ Improvement > 15%: {improvement > 15}")
-        
-#     except FileNotFoundError:
-#         print("No trained model found. Run training first!")
-    
-#     env.close()
-
-# if __name__ == "__main__":
-#     # Run training
-#     results, models = train_and_compare_algorithms()
-    
-#     # Run benchmark
-#     benchmark_performance()
-    
-#     print("\n🎉 Training complete! Next steps:")
-#     print("1. Run: python train_soccer_rl.py")
-#     print("2. Test model: test_trained_model()")
-#     print("3. Convert to ONNX for deployment")
