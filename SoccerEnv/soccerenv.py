@@ -140,7 +140,7 @@ class SoccerEnv(gym.Env):
         self.robot_angle = np.random.uniform(-np.pi/4, np.pi/4)  # Roughly facing right (Used to be between -pi/2 and pi/2)
         self.robot_vel = np.array([0.0, 0.0])
         self.ball_vel = np.array([0.0, 0.0])
-        self.goal_pos = np.array([350.0, 200.0]) # Goal on right side
+        self.goal_pos = np.array([350.0, 200.0]) # Goal center on right side
 
         # Ensure minimum distances to avoid starting in collision
         while np.linalg.norm(self.robot_pos - self.opponent_pos) < 50:
@@ -405,6 +405,7 @@ class SoccerEnv(gym.Env):
 
         # Distance calculations
         ball_distance = np.linalg.norm(self.robot_pos - self.ball_pos)
+        robot_x, robot_y = self.robot_pos
         # goal_distance = np.linalg.norm(self.robot_pos - self.goal_pos)
 
         # Goal distance that considers BOTH X and Y coordinates
@@ -434,14 +435,26 @@ class SoccerEnv(gym.Env):
             # Good reward for having ball
             reward += 2.0
             
+            # Define optimal shooting positions (directly in front of goal opening)
+            optimal_shooting_zone = (robot_x > 290 and robot_x < 340 and robot_y > 170 and robot_y < 230)  # Directly in front of goal
+            
+            # Define goalpost camping zones (next to goalposts but can't score)
+            near_top_goalpost = (robot_x > 320 and robot_y < 160)     # Above goal
+            near_bottom_goalpost = (robot_x > 320 and robot_y > 240)  # Below goal
+            goalpost_camping = near_top_goalpost or near_bottom_goalpost
+
             # Reward for moving toward goal center, not just right edge
             # Considers both distance AND alignment
-            if goal_aligned:
+            if optimal_shooting_zone:
                 # Reward for the robot if aligned with goal
                 reward += 5.0
                 # Additional reward for being close to goal center when aligned
                 center_distance = np.linalg.norm(self.robot_pos - goal_center)
                 reward += 3.0 * (200 - center_distance) / 200
+            elif goalpost_camping:
+                # PENALTY for camping next to goalposts (can't score from there)
+                reward -= 3.0  # Strong penalty for goalpost camping
+                print(f"⚠️ GOALPOST CAMPING DETECTED at ({robot_x:.0f}, {robot_y:.0f})")
             else:
                 # Robot has ball but not aligned with goal
                 # Small reward for moving right, but penalty for going to wrong Y position
@@ -614,6 +627,24 @@ class SoccerEnv(gym.Env):
         if self.has_ball:
             ball_text = font.render("ROBOT HAS BALL!", True, (0, 255, 0))
             self.window.blit(ball_text, (10, 50))
+
+            # More precise positioning feedback
+            robot_x, robot_y = self.robot_pos
+            optimal_shooting_zone = (robot_x > 290 and robot_x < 340 and 
+                                   robot_y > 170 and robot_y < 230)
+            goalpost_camping = ((robot_x > 320 and robot_y < 160) or 
+                               (robot_x > 320 and robot_y > 240))
+            
+            if optimal_shooting_zone:
+                optimal_text = font.render("OPTIMAL SHOOTING POSITION!", True, (0, 255, 0))
+                self.window.blit(optimal_text, (10, 130))
+            elif goalpost_camping:
+                camping_text = font.render("GOALPOST CAMPING - MOVE TO CENTER!", True, (255, 0, 0))
+                self.window.blit(camping_text, (10, 130))
+            elif robot_x > 300:
+                approach_text = font.render("NEAR GOAL - AIM FOR CENTER!", True, (255, 255, 0))
+                self.window.blit(approach_text, (10, 130))
+
         elif self.opponent_has_ball:
             opp_text = font.render("OPPONENT HAS BALL", True, (255, 0, 0))
             self.window.blit(opp_text, (10, 50))
@@ -627,7 +658,6 @@ class SoccerEnv(gym.Env):
             pygame.quit()
             self.window = None
             self.clock = None
-
 
 # Test the environment
 if __name__ == "__main__":
