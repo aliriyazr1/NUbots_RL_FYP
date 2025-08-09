@@ -1,3 +1,9 @@
+"""
+Author: Ali Riyaz
+Student Number: C3412624
+Last Updated: 09/08/2025
+"""
+
 # train_soccer_rl.py - For RL training
 import numpy as np
 import matplotlib.pyplot as plt

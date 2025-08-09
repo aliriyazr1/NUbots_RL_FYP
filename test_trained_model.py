@@ -1,3 +1,9 @@
+"""
+Author: Ali Riyaz
+Student Number: C3412624
+Last Updated: 09/08/2025
+"""
+
 # test_trained_model.py - Watch the trained robot play by loading the correct models
 import time
 from stable_baselines3 import PPO, DDPG
@@ -222,6 +228,8 @@ if __name__ == "__main__":
         compare_models()
     elif choice == "4":
         test_random_baseline()
+    # elif choice == "5":
+        
     else:
         print("Invalid choice. Testing PPO by default...")
         watch_trained_robot("soccer_rl_ppo", episodes=5)
