@@ -1,3 +1,5 @@
+(BTW soccer_rl_ddpg_final.zip and soccer_rl_ddpg_less_camping_4Aug_2PM are the same in this branch. Same for PPO)
+
 Some observations for the final research report so far (Currently Saturday of Week 3):
 - In Week 1 and 2, First had issues with the robot struggling to find the ball. It would move in a circular manner
 or move along the edges of the field. This was probably because the rewards it was gaining were still 
