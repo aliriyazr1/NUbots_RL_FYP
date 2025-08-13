@@ -3,3 +3,5 @@ pygame
 numpy
 matplotlib
 stable_baselines3
+seaborn
+time

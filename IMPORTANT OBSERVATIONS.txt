@@ -1,0 +1,27 @@
+(BTW soccer_rl_ddpg_final.zip and soccer_rl_ddpg_less_camping_4Aug_2PM are the same in this branch. Same for PPO)
+
+Some observations for the final research report so far (Currently Saturday of Week 3):
+- In Week 1 and 2, First had issues with the robot struggling to find the ball. It would move in a circular manner
+or move along the edges of the field. This was probably because the rewards it was gaining were still 
+"technically optimal" since the reward for scoring a goal was too high making it difficult to pursue.
+- After giving rewards for getting closer to the ball and to start getting to closer to the goal with the ball
+in possession, it started moving towards the ball but still struggled to gain possession definitively.
+This continued despite adding penalties for moving away from the ball.
+- After penalising moving away from both the goal and the ball and also penalising as time went on in the simulation
+, it started to seek ball possession with avg rewards becoming greater than 100 during evaluation of the models
+- To avoid the issue of moving along the edges or camping in corners or camp by either side of the goalpost, 
+the reward function was modified to give penalties by checking its position after every action was taken in an episode.
+On further changing the environment to incorporate curriculum learning where the training starts with an easy
+environment, then progresses to medium and then finally to hard each varying the distance either robot had to get
+to possess the ball, opponent robot's speed and behaviour (such as to position itself between the robot and the goal
+when the other primary robot had ball possession) and the randomised posistions of the robots and the ball moving the
+ball closer towards the opponent robot in higher difficulties, the DDPG model finally had the robot seeking ball
+possession but this was not enough to score a goal or move towards the goal.
+Further prioritising reaching the position in front of the goal which included aligning itself with the goal (not above or below)
+and giving rewards based on how close they were to the center of the goal and whether they were aligned with the goal,
+the DDPG model (trained on 250,000 episodes) showed results such as 4/5 trials of "medium" difficulty where the robot would get the ball and 
+move itself into an optimal shooting zone defined as 
+optimal_shooting_zone = (robot_x > 290 and robot_x < 340 and robot_y > 170 and robot_y < 230)  # Directly in front of goal
+where the field was initially defined to have 400x400 (in pixel dimensions)
+while the PPO model seemed to get the ball in 2/5 iterations while in the others, it struggled to go after the ball, going 
+in seemingly random directions although moving extremely small distances initially.
