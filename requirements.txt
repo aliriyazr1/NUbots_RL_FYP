@@ -5,3 +5,5 @@ matplotlib
 stable_baselines3
 seaborn
 time
+onnx
+onnxruntime

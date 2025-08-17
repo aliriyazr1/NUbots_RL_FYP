@@ -25,8 +25,8 @@ real_world_dimensions:
 # Simulation display dimensions (in pixels)
 # The simulation will scale real-world dimensions to these pixel dimensions
 display_dimensions:
-  width: 600                   # Pixels for field width (Used to be 900)
-  height: 400                  # Pixels for field height (Used to be 600)
+  width: 900                   # Pixels for field width (Used to be 600)
+  height: 600                  # Pixels for field height (Used to be 400)
   scale_factor: 100            # Pixels per meter (auto-calculated)
 
 # Robot and ball parameters (in meters - real world scale)
@@ -116,8 +116,8 @@ reward_parameters:
   collision_penalty: -1.0      # Penalty for colliding with opponent (matches code)
   out_of_bounds_penalty: -2.0  # Penalty for ball going out of bounds
   time_penalty: -0.002         # Small penalty per step to encourage efficiency (matches code)
-  edge_penalty: -1.0           # Strong penalty for robot camping edges (matches code)
-  corner_penalty: -0.5         # Penalty for staying in corners too long (matches code)
+  edge_penalty: -0.2           # Strong penalty for robot camping edges (matches code) (used to be -1.0)
+  corner_penalty: -0.2         # Penalty for staying in corners too long (matches code) (used to be -0.5)
   defensive_zone_penalty: -0.1 # Penalty for staying in defensive zone too long
   
   # Bonuses

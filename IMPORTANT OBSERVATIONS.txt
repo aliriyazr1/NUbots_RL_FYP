@@ -1,3 +1,8 @@
+###############################################################################################
+(REMEMBER TO KEEP TRACK OF WHAT HYPERPARAMETERS GET USED AND THEIR VALUES FOR THE THESIS STUPID ALI)!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+###############################################################################################
+
+BTW np.clip function given a_min and a_max replaces any value less than a_min with a_min itself and any value greater than a_max with a_max itself
 (BTW soccer_rl_ddpg_final.zip and soccer_rl_ddpg_less_camping_4Aug_2PM are the same in this branch. Same for PPO)
 
 Some observations for the final research report so far (Currently Saturday of Week 3):
