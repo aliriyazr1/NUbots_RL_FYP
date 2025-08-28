@@ -13,20 +13,44 @@ import yaml
 from SoccerEnv.soccerenv import SoccerEnv
 import onnx
 import onnxruntime as ort
+import time
 
+
+class DeterministicPPOWrapper(torch.nn.Module):
+    """ Wrapper class since PPO is stochastic in nature and the randomness also gets exported into ONNX
+    so this skips the stochastic parts of the trained model and purely uses the deterministic aspect
+    so that the same input gives the same output. 
+    Also somehow the forward method is indirectly called when the export is called so that's why its
+    not directly called in case you're wondering. Source: Claude AI Sonnet 4"""
+
+    def __init__(self, policy, action_space):
+        super().__init__()
+        self.policy = policy
+        self.action_space = action_space
+        
+    def forward(self, obs):
+        # Extract features
+        features = self.policy.extract_features(obs)
+        # Get policy features
+        policy_features = self.policy.mlp_extractor.policy_net(features)
+        # Get mean action (deterministic)
+        mean_actions = self.policy.action_net(policy_features)
+
+        # Apply proper action space scaling
+        low = torch.tensor(self.action_space.low, dtype=mean_actions.dtype, device=mean_actions.device)
+        high = torch.tensor(self.action_space.high, dtype=mean_actions.dtype, device=mean_actions.device)
+        mean_actions = torch.clamp(mean_actions, low, high)
+
+        return mean_actions
+            
 def get_model_input_shape(config_path="SoccerEnv/field_config.yaml"):
     """Get the correct input shape from the environment"""
-    try:
-        # Create a temporary environment to get observation space
-        env = SoccerEnv(difficulty="easy", config_path=config_path)
-        obs_space = env.observation_space
-        input_shape = obs_space.shape
-        env.close()
-        return input_shape
-    except Exception as e:
-        print(f"⚠️  Could not determine input shape from environment: {e}")
-        # Default fallback - you may need to adjust this based on your observation space
-        return (12,)  # Adjust this based on your actual observation space size
+    # Create a temporary environment to get observation space
+    env = SoccerEnv(difficulty="easy", config_path=config_path)
+    obs_space = env.observation_space
+    input_shape = obs_space.shape
+    env.close()
+    return input_shape
 
 def convert_sb3_to_onnx(model_path, model_type="PPO", output_path=None, config_path="SoccerEnv/field_config.yaml"):
     """
@@ -66,23 +90,10 @@ def convert_sb3_to_onnx(model_path, model_type="PPO", output_path=None, config_p
     
     # CRITICAL FIX: For PPO, we need to extract only the deterministic action part
     if model_type.upper() == "PPO":
+        env = SoccerEnv(difficulty="easy", config_path=config_path) # Literally only here to use its action space for the wrapper
         # Create a wrapper that only returns the mean action (deterministic)
-        class DeterministicPPOWrapper(torch.nn.Module):
-            def __init__(self, policy):
-                super().__init__()
-                self.policy = policy
-                
-            def forward(self, obs):
-                # Extract features
-                features = self.policy.extract_features(obs)
-                # Get policy features
-                policy_features = self.policy.mlp_extractor.policy_net(features)
-                # Get mean action (deterministic)
-                mean_actions = self.policy.action_net(policy_features)
-                return mean_actions
-        
-        # Use the deterministic wrapper
-        policy_net = DeterministicPPOWrapper(model.policy)
+        policy_net = DeterministicPPOWrapper(model.policy, env.action_space)
+        env.close()
         
     else:  # DDPG
         # DDPG is already deterministic, use policy directly
@@ -159,34 +170,48 @@ def validate_onnx_model(onnx_path, original_model, model_type="PPO", config_path
             print(f"  Test {i+1}/5...\n", end=" ")
             
             # Get original model prediction (deterministic)
-            if model_type.upper() == "PPO":
-                # For PPO, use deterministic=True to get mean action
-                original_action, _ = original_model.predict(test_input, deterministic=True)
+            
+            # # For PPO, use deterministic=True to get mean action
+            # original_action, _ = original_model.predict(test_input, deterministic=True)
+        
+            # For DDPG, it's already deterministic
+            original_action, _ = original_model.predict(test_input, deterministic=True)
+            
+            # Get ONNX model prediction
+            onnx_input = test_input.reshape(1, *input_shape)  # Add batch dimension
+            onnx_outputs = ort_session.run(None, {'observation': onnx_input})
+            onnx_action = onnx_outputs[0][0]  # Remove batch dimension
+            
+            # Calculate difference
+            if original_action.shape != onnx_action.shape:
+                print(f"❌ Shape mismatch: {original_action.shape} vs {onnx_action.shape}")
+                validation_passed = False
+                continue
+                
+            difference = np.abs(original_action - onnx_action).max()
+            max_difference = max(max_difference, difference)
+            
+            # Tolerance for floating point differences
+            tolerance = 1e-4
+            if difference > tolerance:
+                print(f"❌ Large difference: {difference:.6f}")
+                validation_passed = False
             else:
-                # For DDPG, it's already deterministic
-                original_action, _ = original_model.predict(test_input, deterministic=True)
-                
-                # Get ONNX model prediction
-                onnx_input = test_input.reshape(1, -1)  # Add batch dimension
-                onnx_outputs = ort_session.run(['action'], {'observation': onnx_input})
-                onnx_action = onnx_outputs[0][0]  # Remove batch dimension
-                
-                # Calculate difference
-                if original_action.shape != onnx_action.shape:
-                    print(f"❌ Shape mismatch: {original_action.shape} vs {onnx_action.shape}")
-                    validation_passed = False
-                    continue
-                    
-                difference = np.abs(original_action - onnx_action).max()
-                max_difference = max(max_difference, difference)
-                
-                # Tolerance for floating point differences
-                tolerance = 1e-4
-                if difference > tolerance:
-                    print(f"❌ Large difference: {difference:.6f}")
-                    validation_passed = False
-                else:
-                    print(f"✅ Difference: {difference:.6f}")
+                print(f"✅ Difference: {difference:.6f}")
+
+            # Add this test in validation function:
+            env = SoccerEnv(difficulty="easy", config_path=config_path) # Literally only here to use its action space for the wrapper
+            wrapper = DeterministicPPOWrapper(original_model.policy, env.action_space)
+            env.close()
+            wrapper.eval()
+
+            # Test PyTorch wrapper vs original
+            torch_input = torch.tensor(test_input).unsqueeze(0).float()
+            wrapper_output = wrapper(torch_input).detach().numpy()[0]
+
+            print(f"Original: {original_action}")
+            print(f"Wrapper: {wrapper_output}")
+            print(f"Wrapper diff: {np.abs(original_action - wrapper_output).max()}")
             
         if validation_passed:
             print(f"🎉 ONNX validation PASSED! Max difference: {max_difference:.6f}")
@@ -244,9 +269,7 @@ def convert_all_models(config_path="SoccerEnv/field_config.yaml"):
     
     models_to_convert = [
         ("soccer_rl_ppo_final", "PPO"),
-        ("soccer_rl_ddpg_final", "DDPG"),
-        ("soccer_rl_ppo_partial", "PPO"),    # In case partial models exist
-        ("soccer_rl_ddpg_partial", "DDPG")
+        ("soccer_rl_ddpg_final", "DDPG")
     ]
     
     successful_conversions = []
@@ -351,7 +374,6 @@ def test_onnx_inference_speed(onnx_path, config_path="SoccerEnv/field_config.yam
             _ = ort_session.run(None, {'observation': test_input})
         
         # Time multiple inferences
-        import time
         num_tests = 1000
         
         print(f"📊 Running {num_tests} inference tests...")
@@ -394,16 +416,6 @@ def test_onnx_inference_speed(onnx_path, config_path="SoccerEnv/field_config.yam
 if __name__ == "__main__":
     print("🤖 Soccer RL ONNX Model Converter")
     print("="*50)
-    
-    # Check dependencies
-    try:
-        import onnx
-        import onnxruntime
-        print("✅ ONNX dependencies available")
-    except ImportError as e:
-        print(f"❌ Missing dependencies: {e}")
-        print("💡 Install with: pip install onnx onnxruntime")
-        exit(1)
     
     print("\nConversion Options:")
     print("1. Convert all models")

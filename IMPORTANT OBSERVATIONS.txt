@@ -5,6 +5,9 @@
 BTW np.clip function given a_min and a_max replaces any value less than a_min with a_min itself and any value greater than a_max with a_max itself
 (BTW soccer_rl_ddpg_final.zip and soccer_rl_ddpg_less_camping_4Aug_2PM are the same in this branch. Same for PPO)
 
+ALSO MAKE SURE THAT THE CLIPPING OF VELOCITIES DOESN'T CHANGE THE DIRECTION OF THE VELOCITY VECTOR
+YOU'D PROBABLY WANT IT TO GO SLOWER THAN IN THE WRONG DIRECTION
+
 Some observations for the final research report so far (Currently Saturday of Week 3):
 - In Week 1 and 2, First had issues with the robot struggling to find the ball. It would move in a circular manner
 or move along the edges of the field. This was probably because the rewards it was gaining were still 
@@ -30,3 +33,26 @@ optimal_shooting_zone = (robot_x > 290 and robot_x < 340 and robot_y > 170 and r
 where the field was initially defined to have 400x400 (in pixel dimensions)
 while the PPO model seemed to get the ball in 2/5 iterations while in the others, it struggled to go after the ball, going 
 in seemingly random directions although moving extremely small distances initially.
+
+
+
+
+WEEK 5 WHEN WORKIN GOUT THE CODE FOR ONNX CONVERSION, PPO would output raw neural network values whereas I have been working with scaled values
+or normalised values in a certain range (FIND THE RANGE FROM THE CODE ALI!!!) 
+ALso PPO would output different action outputs for the same inputs as it is non-deterministic or stochastic in nature while DDPG is 
+deterministic
+2 ideas: 1) use a seed for the random actions but this would give different actions for different seeds 
+(ACCORDING TO AI, maybe don't say this justification for not using a seed)
+2) Use a deterministic wrapper which does the same as PPO's internal actions except for the stochastic actions and this uses the trained model's policy
+but with the same action outputs
+
+
+TODO LIST:
+- Fix the curriculum learning to progress between Easy, Medium and Hard difficulties
+- FIx the metric collection and plots for the graphs
+- Fix the reward function for training models
+- Start work on testing plan and Progress Presentation and reseracgh
+- Start work on the RL inference module for NUClear
+- Week 12 PRESENTATION !!!!!!!!
+- THESIS REPORT !!!!!!!!!!!!!!!!!!!
+

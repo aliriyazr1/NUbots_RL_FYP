@@ -33,7 +33,18 @@ display_dimensions:
 robot_parameters:
   robot_radius: 0.15           # Robot collision radius (15cm)
   ball_radius: 0.08            # Ball radius (8cm - FIFA standard)
-  possession_threshold: 0.25   # Distance to consider "close to ball" (25cm)
+
+  possession_threshold: 0.25   # Distance to consider "close to ball" (25cm) 
+  contact_distance: 0.25      # Can push ball
+  close_distance: 0.4         # Distance between the robot and the ball to be considered 'close'
+  medium_distance: 0.8        # Distance between the robot and the ball to be considered 'medium distance'
+  far_distance: 1.5           # Distance between the robot and the ball to be considered 'far'
+
+  good_shepherding_angle: 45         # Degrees
+  okay_shepherding_angle: 90         # Degrees
+  ball_speed_minimum: 0.1            # For rewards
+  robot_speed_minimum: 0.1           # For movement rewards
+  prediction_steps: 5                # Steps ahead for ball prediction    
 
 # Physics parameters
 physics:
@@ -48,19 +59,19 @@ difficulty_settings:
   easy:
     possession_distance: 0.5   # Easier to get ball (50cm)
     collision_distance: 0.2    # More forgiving collisions (20cm)
-    max_steps: 150             # Shorter episodes
+    max_steps: 500             # Shorter episodes (Used to be 150)
     opponent_speed: 0.8        # Slower opponent
     
   medium:
     possession_distance: 0.4   # Medium ball possession range (40cm)
     collision_distance: 0.25   # Medium collision distance (25cm)
-    max_steps: 200             # Medium episode length
+    max_steps: 800             # Medium episode length (Used to be 200)
     opponent_speed: 1.0        # Normal opponent speed
     
   hard:
     possession_distance: 0.35  # Harder to get ball (35cm)
     collision_distance: 0.3    # Less forgiving collisions (30cm)
-    max_steps: 250             # Longer episodes
+    max_steps: 1000             # Longer episodes (Used to be 250)
     opponent_speed: 1.2        # Faster opponent
 
 # Strategic zones (as percentages of field dimensions)
@@ -69,9 +80,9 @@ strategic_zones:
   # Optimal shooting zone (directly in front of goal)
   optimal_shooting:
     x_min_percent: 0.725       # 72.5% of field length (close to goal)
-    x_max_percent: 0.85        # 85% of field length
-    y_min_percent: 0.425       # 42.5% of field width (centered on goal)
-    y_max_percent: 0.575       # 57.5% of field width
+    x_max_percent: 0.85        # 85% of field length 
+    y_min_percent: 0.35       # Used to be 42.5% of field width (centered on goal)
+    y_max_percent: 0.65       # Used to be 57.5% of field width
     
   # Dangerous attacking zone (wider area near goal)
   attacking_zone:
@@ -107,26 +118,55 @@ strategic_zones:
 # Reward function parameters - Updated to match code expectations
 reward_parameters:
   # Primary rewards
-  goal_scored: 15.0            # Reward for scoring a goal (matches code)
-  ball_possession: 0.1         # Reward per step for having ball
-  progress_to_goal: 0.5        # Reward for moving ball towards goal
-  shooting_zone_bonus: 1.0     # Bonus for being in optimal shooting zone with ball
+  goal_scored: 100.0            # Reward for scoring a goal (used to be 15.0 but trying something new)
+  ball_possession: 12.0         # Reward per step for having ball
+  progress_to_goal: 8.0        # Reward for moving ball towards goal (Used to be 0.5)
+  shooting_zone_bonus: 10.0     # Bonus for being in optimal shooting zone with ball (used to be 1.0 but humouring AI)
+  contact_reward: 15.0
+  close_reward: 8.0
+  medium_reward: 4.0
+  far_reward: 1.0
+  too_far_penalty: -2.0
+  proximity_multiplier: 10.0
+  competitive_advantage_multiplier: 5.0
+  competitive_disadvantage_multiplier: -2.0
   
   # Penalties
-  collision_penalty: -1.0      # Penalty for colliding with opponent (matches code)
-  out_of_bounds_penalty: -2.0  # Penalty for ball going out of bounds
-  time_penalty: -0.002         # Small penalty per step to encourage efficiency (matches code)
-  edge_penalty: -0.2           # Strong penalty for robot camping edges (matches code) (used to be -1.0)
+  collision_penalty: -4.0      # Penalty for colliding with opponent (Used to be -1.0)
+  out_of_bounds_penalty: -10.0  # Penalty for ball going out of bounds
+  time_penalty: -0.001         # Small penalty per step to encourage efficiency (matches code)
+  edge_camping_penalty: -0.2           # Strong penalty for robot camping edges (matches code) (used to be -1.0)
   corner_penalty: -0.2         # Penalty for staying in corners too long (matches code) (used to be -0.5)
   defensive_zone_penalty: -0.1 # Penalty for staying in defensive zone too long
+  opponent_possession_penalty: -0.1  # New: penalty when opponent has ball
+  opponent_long_possession_penalty: -2.0
+  opponent_very_long_possession_penalty: -5.0
   
   # Bonuses
-  center_field_bonus: 0.3      # Reward for ball being in center field (matches code)
-  attacking_zone_bonus: 0.05   # Small bonus for being in attacking zones
-  shepherding_bonus: 2.0       # Bonus for good ball shepherding positioning
-  ball_speed_bonus: 0.5        # Bonus for moving ball towards goal with speed
+  possession_time_bonus: 0.05
+  possession_time_max: 3.0
 
-# Training parameters (used by training scripts)
+  center_field_bonus: 0.3      # Reward for ball being in center field (matches code)
+  attacking_zone_bonus: 0.05   # Small bonus for being in attacking zones  
+  dangerous_area_bonus: 10.0   
+  max_ball_speed_reward: 3.0
+  good_shepherding_reward: 8.0 # Bonus for good ball shepherding positioning (Used to be 2.0)
+  okay_shepherding_reward: 4.0
+  ball_speed_multiplier: 2.0        # Bonus for moving ball towards goal with speed (Used to be 0.5)
+  movement_alignment_multiplier: 1.5
+  
+# Game thresholds (steps, angles, speeds)
+game_thresholds:
+  opponent_possession_warning: 30
+  opponent_possession_critical: 60
+  shepherding_good_angle: 45
+  shepherding_okay_angle: 90
+  ball_speed_minimum: 0.1
+  robot_speed_minimum: 0.1
+  prediction_steps: 5
+  edge_threshold_percent: 0.05 # 5% of field size for edge detection
+
+#TODO: (CHECK WHETHER USED) Training parameters (probably not used by training scripts)
 training_parameters:
   # PPO specific
   ppo_learning_rate: 0.001

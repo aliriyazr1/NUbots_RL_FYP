@@ -14,6 +14,9 @@ from collections import defaultdict
 import seaborn as sns
 from scipy import stats
 
+import traceback
+import sys
+
 def load_field_config(config_path="SoccerEnv/field_config.yaml"):
     """Load and display field configuration"""
     try:
@@ -37,7 +40,7 @@ def load_field_config(config_path="SoccerEnv/field_config.yaml"):
         print(f"❌ Error loading config: {e}. Using default configuration.")
         return None
     
-def watch_trained_robot(model_name="soccer_rl_ppo_final", episodes=5, difficulty="medium", config_path="SoccerEnv/field_config.yaml", testing_mode=True):
+def watch_trained_robot(model_name="soccer_rl_ppo_final", episodes=5, difficulty="medium", config_path="SoccerEnv/field_config.yaml", testing_mode=False):
     """
     Watch your trained robot play soccer with visual rendering
     """
@@ -60,6 +63,9 @@ def watch_trained_robot(model_name="soccer_rl_ppo_final", episodes=5, difficulty
         
         # Create environment with human rendering
         env = SoccerEnv(render_mode="human", difficulty=difficulty, config_path=config_path, testing_mode=testing_mode)
+        env.dt *= 4.0  # TODO: REMOVE THIS WHEN DONE WITH TESTING. THis is Just to speed up the visualisation
+        env.set_show_velocities(True)
+
         # Display field information
         field_config = env.field_config
         print(f"🎯 Field Type: {field_config.config['field_type'].title()}")
@@ -90,8 +96,11 @@ def watch_trained_robot(model_name="soccer_rl_ppo_final", episodes=5, difficulty
             had_ball = False
             max_progress_to_goal = 0
             ball_possession_time = 0
+
+            start_time = time.time()
+            prev_ball_pos = env.ball_pos.copy()
             
-            for step in range(env.max_steps):  # Used to be Max 1000 steps per episode
+            for step in range(env.max_steps):  # Max 1000 steps per episode
                 # Get action from trained model
                 action, _ = model.predict(obs, deterministic=True)
                 
@@ -119,9 +128,12 @@ def watch_trained_robot(model_name="soccer_rl_ppo_final", episodes=5, difficulty
                 else:
                     time.sleep(0.05)  # Slower for detailed observation
 
-                
-                # Add small delay to see what is going on
-                time.sleep(0.05)  # 20 FPS
+                if step % 20 == 0:
+                    elapsed = time.time() - start_time
+                    ball_distance_moved = np.linalg.norm(env.ball_pos - prev_ball_pos)
+                    print(f"Step {step}: Real time {elapsed:.1f}s, Ball moved {ball_distance_moved:.1f} pixels")
+                # # Add small delay to see what is going on
+                # time.sleep(0.05)  # 20 FPS
 
                 if terminated:
                     # Check if it's a successful termination (ball in goal)
@@ -216,6 +228,8 @@ def watch_trained_robot(model_name="soccer_rl_ppo_final", episodes=5, difficulty
         return None
     except Exception as e:
         print(f"❌ Error during testing: {e}")
+        traceback.print_exc(file=sys.stdout) # Prints the traceback to standard output
+        
         if 'env' in locals():
             env.close()
         return None
@@ -655,8 +669,9 @@ if __name__ == "__main__":
     print("🤖 Model Testing Options:")
     print("1. Test PPO model")
     print("2. Test DDPG model") 
-    print("3. Compare both models")
-    print("4.  Detailed model comparison with statistical analysis")
+    #TODO: FIX THE DATA COLLECTION AND COMPARISON
+    print("3. WIP: Compare both models")
+    print("4. WIP: Detailed model comparison with statistical analysis")
     print("5. Test random baseline")
 
     choice = input("\nEnter choice (1-5): ").strip()

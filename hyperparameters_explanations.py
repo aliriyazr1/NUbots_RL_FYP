@@ -461,3 +461,239 @@ action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n
 
 Then use: action_noise=action_noise in your DDPG constructor
 """
+
+
+
+
+#######################################################################################
+# RoboCup Humanoid League Field Configuration
+# Based on RC-HL-2025-Rules.pdf specifications
+# Updated to be consistent with all code requirements
+
+# Field Type: Choose between 'kidsize' or 'adultsize' or 'custom'
+field_type: "kidsize"
+
+# Real-world field dimensions (in meters) - from RoboCup rules
+real_world_dimensions:
+  kidsize:
+    field_length: 9.0          # Touch line length (A)
+    field_width: 6.0           # Goal line length (B)
+    goal_depth: 0.6            # Goal depth (C)
+    goal_width: 2.6            # Goal width (D)
+    goal_height: 1.2           # Goal height
+    goal_area_length: 1.0      # Goal area length (E)
+    goal_area_width: 3.0       # Goal area width (F)
+    penalty_mark_distance: 1.5 # Penalty mark distance from goal (G)
+    centre_circle_diameter: 1.5 # Centre circle diameter (H)
+    border_strip_width: 1.0    # Minimum border strip width (I)
+    penalty_area_length: 2.0   # Penalty area length (J)
+    penalty_area_width: 5.0    # Penalty area width (K)
+    line_width: 0.05           # Field line width (~5cm)
+
+# Simulation display dimensions (in pixels)
+# The simulation will scale real-world dimensions to these pixel dimensions
+display_dimensions:
+  width: 900                   # Pixels for field width (Used to be 600)
+  height: 600                  # Pixels for field height (Used to be 400)
+  scale_factor: 100            # Pixels per meter (auto-calculated)
+
+# Robot and ball parameters (in meters - real world scale)
+robot_parameters:
+  robot_radius: 0.15           # Robot collision radius (15cm)
+  ball_radius: 0.08            # Ball radius (8cm - FIFA standard)
+
+  possession_threshold: 0.25   # Distance to consider "close to ball" (25cm) 
+  contact_distance: 0.25      # Can push ball
+  close_distance: 0.4         # Distance between the robot and the ball to be considered 'close'
+  medium_distance: 0.8        # Distance between the robot and the ball to be considered 'medium distance'
+  far_distance: 1.5           # Distance between the robot and the ball to be considered 'far'
+
+  good_shepherding_angle: 45         # Degrees
+  okay_shepherding_angle: 90         # Degrees
+  ball_speed_minimum: 0.1            # For rewards
+  robot_speed_minimum: 0.1           # For movement rewards
+  prediction_steps: 5                # Steps ahead for ball prediction    
+
+# Physics parameters
+physics:
+  ball_mass: 0.5               # Ball mass for physics calculations
+  ball_friction: 0.8           # Ball friction (0-1, lower = more friction)
+  ball_bounce: 0.2             # Wall bounce dampening
+  ball_max_speed: 3.0          # Maximum ball speed (m/s)
+  push_force_multiplier: 1.2   # How strong robot pushes ball
+
+# Game difficulty settings
+difficulty_settings:
+  easy:
+    possession_distance: 0.5   # Easier to get ball (50cm)
+    collision_distance: 0.2    # More forgiving collisions (20cm)
+    max_steps: 500             # Shorter episodes (Used to be 150)
+    opponent_speed: 0.8        # Slower opponent
+    
+  medium:
+    possession_distance: 0.4   # Medium ball possession range (40cm)
+    collision_distance: 0.25   # Medium collision distance (25cm)
+    max_steps: 800             # Medium episode length (Used to be 200)
+    opponent_speed: 1.0        # Normal opponent speed
+    
+  hard:
+    possession_distance: 0.35  # Harder to get ball (35cm)
+    collision_distance: 0.3    # Less forgiving collisions (30cm)
+    max_steps: 1000             # Longer episodes (Used to be 250)
+    opponent_speed: 1.2        # Faster opponent
+
+# Strategic zones (as percentages of field dimensions)
+# These define key areas for reward calculation and AI decision making
+strategic_zones:
+  # Optimal shooting zone (directly in front of goal)
+  optimal_shooting:
+    x_min_percent: 0.725       # 72.5% of field length (close to goal)
+    y_min_percent: 0.35       # Used to be 42.5% of field width (centered on goal)
+    y_max_percent: 0.65       # Used to be 57.5% of field width
+    
+  # Dangerous attacking zone (wider area near goal)
+  attacking_zone:
+    x_min_percent: 0.6         # 60% of field length
+    x_max_percent: 1.0         # Full field length
+    y_min_percent: 0.25        # 25% of field width
+    y_max_percent: 0.75        # 75% of field width
+    
+  # Defensive zone (own half)
+  defensive_zone:
+    x_min_percent: 0.0         # Start of field
+    x_max_percent: 0.5         # Half field
+    y_min_percent: 0.0         # Full width
+    y_max_percent: 1.0
+    
+  # Midfield zone
+  midfield_zone:
+    x_min_percent: 0.3         # 30% of field length
+    x_max_percent: 0.7         # 70% of field length
+    y_min_percent: 0.0         # Full width
+    y_max_percent: 1.0
+    
+  # Goal area coordinates (calculated from real dimensions)
+  goal_area:
+    # These will be calculated automatically based on goal dimensions
+    use_real_dimensions: true
+    
+  # Penalty area coordinates (calculated from real dimensions)
+  penalty_area:
+    # These will be calculated automatically based on penalty area dimensions
+    use_real_dimensions: true
+
+# Reward function parameters - Updated to match code expectations
+reward_parameters:
+  # Primary rewards
+  goal_scored: 100.0            # Reward for scoring a goal (used to be 15.0 but trying something new)
+  ball_possession: 12.0         # Reward per step for having ball
+  progress_to_goal: 8.0        # Reward for moving ball towards goal (Used to be 0.5)
+  shooting_zone_bonus: 10.0     # Bonus for being in optimal shooting zone with ball (used to be 1.0 but humouring AI)
+  contact_reward: 15.0
+  close_reward: 8.0
+  medium_reward: 4.0
+  far_reward: 1.0
+  too_far_penalty: -2.0
+  proximity_multiplier: 10.0
+  competitive_advantage_multiplier: 5.0
+  competitive_disadvantage_multiplier: -2.0
+  
+  # Penalties
+  collision_penalty: -4.0      # Penalty for colliding with opponent (Used to be -1.0)
+  out_of_bounds_penalty: -10.0  # Penalty for ball going out of bounds
+  time_penalty: -0.001         # Small penalty per step to encourage efficiency (matches code)
+  edge_camping_penalty: -0.2           # Strong penalty for robot camping edges (matches code) (used to be -1.0)
+  corner_penalty: -0.2         # Penalty for staying in corners too long (matches code) (used to be -0.5)
+  defensive_zone_penalty: -0.1 # Penalty for staying in defensive zone too long
+  opponent_possession_penalty: -0.1  # New: penalty when opponent has ball
+  opponent_long_possession_penalty: -2.0
+  opponent_very_long_possession_penalty: -5.0
+  
+  # Bonuses
+  possession_time_bonus: 0.05
+  possession_time_max: 3.0
+
+  center_field_bonus: 0.3      # Reward for ball being in center field (matches code)
+  attacking_zone_bonus: 0.05   # Small bonus for being in attacking zones  
+  dangerous_area_bonus: 10.0   
+  max_ball_speed_reward: 3.0
+  good_shepherding_reward: 8.0 # Bonus for good ball shepherding positioning (Used to be 2.0)
+  okay_shepherding_reward: 4.0
+  ball_speed_multiplier: 2.0        # Bonus for moving ball towards goal with speed (Used to be 0.5)
+  movement_alignment_multiplier: 1.5
+  
+# Game thresholds (steps, angles, speeds)
+game_thresholds:
+  opponent_possession_warning: 30
+  opponent_possession_critical: 60
+  shepherding_good_angle: 45
+  shepherding_okay_angle: 90
+  ball_speed_minimum: 0.1
+  robot_speed_minimum: 0.1
+  prediction_steps: 5
+  edge_threshold_percent: 0.05 # 5% of field size for edge detection
+
+#TODO: (CHECK WHETHER USED) Training parameters (probably not used by training scripts)
+training_parameters:
+  # PPO specific
+  ppo_learning_rate: 0.001
+  ppo_n_steps: 4096
+  ppo_batch_size: 128
+  ppo_n_epochs: 8
+  ppo_gamma: 0.99
+  ppo_gae_lambda: 0.95
+  ppo_clip_range: 0.15
+  ppo_ent_coef: 0.1
+  ppo_vf_coef: 0.5
+  ppo_max_grad_norm: 0.5
+  
+  # DDPG specific
+  ddpg_learning_rate: 0.001
+  ddpg_buffer_size: 200000
+  ddpg_learning_starts: 5000
+  ddpg_batch_size: 256
+  ddpg_tau: 0.01
+  ddpg_gamma: 0.99
+  
+  # General training
+  total_timesteps: 400000
+  eval_freq: 10000
+  plot_freq: 2000
+  save_freq: 50000
+
+# Progressive difficulty thresholds
+difficulty_progression:
+  medium_threshold: 100000     # Switch to medium after 100k steps
+  hard_threshold: 250000       # Switch to hard after 250k steps
+  performance_threshold_medium: 5.0   # Average reward needed for medium
+  performance_threshold_hard: 8.0     # Average reward needed for hard
+
+# Rendering and visualization settings
+rendering:
+  window_width_offset: 200     # Extra width for UI panels
+  window_height_offset: 150    # Extra height for UI panels
+  fps: 60                      # Target FPS for rendering
+  show_zones: false            # Show strategic zones by default
+  show_velocities: false       # Show velocity vectors by default
+  show_field_info: true        # Show field information panel
+  show_opponent_behavior: true # Show opponent behavior indicator
+  # Testing mode settings (faster gameplay for testing)
+  testing_mode: true           # Enable faster speeds for testing
+  testing_speed_multiplier: 3.0  # Speed up everything by this factor
+  testing_fps: 30              # Lower FPS for testing (smoother on slower PCs)
+
+# Custom field dimensions (only used if field_type is 'custom')
+custom_dimensions:
+  field_length: 4.0            # Custom field length in meters
+  field_width: 4.0             # Custom field width in meters
+  goal_depth: 0.6              # Custom goal depth in meters
+  goal_width: 0.8              # Custom goal width in meters
+  goal_height: 1.0             # Custom goal height in meters
+  goal_area_length: 0.5        # Custom goal area length in meters
+  goal_area_width: 1.5         # Custom goal area width in meters
+  penalty_mark_distance: 1.0   # Custom penalty mark distance in meters
+  centre_circle_diameter: 1.0  # Custom centre circle diameter in meters
+  border_strip_width: 0.5      # Custom border strip width in meters
+  penalty_area_length: 1.0     # Custom penalty area length in meters
+  penalty_area_width: 2.5      # Custom penalty area width in meters
+  line_width: 0.05             # Custom line width in meters

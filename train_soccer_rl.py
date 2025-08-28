@@ -8,14 +8,33 @@ Last Updated: 10/08/2025
 import numpy as np
 import matplotlib.pyplot as plt
 from stable_baselines3 import PPO, DDPG
+from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import EvalCallback, BaseCallback
 from SoccerEnv.soccerenv import SoccerEnv
 import os, time, yaml, torch
 from collections import deque
-import threading
-from matplotlib.animation import FuncAnimation
+
+
+
+#TODO: FIX THE DATA COLLECTION AND COMPARISON and plotting when Rewards VS TIMESTEPS ASAP
+#TODO:
+#TODO: 
+
+def get_timestamp():
+    """Generate timestamp for file naming"""
+    return datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+def create_output_directory():
+    """Create organised output directory with timestamp"""
+    timestamp = get_timestamp()
+    output_dir = f"training_results_{timestamp}"
+    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(f"{output_dir}/models", exist_ok=True)
+    os.makedirs(f"{output_dir}/plots", exist_ok=True)
+    os.makedirs(f"{output_dir}/logs", exist_ok=True)
+    return output_dir
 
 class RealtimePlottingCallback(BaseCallback):
     """Callback for real-time plotting of training progress"""
@@ -52,7 +71,7 @@ class RealtimePlottingCallback(BaseCallback):
     
     def _on_step(self) -> bool:
         # Check if episode ended
-        if self.locals.get('dones', [False])[0]:
+        if any(self.locals.get('dones', [False])):
             # Get episode info
             infos = self.locals.get('infos', [{}])
             if len(infos) > 0 and 'episode' in infos[0]:
@@ -251,22 +270,23 @@ def train_ppo_agent(config_path="SoccerEnv/field_config.yaml"):
     model = PPO(
         policy="MlpPolicy",
         env=train_env,
-        learning_rate=1e-3,      # Learning rate for PPO (First I put 3e-4 but too slow to improve then 1e-3 but still too long)
+        learning_rate=3e-4,      # Learning rate for PPO (First I put 3e-4 but too slow to improve then 1e-3 but still too long)
 
         # Training stability
         n_steps=4096,            # Number of steps to run for each environment per update (USed to be 2048) (more steps for slower environment)
-        batch_size=128,           # Minibatch size (Used to be 64) (128 is more stable for larger envs)
-        n_epochs=8,              # Number of epochs when optimising the surrogate loss (used to be 10 then 8) This is for better learning
+        batch_size=256,           # Minibatch size (Used to be 64) (128 is more stable for larger envs)
+        n_epochs=11,              # Number of epochs when optimising the surrogate loss (used to be 10 then 8) This is for better learning
         
         # Exploration VS Exploitation
         gamma=0.99,              # Discount factor (Used to be 0.97) for longer-term thinking
         gae_lambda=0.95,         # Factor for trade-off of bias vs variance for GAE
-        clip_range=0.15,          # Clipping parameter (Used to be 0.2)
-        ent_coef=0.1,           # Entropy coefficient for exploration (used to be 0.05)
+        clip_range=0.2,          # Clipping parameter (Used to be 0.2)
+        ent_coef=0.2,           # Entropy coefficient for exploration (used to be 0.05)
         
         # Stability settings
         vf_coef=0.5,             # Value function coefficient
         max_grad_norm=0.5,       # Gradient clipping
+        normalize_advantage= True,  # Normalize advantages for better stability
 
         # Network architecture for stability
         policy_kwargs=dict(
@@ -300,7 +320,7 @@ def train_ppo_agent(config_path="SoccerEnv/field_config.yaml"):
     
     #TODO: Once the model is proving effective on small batches, increase the number of timesteps for both algos PPO and DDPG
     # Train the model - (50000 for quick testing) but 100000 timesteps for better learning but to check if things are going in the right direction
-    total_timesteps = 400000 # Used to be 250000
+    total_timesteps = 150000 # Used to be 250000
     try:
         # Train the model
         start_time = time.time()
@@ -309,6 +329,61 @@ def train_ppo_agent(config_path="SoccerEnv/field_config.yaml"):
             callback=[progress_cb, eval_callback, plotting_callback],
             progress_bar=True
         )
+
+        easy_reward, _ = evaluate_policy(model, train_env, n_eval_episodes=5)
+        print(f"✅ Easy Phase Complete! Average reward: {easy_reward:.2f}")
+        train_env.close()
+
+        medium_env = Monitor(SoccerEnv(difficulty="medium", render_mode=None))
+        model.set_env(medium_env) # Switch model to new environment
+        
+        # Continue training on medium difficulty
+        print("Training for 100,000 steps on medium difficulty...")
+        model.learn(total_timesteps=250000, progress_bar=True)
+        
+        # Evaluate medium performance
+        medium_reward, _ = evaluate_policy(model, medium_env, n_eval_episodes=5)
+        print(f"✅ Medium Phase Complete! Average reward: {medium_reward:.2f}")
+        
+        medium_env.close()
+        
+        # PHASE 3: Hard (Expert Skills)
+        print("\n🔥 PHASE 3: HARD DIFFICULTY")
+        print("Goal: Master challenging opponent and tight game rules")
+
+        hard_env = Monitor(SoccerEnv(difficulty="hard", render_mode=None))
+        
+        # Switch model to hardest environment
+        model.set_env(hard_env)
+        
+        # Final training on hard difficulty
+        print("Training for 150,000 steps on hard difficulty...")
+        model.learn(total_timesteps=200000, progress_bar=True)
+
+        # Final evaluation
+        hard_reward, _ = evaluate_policy(model, hard_env, n_eval_episodes=5)
+        print(f"✅ Hard Phase Complete! Average reward: {hard_reward:.2f}")
+        
+        hard_env.close()
+        
+        # Save final model
+        model.save("curriculum_trained_model")
+        
+        # Print curriculum results
+        print("\n" + "=" * 50)
+        print("🎓 CURRICULUM LEARNING COMPLETE!")
+        print("=" * 50)
+        print(f"Easy difficulty performance:   {easy_reward:.2f}")
+        print(f"Medium difficulty performance: {medium_reward:.2f}")
+        print(f"Hard difficulty performance:   {hard_reward:.2f}")
+        
+        # Check if curriculum worked
+        if easy_reward > medium_reward > hard_reward:
+            print("✅ Curriculum working correctly - performance decreases with difficulty")
+        elif hard_reward > easy_reward:
+            print("🚀 Excellent! Model performs well even on hardest difficulty")
+        else:
+            print("⚠️ Mixed results - curriculum may need tuning")
         
         training_time = time.time() - start_time
 
@@ -320,28 +395,28 @@ def train_ppo_agent(config_path="SoccerEnv/field_config.yaml"):
         # Save training plots
         plotting_callback.save_plots("ppo_training_progress")
 
-        # Test on all difficulties
-        # Evaluation on randomised scenarios
-        print("\n📊 Testing on all difficulty levels...")
-        final_results = {}
+        # # Test on all difficulties
+        # # Evaluation on randomised scenarios
+        # print("\n📊 Testing on all difficulty levels...")
+        # final_results = {}
 
-        for diff in ["easy", "medium", "hard"]:
-            test_env = create_monitored_env(diff)
-            mean_reward, std_reward = evaluate_policy(model, test_env, n_eval_episodes=10)
-            final_results[diff] = (mean_reward, std_reward)
-            print(f"  {diff.title()}: {mean_reward:.2f} ± {std_reward:.2f}")
-            test_env.close()
+        # for diff in ["easy", "medium", "hard"]:
+        #     test_env = create_monitored_env(diff)
+        #     mean_reward, std_reward = evaluate_policy(model, test_env, n_eval_episodes=10)
+        #     final_results[diff] = (mean_reward, std_reward)
+        #     print(f"  {diff.title()}: {mean_reward:.2f} ± {std_reward:.2f}")
+        #     test_env.close()
         
-        # Check if curriculum actually worked
-        easy_score = final_results["easy"][0]
-        hard_score = final_results["hard"][0]
+        # # Check if curriculum actually worked
+        # easy_score = final_results["easy"][0]
+        # hard_score = final_results["hard"][0]
         
-        if easy_score > hard_score:
-            print("✅ Curriculum working! Robot performs better on easier difficulties")
-        else:
-            print("⚠️  Curriculum might need tuning - similar performance across difficulties")
+        # if easy_score > hard_score:
+        #     print("✅ Curriculum working! Robot performs better on easier difficulties")
+        # else:
+        #     print("⚠️  Curriculum might need tuning - similar performance across difficulties")
         
-        return model, final_results
+        return model
         
     except Exception as e:
         print(f"❌ Training error: {e}")
@@ -397,21 +472,30 @@ def train_ddpg_agent(config_path="SoccerEnv/field_config.yaml"):
     train_env = create_monitored_env("easy", config_path)
     eval_env = create_monitored_env("easy", config_path)
 
+    n_actions = train_env.action_space.shape[-1]
+    action_noise = NormalActionNoise(
+        mean=np.zeros(n_actions), 
+        sigma=0.1 * np.ones(n_actions)  # 10% noise
+    )
+
     # Create DDPG model
     model = DDPG(
         policy="MlpPolicy",
         env=train_env,
-        learning_rate=1e-3,      # Learning rate for DDPG
-        buffer_size=200000,      # Size of the replay buffer (Used to be 100000 but larger buffer for better sampling)
-        learning_starts=5000,    # How many steps to collect before training, to encourage more initial exploration (Used to be 2000)
+        learning_rate=1e-4,      # Learning rate for DDPG (Used to be 1e-3)
+        buffer_size=500000,      # Size of the replay buffer (Used to be 100000 then 200000 but larger buffer for better sampling)
+        learning_starts=10000,    # How many steps to collect before training, to encourage more initial exploration (Used to be 2000 then 5000)
         batch_size=256,          # Batch size for training (used to be 128 but larger batch for better stability)
         tau=0.01,               # Soft update coefficient for target networks (Used to be 0.005 but larger tau for faster target updates)
         gamma=0.99,              # Discount factor (Used to be 0.97)
-        action_noise=None,       # Let DDPG handle exploration
-        
+        action_noise=action_noise,       # (Used to allow DDPG handle exploration by specfiying "None")
+        train_freq=2,            # How often to update the model
+        gradient_steps=1,        # How many gradient steps to take per update
+
         # Stability settings
         policy_kwargs=dict(
             net_arch=[256, 256, 128], # Larger network (was [64, 64])
+            activation_fn=torch.nn.ReLU, # Just trying ReLU
         ),
 
         verbose=1,
@@ -438,7 +522,7 @@ def train_ddpg_agent(config_path="SoccerEnv/field_config.yaml"):
     
     # Train the model
     try:
-        total_timesteps = 400000 # Used to be 250000
+        total_timesteps = 1000000 # Used to be 250000
         # Train the model
         start_time = time.time()
 
@@ -477,7 +561,7 @@ def train_ddpg_agent(config_path="SoccerEnv/field_config.yaml"):
         train_env.close()
         eval_env.close()
 
-def evaluate_and_compare(config_path="SoccerEn/.field_config.yaml"):
+def evaluate_and_compare(config_path="SoccerEnv/field_config.yaml"):
     """Evaluate and compare both models"""
     print("\n🔍 EVALUATING TRAINED MODELS...")
     
@@ -725,7 +809,7 @@ def main():
     
     if choice == "1":
         print("🚀 Training PPO agent with real-time plotting...")
-        model, results = train_ppo_agent(config_path)
+        model = train_ppo_agent(config_path)
         if model:
             print("✅ PPO training completed successfully!")
         
@@ -744,12 +828,15 @@ def main():
         print("\n" + "="*50)
         print("PHASE 1: TRAINING PPO AGENT")
         print("="*50)
-        ppo_model, ppo_results = train_ppo_agent(config_path)
+        # ppo_model, ppo_results = train_ppo_agent(config_path)
+        ppo_model = train_ppo_agent(config_path)
+
         
         print("\n" + "="*50)
         print("PHASE 2: TRAINING DDPG AGENT")
         print("="*50)
-        ddpg_model, ddpg_results = train_ddpg_agent(config_path)
+        # ddpg_model, ddpg_results = train_ddpg_agent(config_path)
+        ddpg_model = train_ddpg_agent(config_path)
 
         print("\n" + "="*50)
         print("PHASE 3: EVALUATION AND COMPARISON")
@@ -785,7 +872,7 @@ def main():
         
     else:
         print("Invalid choice. Training PPO by default...")
-        model, results = train_ppo_agent(config_path)
+        model = train_ppo_agent(config_path)
 
 if __name__ == "__main__":
     main()
