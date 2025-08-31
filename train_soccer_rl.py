@@ -13,7 +13,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import EvalCallback, BaseCallback
 from SoccerEnv.soccerenv import SoccerEnv
-import os, time, yaml, torch
+import os, time, yaml, torch, datetime
 from collections import deque
 
 
@@ -23,7 +23,7 @@ from collections import deque
 #TODO: 
 
 def get_timestamp():
-    """Generate timestamp for file naming"""
+    """Generate timestamp for file naming. Format : %Y%m%d_%H%M%S"""
     return datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
 def create_output_directory():
@@ -53,7 +53,7 @@ class RealtimePlottingCallback(BaseCallback):
         self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(12, 8))
         self.fig.suptitle('Soccer RL Training Progress', fontsize=16, fontweight='bold')
         
-        # Initialize empty plots
+        # Initialise empty plots
         self.line1, = self.ax1.plot([], [], 'b-', linewidth=2, label='Mean Episode Reward')
         self.ax1.set_xlabel('Timesteps')
         self.ax1.set_ylabel('Mean Reward (last 100 episodes)')
@@ -70,16 +70,21 @@ class RealtimePlottingCallback(BaseCallback):
         plt.show(block=False)
     
     def _on_step(self) -> bool:
-        # Check if episode ended
-        if any(self.locals.get('dones', [False])):
-            # Get episode info
-            infos = self.locals.get('infos', [{}])
-            if len(infos) > 0 and 'episode' in infos[0]:
-                episode_reward = infos[0]['episode']['r']
-                episode_length = infos[0]['episode']['l']
-                
+        # Episode detection to handle both single environment and vectorised environments
+        infos = self.locals.get('infos', [])
+        if isinstance(infos, dict):
+            infos = [infos] # Convert single info dict to list for consistent processing
+        
+        # Check each info dict for completed episodes
+        for info in infos:
+            if isinstance(info, dict) and 'episode' in info:
+                episode_reward = info['episode']['r']
+                episode_length = info['episode']['l']
                 self.episode_rewards.append(episode_reward)
                 self.episode_lengths.append(episode_length)
+
+                if self.verbose > 0:
+                    print(f"🏆 Episode completed: Reward={episode_reward:.2f}, Length={episode_length}")
         
         # Update plot every plot_freq steps
         if self.num_timesteps % self.plot_freq == 0 and len(self.episode_rewards) >= 10:
@@ -115,7 +120,7 @@ class RealtimePlottingCallback(BaseCallback):
         
         return True
     
-    def save_plots(self, filename_prefix="training_progress"):
+    def save_plots(self, filename="training_progress"):
         """Save the final plots"""
         plt.figure(figsize=(15, 6))
         
@@ -134,8 +139,10 @@ class RealtimePlottingCallback(BaseCallback):
         plt.grid(True, alpha=0.3)
         
         plt.tight_layout()
-        plt.savefig(f'{filename_prefix}.png', dpi=300, bbox_inches='tight')
-        print(f"📊 Training plots saved as '{filename_prefix}.png'")
+        # filename = f"{self.algorithm_name.lower()}_{filename_prefix}_{timestamp}.png"
+        plt.savefig(filename + ".png", dpi=300, bbox_inches='tight')
+        print(f"📊 Training plots saved as '{filename}'")
+
 class ProgressTracker(BaseCallback):
     """Track learning progress and switch difficulty for both training and evaluation"""
     
@@ -189,12 +196,21 @@ class ProgressTracker(BaseCallback):
             print(f"❌ Error updating environment difficulty: {e}")
 
     def _on_step(self) -> bool:
-        # Track episode rewards for performance-based progression
-        if self.locals.get('dones', [False])[0]:
-            infos = self.locals.get('infos', [{}])
-            if len(infos) > 0 and 'episode' in infos[0]:
-                episode_reward = infos[0]['episode']['r']
+        # Track episode rewards for performance-based progression (Handles both single environment and vectorised environments)
+        infos = self.locals.get('infos', [])
+        
+        # Convert single info dict to list for consistent processing
+        if isinstance(infos, dict):
+            infos = [infos]
+        
+        # Track episode rewards when episodes complete
+        for info in infos:
+            if isinstance(info, dict) and 'episode' in info:
+                episode_reward = info['episode']['r']
                 self.episode_rewards.append(episode_reward)
+                
+                if self.verbose > 0:
+                    print(f"📊 Episode reward for curriculum: {episode_reward:.2f}")
         
         current_timesteps = self.num_timesteps
         
@@ -242,7 +258,7 @@ class ProgressTracker(BaseCallback):
         return True
    
     
-def create_monitored_env(difficulty="easy", config_path="SoccerEnv/field_config.yaml"):
+def create_monitored_env(difficulty, config_path="SoccerEnv/field_config.yaml"):
     """Create environment with monitoring wrapper"""
     env = SoccerEnv(difficulty=difficulty, config_path=config_path)
     env = Monitor(env)  # This wrapper logs episode rewards and lengths
@@ -295,7 +311,8 @@ def train_ppo_agent(config_path="SoccerEnv/field_config.yaml"):
         ),
 
         verbose=1,               # Print training progress
-        device="cpu"             # Use GPU (CPU more stable for small envs but trying out GPU if possible)
+        device="cpu",             # Use GPU (CPU more stable for small envs but trying out GPU if possible)
+        tensorboard_log="./logs"
     )
     
     # Progress tracking
@@ -320,7 +337,7 @@ def train_ppo_agent(config_path="SoccerEnv/field_config.yaml"):
     
     #TODO: Once the model is proving effective on small batches, increase the number of timesteps for both algos PPO and DDPG
     # Train the model - (50000 for quick testing) but 100000 timesteps for better learning but to check if things are going in the right direction
-    total_timesteps = 150000 # Used to be 250000
+    total_timesteps = 400000 # Used to be 250000
     try:
         # Train the model
         start_time = time.time()
@@ -330,45 +347,23 @@ def train_ppo_agent(config_path="SoccerEnv/field_config.yaml"):
             progress_bar=True
         )
 
-        easy_reward, _ = evaluate_policy(model, train_env, n_eval_episodes=5)
-        print(f"✅ Easy Phase Complete! Average reward: {easy_reward:.2f}")
-        train_env.close()
+        # Test on all difficulties
+        # Evaluation on randomised scenarios
+        print("\n📊 Testing on all difficulty levels...")
+        final_results = {}
 
-        medium_env = Monitor(SoccerEnv(difficulty="medium", render_mode=None))
-        model.set_env(medium_env) # Switch model to new environment
+        for diff in ["easy", "medium", "hard"]:
+            test_env = create_monitored_env(diff)
+            mean_reward, std_reward = evaluate_policy(model, test_env, n_eval_episodes=10)
+            final_results[diff] = (mean_reward, std_reward)
+            print(f"  {diff.title()}: {mean_reward:.2f} ± {std_reward:.2f}")
+            test_env.close()
         
-        # Continue training on medium difficulty
-        print("Training for 100,000 steps on medium difficulty...")
-        model.learn(total_timesteps=250000, progress_bar=True)
-        
-        # Evaluate medium performance
-        medium_reward, _ = evaluate_policy(model, medium_env, n_eval_episodes=5)
-        print(f"✅ Medium Phase Complete! Average reward: {medium_reward:.2f}")
-        
-        medium_env.close()
-        
-        # PHASE 3: Hard (Expert Skills)
-        print("\n🔥 PHASE 3: HARD DIFFICULTY")
-        print("Goal: Master challenging opponent and tight game rules")
-
-        hard_env = Monitor(SoccerEnv(difficulty="hard", render_mode=None))
-        
-        # Switch model to hardest environment
-        model.set_env(hard_env)
-        
-        # Final training on hard difficulty
-        print("Training for 150,000 steps on hard difficulty...")
-        model.learn(total_timesteps=200000, progress_bar=True)
-
-        # Final evaluation
-        hard_reward, _ = evaluate_policy(model, hard_env, n_eval_episodes=5)
-        print(f"✅ Hard Phase Complete! Average reward: {hard_reward:.2f}")
-        
-        hard_env.close()
-        
-        # Save final model
-        model.save("curriculum_trained_model")
-        
+        # Check if curriculum actually worked
+        easy_reward = final_results["easy"][0]
+        medium_reward = final_results["medium"][0]
+        hard_reward = final_results["hard"][0]
+                
         # Print curriculum results
         print("\n" + "=" * 50)
         print("🎓 CURRICULUM LEARNING COMPLETE!")
@@ -388,41 +383,25 @@ def train_ppo_agent(config_path="SoccerEnv/field_config.yaml"):
         training_time = time.time() - start_time
 
         # Save the final model
-        model.save("soccer_rl_ppo_final")
-        print("✅ PPO training completed! Model saved as 'soccer_rl_ppo_final'")
+        timestamp = get_timestamp()
+        model_name = "soccer_rl_ppo_" + timestamp
+        model.save(model_name)
+        print(f"✅ PPO training completed! Model saved as {model_name}")
         print(f"⏱️  Training completed in {training_time:.2f} seconds")
 
         # Save training plots
-        plotting_callback.save_plots("ppo_training_progress")
-
-        # # Test on all difficulties
-        # # Evaluation on randomised scenarios
-        # print("\n📊 Testing on all difficulty levels...")
-        # final_results = {}
-
-        # for diff in ["easy", "medium", "hard"]:
-        #     test_env = create_monitored_env(diff)
-        #     mean_reward, std_reward = evaluate_policy(model, test_env, n_eval_episodes=10)
-        #     final_results[diff] = (mean_reward, std_reward)
-        #     print(f"  {diff.title()}: {mean_reward:.2f} ± {std_reward:.2f}")
-        #     test_env.close()
-        
-        # # Check if curriculum actually worked
-        # easy_score = final_results["easy"][0]
-        # hard_score = final_results["hard"][0]
-        
-        # if easy_score > hard_score:
-        #     print("✅ Curriculum working! Robot performs better on easier difficulties")
-        # else:
-        #     print("⚠️  Curriculum might need tuning - similar performance across difficulties")
+        plotting_callback.save_plots("ppo_training_progress_" + timestamp)       
         
         return model
         
     except Exception as e:
         print(f"❌ Training error: {e}")
+        timestamp = get_timestamp()
+        model_name = "soccer_rl_ppo_partial_" + timestamp
+
         # Save partial progress
-        model.save("soccer_rl_ppo_partial")
-        plotting_callback.save_plots("ppo_partial_training_progress")
+        model.save(model_name)
+        plotting_callback.save_plots("ppo_partial_training_progress_" + timestamp)
         print("💾 Partial model saved")
         return None, None
     
@@ -522,7 +501,7 @@ def train_ddpg_agent(config_path="SoccerEnv/field_config.yaml"):
     
     # Train the model
     try:
-        total_timesteps = 1000000 # Used to be 250000
+        total_timesteps = 250000 # Used to be 250000
         # Train the model
         start_time = time.time()
 
@@ -534,12 +513,14 @@ def train_ddpg_agent(config_path="SoccerEnv/field_config.yaml"):
         training_time = time.time() - start_time
 
         # Save the final model
-        model.save("soccer_rl_ddpg_final")
-        print("✅ DDPG training completed! Model saved as 'soccer_rl_ddpg_final'")
+        timestamp = get_timestamp()
+        model_name = "soccer_rl_ddpg_" + timestamp
+        model.save(model_name)
+        print(f"✅ DDPG training completed! Model saved as '{model_name}'")
         print(f"⏱️  Training completed in {training_time:.2f} seconds")
 
         # Save training plots
-        plotting_callback.save_plots("ddpg_training_progress")
+        plotting_callback.save_plots("ddpg_training_progress_" + timestamp)
 
         final_results = {}
         for diff in ["easy", "medium", "hard"]:
@@ -553,8 +534,10 @@ def train_ddpg_agent(config_path="SoccerEnv/field_config.yaml"):
     
     except Exception as e:
         print(f"❌ DDPG training error: {e}")
-        model.save("soccer_rl_ddpg_partial")
-        plotting_callback.save_plots("ddpg_partial_training_progress")
+        timestamp = get_timestamp()
+        model_name = "soccer_rl_ddpg_partial_" + timestamp
+        model.save(model_name)
+        plotting_callback.save_plots("ddpg_partial_training_progress_" + timestamp)
         return None, None
 
     finally:
@@ -766,9 +749,10 @@ def create_comparison_plots(ppo_results, ddpg_results):
              bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8))
     
     plt.tight_layout()
-    plt.savefig('final_model_comparison.png', dpi=300, bbox_inches='tight')
+    filename = "final_model_comparison_" + get_timestamp()
+    plt.savefig(filename + '.png', dpi=300, bbox_inches='tight')
     plt.show()
-    print("📊 Final comparison plots saved as 'final_model_comparison.png'")
+    print(f"📊 Final comparison plots saved as {filename}.png'")
 
 
 
@@ -871,8 +855,7 @@ def main():
             create_comparison_plots(results["PPO"], results["DDPG"])
         
     else:
-        print("Invalid choice. Training PPO by default...")
-        model = train_ppo_agent(config_path)
+        print("Invalid choice. Exiting...")
 
 if __name__ == "__main__":
     main()

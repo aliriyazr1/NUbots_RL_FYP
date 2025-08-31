@@ -1,0 +1,68 @@
+{
+  "training_duration_hours": 1.9303161278035905,
+  "ppo_variants_trained": 5,
+  "ddpg_variants_trained": 5,
+  "best_ppo_model": null,
+  "best_ppo_score": -Infinity,
+  "best_ddpg_model": null,
+  "best_ddpg_score": -Infinity,
+  "ppo_results": [
+    [
+      "multi_model_training_20250830_081029/models/ppo/final_ppo_large_network_20250830_081029",
+      -1563.1427141999998,
+      "large_network"
+    ],
+    [
+      "multi_model_training_20250830_081029/models/ppo/final_ppo_conservative_20250830_081029",
+      -1810.1969475800001,
+      "conservative"
+    ],
+    [
+      "multi_model_training_20250830_081029/models/ppo/final_ppo_exploration_20250830_081029",
+      -2188.3122908,
+      "exploration"
+    ],
+    [
+      "multi_model_training_20250830_081029/models/ppo/final_ppo_aggressive_20250830_081029",
+      -3137.0122649800005,
+      "aggressive"
+    ],
+    [
+      "multi_model_training_20250830_081029/models/ppo/final_ppo_balanced_20250830_081029",
+      -3155.7940425799998,
+      "balanced"
+    ]
+  ],
+  "ddpg_results": [
+    [
+      "multi_model_training_20250830_081029/models/ddpg/final_ddpg_balanced_20250830_081029",
+      7397.803704040001,
+      "balanced"
+    ],
+    [
+      "multi_model_training_20250830_081029/models/ddpg/final_ddpg_conservative_20250830_081029",
+      803.2051937400001,
+      "conservative"
+    ],
+    [
+      "multi_model_training_20250830_081029/models/ddpg/final_ddpg_exploration_20250830_081029",
+      -39.78160909999974,
+      "exploration"
+    ],
+    [
+      "multi_model_training_20250830_081029/models/ddpg/final_ddpg_fast_learning_20250830_081029",
+      -718.4835198400001,
+      "fast_learning"
+    ],
+    [
+      "multi_model_training_20250830_081029/models/ddpg/final_ddpg_aggressive_20250830_081029",
+      -1391.7741044199997,
+      "aggressive"
+    ]
+  ],
+  "final_evaluation": {
+    "PPO": {},
+    "DDPG": {}
+  },
+  "timestamp": "20250830_081029"
+}

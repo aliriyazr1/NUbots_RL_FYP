@@ -69,15 +69,15 @@ class FieldConfig:
         self.pixels_per_meter_y = display_dims['height'] / self.real_dims['field_width']
         
         # Use consistent scale factor (smaller of the two to ensure field fits)
-        self.pixels_per_meter = min(self.pixels_per_meter_x, self.pixels_per_meter_y)
+        self.pixels_per_meter_cached = min(self.pixels_per_meter_x, self.pixels_per_meter_y)
         
         # Calculate actual pixel dimensions
-        self.field_width_pixels = int(self.real_dims['field_length'] * self.pixels_per_meter)
-        self.field_height_pixels = int(self.real_dims['field_width'] * self.pixels_per_meter)
+        self.field_width_pixels = int(self.real_dims['field_length'] * self.pixels_per_meter_cached)
+        self.field_height_pixels = int(self.real_dims['field_width'] * self.pixels_per_meter_cached)
         
         # Goal dimensions in pixels
-        self.goal_width_pixels = int(self.real_dims['goal_width'] * self.pixels_per_meter)
-        self.goal_depth_pixels = int(self.real_dims['goal_depth'] * self.pixels_per_meter)
+        self.goal_width_pixels = int(self.real_dims['goal_width'] * self.pixels_per_meter_cached)
+        self.goal_depth_pixels = int(self.real_dims['goal_depth'] * self.pixels_per_meter_cached)
         
         # Calculate strategic zones in pixel coordinates
         self._calculate_strategic_zones()
@@ -129,15 +129,29 @@ class FieldConfig:
         """Convert meters to pixels"""
         if not hasattr(self, 'pixels_per_meter') or self.pixels_per_meter <= 0:
             raise ValueError("Invalid pixels_per_meter value. Check field configuration.")
-        return int(meters * self.pixels_per_meter)
+        return (meters * self.pixels_per_meter)
+    
+    def meters_to_pixels_int(self, meters):
+        """Convert meters to pixels as integer for pygame drawing"""
+        return int(self.meters_to_pixels(meters))
     
     #TODO:  This is not used
-    def pixels_to_meters(self, pixels):
-        """Convert pixels to meters"""
-        if not hasattr(self, 'pixels_per_meter') or self.pixels_per_meter <= 0:
-            raise ValueError("Invalid pixels_per_meter value. Check field configuration.")
-        return pixels / self.pixels_per_meter
+    # def pixels_to_meters(self, pixels):
+    #     """Convert pixels to meters"""
+    #     if not hasattr(self, 'pixels_per_meter') or self.pixels_per_meter <= 0:
+    #         raise ValueError("Invalid pixels_per_meter value. Check field configuration.")
+    #     return pixels / self.pixels_per_meter
+    @property
+    def pixels_per_meter(self):
+        """Calculate pixels per meter based on field dimensions"""
+        if hasattr(self, '_pixels_per_meter_cached'):
+            return self._pixels_per_meter_cached
     
+        field_type = self.config['field_type']
+        field_length_meters = self.config['real_world_dimensions'][field_type]['field_length']
+        display_width = self.config['display_dimensions']['width']
+        return display_width / field_length_meters
+        
     # TODO: This is not used
     def is_in_zone(self, x, y, zone_name) -> bool:
         """Check if coordinates are within a strategic zone"""

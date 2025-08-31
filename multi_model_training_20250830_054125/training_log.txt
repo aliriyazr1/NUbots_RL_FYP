@@ -1,0 +1,111 @@
+2025-08-30 05:41:25,065 - INFO - ================================================================================
+2025-08-30 05:41:25,065 - INFO - STARTING MULTI-MODEL TRAINING PIPELINE
+2025-08-30 05:41:25,065 - INFO - ================================================================================
+2025-08-30 05:41:25,066 - INFO - Output directory: multi_model_training_20250830_054125
+2025-08-30 05:41:25,066 - INFO - Device: CPU
+2025-08-30 05:41:25,092 - INFO - Environment validation successful
+2025-08-30 05:41:25,092 - INFO - Training configuration:
+2025-08-30 05:41:25,092 - INFO -   PPO variants to train: 5
+2025-08-30 05:41:25,093 - INFO -   DDPG variants to train: 5
+2025-08-30 05:41:25,093 - INFO -   Timesteps per model: 100,000
+2025-08-30 05:41:25,093 - INFO -   Estimated total time: 3.0-5.0 hours
+2025-08-30 05:41:25,101 - INFO - ============================================================
+2025-08-30 05:41:25,101 - INFO - STARTING MULTI-PPO TRAINING
+2025-08-30 05:41:25,101 - INFO - ============================================================
+2025-08-30 05:41:25,101 - INFO - 
+[1/5] Training PPO variant: conservative
+2025-08-30 05:41:25,102 - INFO - Hyperparameters: {'learning_rate': 0.0002, 'n_steps': 2048, 'batch_size': 128, 'n_epochs': 5, 'gamma': 0.99, 'gae_lambda': 0.95, 'clip_range': 0.1, 'ent_coef': 0.05, 'vf_coef': 0.5, 'net_arch': [128, 128]}
+2025-08-30 05:41:25,102 - INFO - Starting PPO variant 'conservative' training...
+2025-08-30 05:41:28,628 - ERROR - PPO-conservative training failed: EvalCallback.__init__() got an unexpected keyword argument 'device'
+2025-08-30 05:41:28,629 - INFO - PPO-conservative final score: -inf
+2025-08-30 05:41:28,630 - INFO - 
+[2/5] Training PPO variant: aggressive
+2025-08-30 05:41:28,631 - INFO - Hyperparameters: {'learning_rate': 0.0005, 'n_steps': 4096, 'batch_size': 256, 'n_epochs': 15, 'gamma': 0.995, 'gae_lambda': 0.98, 'clip_range': 0.3, 'ent_coef': 0.15, 'vf_coef': 0.8, 'net_arch': [256, 256, 128]}
+2025-08-30 05:41:28,631 - INFO - Starting PPO variant 'aggressive' training...
+2025-08-30 05:41:28,688 - ERROR - PPO-aggressive training failed: EvalCallback.__init__() got an unexpected keyword argument 'device'
+2025-08-30 05:41:28,689 - INFO - PPO-aggressive final score: -inf
+2025-08-30 05:41:28,689 - INFO - 
+[3/5] Training PPO variant: balanced
+2025-08-30 05:41:28,690 - INFO - Hyperparameters: {'learning_rate': 0.0003, 'n_steps': 4096, 'batch_size': 256, 'n_epochs': 10, 'gamma': 0.99, 'gae_lambda': 0.95, 'clip_range': 0.2, 'ent_coef': 0.1, 'vf_coef': 0.5, 'net_arch': [128, 128, 64]}
+2025-08-30 05:41:28,690 - INFO - Starting PPO variant 'balanced' training...
+2025-08-30 05:41:28,758 - ERROR - PPO-balanced training failed: EvalCallback.__init__() got an unexpected keyword argument 'device'
+2025-08-30 05:41:28,759 - INFO - PPO-balanced final score: -inf
+2025-08-30 05:41:28,759 - INFO - 
+[4/5] Training PPO variant: exploration
+2025-08-30 05:41:28,759 - INFO - Hyperparameters: {'learning_rate': 0.0003, 'n_steps': 8192, 'batch_size': 512, 'n_epochs': 8, 'gamma': 0.99, 'gae_lambda': 0.9, 'clip_range': 0.25, 'ent_coef': 0.2, 'vf_coef': 0.3, 'net_arch': [256, 128, 64]}
+2025-08-30 05:41:28,760 - INFO - Starting PPO variant 'exploration' training...
+2025-08-30 05:41:28,838 - ERROR - PPO-exploration training failed: EvalCallback.__init__() got an unexpected keyword argument 'device'
+2025-08-30 05:41:28,839 - INFO - PPO-exploration final score: -inf
+2025-08-30 05:41:28,839 - INFO - 
+[5/5] Training PPO variant: large_network
+2025-08-30 05:41:28,840 - INFO - Hyperparameters: {'learning_rate': 0.0001, 'n_steps': 2048, 'batch_size': 128, 'n_epochs': 12, 'gamma': 0.99, 'gae_lambda': 0.95, 'clip_range': 0.2, 'ent_coef': 0.08, 'vf_coef': 0.5, 'net_arch': [512, 512, 256, 128]}
+2025-08-30 05:41:28,840 - INFO - Starting PPO variant 'large_network' training...
+2025-08-30 05:41:28,935 - ERROR - PPO-large_network training failed: EvalCallback.__init__() got an unexpected keyword argument 'device'
+2025-08-30 05:41:28,935 - INFO - PPO-large_network final score: -inf
+2025-08-30 05:41:28,936 - INFO - 
+============================================================
+2025-08-30 05:41:28,936 - INFO - PPO VARIANTS SUMMARY
+2025-08-30 05:41:28,937 - INFO - ============================================================
+2025-08-30 05:41:28,941 - INFO - #2 PPO-aggressive: -inf
+2025-08-30 05:41:28,941 - INFO - #3 PPO-balanced: -inf
+2025-08-30 05:41:28,941 - INFO - #4 PPO-exploration: -inf
+2025-08-30 05:41:28,941 - INFO - #5 PPO-large_network: -inf
+2025-08-30 05:41:28,944 - INFO - ============================================================
+2025-08-30 05:41:28,944 - INFO - STARTING MULTI-DDPG TRAINING
+2025-08-30 05:41:28,944 - INFO - ============================================================
+2025-08-30 05:41:28,945 - INFO - 
+[1/5] Training DDPG variant: conservative
+2025-08-30 05:41:28,945 - INFO - Hyperparameters: {'learning_rate': 5e-05, 'buffer_size': 500000, 'learning_starts': 10000, 'batch_size': 128, 'tau': 0.005, 'gamma': 0.99, 'train_freq': 1, 'gradient_steps': 1, 'net_arch': [128, 128], 'noise_sigma': 0.05}
+2025-08-30 05:41:28,945 - INFO - Starting DDPG variant 'conservative' training...
+2025-08-30 05:41:29,016 - INFO - Training DDPG-conservative for 100,000 timesteps...
+2025-08-30 05:41:29,017 - ERROR - DDPG-conservative training failed: Trying to log data to tensorboard but tensorboard is not installed.
+2025-08-30 05:41:29,018 - INFO - DDPG-conservative final score: -inf
+2025-08-30 05:41:29,019 - INFO - 
+[2/5] Training DDPG variant: aggressive
+2025-08-30 05:41:29,019 - INFO - Hyperparameters: {'learning_rate': 0.0002, 'buffer_size': 1000000, 'learning_starts': 25000, 'batch_size': 512, 'tau': 0.02, 'gamma': 0.995, 'train_freq': 4, 'gradient_steps': 4, 'net_arch': [512, 512, 256], 'noise_sigma': 0.15}
+2025-08-30 05:41:29,019 - INFO - Starting DDPG variant 'aggressive' training...
+2025-08-30 05:41:29,101 - INFO - Training DDPG-aggressive for 100,000 timesteps...
+2025-08-30 05:41:29,103 - ERROR - DDPG-aggressive training failed: Trying to log data to tensorboard but tensorboard is not installed.
+2025-08-30 05:41:29,104 - INFO - DDPG-aggressive final score: -inf
+2025-08-30 05:41:29,104 - INFO - 
+[3/5] Training DDPG variant: balanced
+2025-08-30 05:41:29,105 - INFO - Hyperparameters: {'learning_rate': 0.0001, 'buffer_size': 1000000, 'learning_starts': 20000, 'batch_size': 256, 'tau': 0.01, 'gamma': 0.99, 'train_freq': 4, 'gradient_steps': 2, 'net_arch': [256, 256, 128], 'noise_sigma': 0.1}
+2025-08-30 05:41:29,105 - INFO - Starting DDPG variant 'balanced' training...
+2025-08-30 05:41:29,184 - INFO - Training DDPG-balanced for 100,000 timesteps...
+2025-08-30 05:41:29,185 - ERROR - DDPG-balanced training failed: Trying to log data to tensorboard but tensorboard is not installed.
+2025-08-30 05:41:29,186 - INFO - DDPG-balanced final score: -inf
+2025-08-30 05:41:29,186 - INFO - 
+[4/5] Training DDPG variant: exploration
+2025-08-30 05:41:29,187 - INFO - Hyperparameters: {'learning_rate': 0.0001, 'buffer_size': 800000, 'learning_starts': 30000, 'batch_size': 256, 'tau': 0.008, 'gamma': 0.98, 'train_freq': 2, 'gradient_steps': 3, 'net_arch': [256, 128, 64], 'noise_sigma': 0.2}
+2025-08-30 05:41:29,187 - INFO - Starting DDPG variant 'exploration' training...
+2025-08-30 05:41:29,266 - INFO - Training DDPG-exploration for 100,000 timesteps...
+2025-08-30 05:41:29,267 - ERROR - DDPG-exploration training failed: Trying to log data to tensorboard but tensorboard is not installed.
+2025-08-30 05:41:29,267 - INFO - DDPG-exploration final score: -inf
+2025-08-30 05:41:29,268 - INFO - 
+[5/5] Training DDPG variant: fast_learning
+2025-08-30 05:41:29,268 - INFO - Hyperparameters: {'learning_rate': 0.0003, 'buffer_size': 500000, 'learning_starts': 5000, 'batch_size': 128, 'tau': 0.05, 'gamma': 0.99, 'train_freq': 8, 'gradient_steps': 8, 'net_arch': [128, 64], 'noise_sigma': 0.1}
+2025-08-30 05:41:29,269 - INFO - Starting DDPG variant 'fast_learning' training...
+2025-08-30 05:41:29,347 - INFO - Training DDPG-fast_learning for 100,000 timesteps...
+2025-08-30 05:41:29,348 - ERROR - DDPG-fast_learning training failed: Trying to log data to tensorboard but tensorboard is not installed.
+2025-08-30 05:41:29,349 - INFO - DDPG-fast_learning final score: -inf
+2025-08-30 05:41:29,349 - INFO - 
+============================================================
+2025-08-30 05:41:29,350 - INFO - DDPG VARIANTS SUMMARY
+2025-08-30 05:41:29,350 - INFO - ============================================================
+2025-08-30 05:41:29,354 - INFO - #2 DDPG-aggressive: -inf
+2025-08-30 05:41:29,354 - INFO - #3 DDPG-balanced: -inf
+2025-08-30 05:41:29,354 - INFO - #4 DDPG-exploration: -inf
+2025-08-30 05:41:29,354 - INFO - #5 DDPG-fast_learning: -inf
+2025-08-30 05:41:29,357 - INFO - ============================================================
+2025-08-30 05:41:29,358 - INFO - FINAL COMPREHENSIVE EVALUATION
+2025-08-30 05:41:29,358 - INFO - ============================================================
+2025-08-30 05:41:29,359 - INFO - Creating comprehensive comparison plots...
+2025-08-30 05:43:39,195 - INFO - Comprehensive comparison plots saved to multi_model_training_20250830_054125/plots/comprehensive_comparison.png
+2025-08-30 05:43:39,195 - INFO - 
+================================================================================
+2025-08-30 05:43:39,201 - INFO - ================================================================================
+2025-08-30 05:43:39,202 - INFO - Total training time: 0.04 hours
+2025-08-30 05:43:39,202 - INFO - Models successfully trained: 0
+2025-08-30 05:43:39,203 - INFO - Output saved to: multi_model_training_20250830_054125
+2025-08-30 05:43:39,233 - INFO - Training summary saved to multi_model_training_20250830_054125/multi_model_training_summary.json
+2025-08-30 05:43:39,234 - INFO - Multi-model training pipeline finished

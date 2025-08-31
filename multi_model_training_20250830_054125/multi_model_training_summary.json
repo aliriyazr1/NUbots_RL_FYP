@@ -1,0 +1,68 @@
+{
+  "training_duration_hours": 0.03725854946507348,
+  "ppo_variants_trained": 5,
+  "ddpg_variants_trained": 5,
+  "best_ppo_model": null,
+  "best_ppo_score": -Infinity,
+  "best_ddpg_model": null,
+  "best_ddpg_score": -Infinity,
+  "ppo_results": [
+    [
+      null,
+      -Infinity,
+      "conservative"
+    ],
+    [
+      null,
+      -Infinity,
+      "aggressive"
+    ],
+    [
+      null,
+      -Infinity,
+      "balanced"
+    ],
+    [
+      null,
+      -Infinity,
+      "exploration"
+    ],
+    [
+      null,
+      -Infinity,
+      "large_network"
+    ]
+  ],
+  "ddpg_results": [
+    [
+      null,
+      -Infinity,
+      "conservative"
+    ],
+    [
+      null,
+      -Infinity,
+      "aggressive"
+    ],
+    [
+      null,
+      -Infinity,
+      "balanced"
+    ],
+    [
+      null,
+      -Infinity,
+      "exploration"
+    ],
+    [
+      null,
+      -Infinity,
+      "fast_learning"
+    ]
+  ],
+  "final_evaluation": {
+    "PPO": {},
+    "DDPG": {}
+  },
+  "timestamp": "20250830_054125"
+}

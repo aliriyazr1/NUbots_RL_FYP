@@ -1,0 +1,154 @@
+2025-08-30 08:10:29,965 - INFO - ================================================================================
+2025-08-30 08:10:29,965 - INFO - STARTING MULTI-MODEL TRAINING PIPELINE
+2025-08-30 08:10:29,966 - INFO - ================================================================================
+2025-08-30 08:10:29,966 - INFO - Output directory: multi_model_training_20250830_081029
+2025-08-30 08:10:29,966 - INFO - Device: CPU
+2025-08-30 08:10:29,992 - INFO - Environment validation successful
+2025-08-30 08:10:29,993 - INFO - Training configuration:
+2025-08-30 08:10:29,993 - INFO -   PPO variants to train: 5
+2025-08-30 08:10:29,993 - INFO -   DDPG variants to train: 5
+2025-08-30 08:10:29,993 - INFO -   Timesteps per model: 100,000
+2025-08-30 08:10:29,993 - INFO -   Estimated total time: 3.0-5.0 hours
+2025-08-30 08:10:29,994 - INFO - 
+ PHASE 1: Training 5 PPO variants...
+2025-08-30 08:10:29,994 - INFO - ============================================================
+2025-08-30 08:10:29,994 - INFO - STARTING MULTI-PPO TRAINING
+2025-08-30 08:10:29,994 - INFO - ============================================================
+2025-08-30 08:10:29,994 - INFO - 
+[1/5] Training PPO variant: conservative
+2025-08-30 08:10:29,995 - INFO - Hyperparameters: {'learning_rate': 0.0002, 'n_steps': 2048, 'batch_size': 128, 'n_epochs': 5, 'gamma': 0.99, 'gae_lambda': 0.95, 'clip_range': 0.1, 'ent_coef': 0.05, 'vf_coef': 0.5, 'net_arch': [128, 128]}
+2025-08-30 08:10:29,995 - INFO - Starting PPO variant 'conservative' training...
+2025-08-30 08:10:33,765 - INFO - Training PPO-conservative for 100,000 timesteps...
+2025-08-30 08:13:05,684 - INFO - PPO-conservative Step 100000: Recent Avg = -1037.57, Eval Score = -1737.30
+2025-08-30 08:13:05,697 - ERROR - Error in model evaluation: cannot pickle 'TextIOWrapper' instances
+2025-08-30 08:13:10,933 - INFO - PPO-conservative training completed in 0.04 hours
+2025-08-30 08:13:20,637 - INFO - PPO-conservative final score: -1810.20
+2025-08-30 08:13:20,637 - INFO - NEW BEST PPO VARIANT: conservative (Score: -1810.20)
+2025-08-30 08:13:20,637 - INFO - 
+[2/5] Training PPO variant: aggressive
+2025-08-30 08:13:20,638 - INFO - Hyperparameters: {'learning_rate': 0.0005, 'n_steps': 4096, 'batch_size': 256, 'n_epochs': 15, 'gamma': 0.995, 'gae_lambda': 0.98, 'clip_range': 0.3, 'ent_coef': 0.15, 'vf_coef': 0.8, 'net_arch': [256, 256, 128]}
+2025-08-30 08:13:20,638 - INFO - Starting PPO variant 'aggressive' training...
+2025-08-30 08:13:20,715 - INFO - Training PPO-aggressive for 100,000 timesteps...
+2025-08-30 08:16:37,547 - INFO - PPO-aggressive Step 100000: Recent Avg = -1062.66, Eval Score = -952.83
+2025-08-30 08:16:37,556 - ERROR - Error in model evaluation: cannot pickle 'TextIOWrapper' instances
+2025-08-30 08:16:47,199 - INFO - PPO-aggressive training completed in 0.06 hours
+2025-08-30 08:16:57,719 - INFO - PPO-aggressive final score: -3137.01
+2025-08-30 08:16:57,719 - INFO - NEW BEST PPO VARIANT: aggressive (Score: -3137.01)
+2025-08-30 08:16:57,719 - INFO - 
+[3/5] Training PPO variant: balanced
+2025-08-30 08:16:57,720 - INFO - Hyperparameters: {'learning_rate': 0.0003, 'n_steps': 4096, 'batch_size': 256, 'n_epochs': 10, 'gamma': 0.99, 'gae_lambda': 0.95, 'clip_range': 0.2, 'ent_coef': 0.1, 'vf_coef': 0.5, 'net_arch': [128, 128, 64]}
+2025-08-30 08:16:57,720 - INFO - Starting PPO variant 'balanced' training...
+2025-08-30 08:16:57,782 - INFO - Training PPO-balanced for 100,000 timesteps...
+2025-08-30 08:19:46,095 - INFO - PPO-balanced Step 100000: Recent Avg = -1115.49, Eval Score = -1170.93
+2025-08-30 08:19:46,107 - ERROR - Error in model evaluation: cannot pickle 'TextIOWrapper' instances
+2025-08-30 08:19:54,858 - INFO - PPO-balanced training completed in 0.05 hours
+2025-08-30 08:20:05,731 - INFO - PPO-balanced final score: -3155.79
+2025-08-30 08:20:05,732 - INFO - NEW BEST PPO VARIANT: balanced (Score: -3155.79)
+2025-08-30 08:20:05,732 - INFO - 
+[4/5] Training PPO variant: exploration
+2025-08-30 08:20:05,732 - INFO - Hyperparameters: {'learning_rate': 0.0003, 'n_steps': 8192, 'batch_size': 512, 'n_epochs': 8, 'gamma': 0.99, 'gae_lambda': 0.9, 'clip_range': 0.25, 'ent_coef': 0.2, 'vf_coef': 0.3, 'net_arch': [256, 128, 64]}
+2025-08-30 08:20:05,732 - INFO - Starting PPO variant 'exploration' training...
+2025-08-30 08:20:05,808 - INFO - Training PPO-exploration for 100,000 timesteps...
+2025-08-30 08:22:40,441 - INFO - PPO-exploration Step 100000: Recent Avg = -486.79, Eval Score = -4391.49
+2025-08-30 08:22:40,451 - ERROR - Error in model evaluation: cannot pickle 'TextIOWrapper' instances
+2025-08-30 08:22:54,123 - INFO - PPO-exploration training completed in 0.05 hours
+2025-08-30 08:23:04,211 - INFO - PPO-exploration final score: -2188.31
+2025-08-30 08:23:04,212 - INFO - NEW BEST PPO VARIANT: exploration (Score: -2188.31)
+2025-08-30 08:23:04,212 - INFO - 
+[5/5] Training PPO variant: large_network
+2025-08-30 08:23:04,212 - INFO - Hyperparameters: {'learning_rate': 0.0001, 'n_steps': 2048, 'batch_size': 128, 'n_epochs': 12, 'gamma': 0.99, 'gae_lambda': 0.95, 'clip_range': 0.2, 'ent_coef': 0.08, 'vf_coef': 0.5, 'net_arch': [512, 512, 256, 128]}
+2025-08-30 08:23:04,212 - INFO - Starting PPO variant 'large_network' training...
+2025-08-30 08:23:04,315 - INFO - Training PPO-large_network for 100,000 timesteps...
+2025-08-30 08:27:41,988 - INFO - PPO-large_network Step 100000: Recent Avg = -1189.95, Eval Score = -559.92
+2025-08-30 08:27:41,999 - ERROR - Error in model evaluation: cannot pickle 'TextIOWrapper' instances
+2025-08-30 08:27:50,422 - INFO - PPO-large_network training completed in 0.08 hours
+2025-08-30 08:28:01,283 - INFO - PPO-large_network final score: -1563.14
+2025-08-30 08:28:01,283 - INFO - NEW BEST PPO VARIANT: large_network (Score: -1563.14)
+2025-08-30 08:28:01,284 - INFO - 
+============================================================
+2025-08-30 08:28:01,284 - INFO - PPO VARIANTS SUMMARY
+2025-08-30 08:28:01,284 - INFO - ============================================================
+2025-08-30 08:28:01,284 - INFO -  BEST PPO-large_network: -1563.14
+2025-08-30 08:28:01,285 - INFO - #2 PPO-conservative: -1810.20
+2025-08-30 08:28:01,285 - INFO - #3 PPO-exploration: -2188.31
+2025-08-30 08:28:01,285 - INFO - #4 PPO-aggressive: -3137.01
+2025-08-30 08:28:01,285 - INFO - #5 PPO-balanced: -3155.79
+2025-08-30 08:28:01,286 - INFO - 
+ PHASE 2: Training 5 DDPG variants...
+2025-08-30 08:28:01,286 - INFO - ============================================================
+2025-08-30 08:28:01,286 - INFO - STARTING MULTI-DDPG TRAINING
+2025-08-30 08:28:01,286 - INFO - ============================================================
+2025-08-30 08:28:01,287 - INFO - 
+[1/5] Training DDPG variant: conservative
+2025-08-30 08:28:01,287 - INFO - Hyperparameters: {'learning_rate': 5e-05, 'buffer_size': 500000, 'learning_starts': 10000, 'batch_size': 128, 'tau': 0.005, 'gamma': 0.99, 'train_freq': 1, 'gradient_steps': 1, 'net_arch': [128, 128], 'noise_sigma': 0.05}
+2025-08-30 08:28:01,287 - INFO - Starting DDPG variant 'conservative' training...
+2025-08-30 08:28:01,366 - INFO - Training DDPG-conservative for 100,000 timesteps...
+2025-08-30 08:40:06,772 - INFO - DDPG-conservative Step 100000: Recent Avg = -102.16, Eval Score = -3329.54
+2025-08-30 08:40:06,805 - ERROR - Error in model evaluation: cannot pickle 'TextIOWrapper' instances
+2025-08-30 08:40:10,889 - INFO - DDPG-conservative training completed in 0.20 hours
+2025-08-30 08:40:19,347 - INFO - DDPG-conservative final score: 803.21
+2025-08-30 08:40:19,347 - INFO - NEW BEST DDPG VARIANT: conservative (Score: 803.21)
+2025-08-30 08:40:19,347 - INFO - 
+[2/5] Training DDPG variant: aggressive
+2025-08-30 08:40:19,348 - INFO - Hyperparameters: {'learning_rate': 0.0002, 'buffer_size': 1000000, 'learning_starts': 25000, 'batch_size': 512, 'tau': 0.02, 'gamma': 0.995, 'train_freq': 4, 'gradient_steps': 4, 'net_arch': [512, 512, 256], 'noise_sigma': 0.15}
+2025-08-30 08:40:19,348 - INFO - Starting DDPG variant 'aggressive' training...
+2025-08-30 08:40:19,418 - INFO - Training DDPG-aggressive for 100,000 timesteps...
+2025-08-30 09:20:14,115 - INFO - DDPG-aggressive Step 100000: Recent Avg = 391.64, Eval Score = 1265.26
+2025-08-30 09:20:14,271 - ERROR - Error in model evaluation: cannot pickle 'TextIOWrapper' instances
+2025-08-30 09:20:18,884 - INFO - DDPG-aggressive training completed in 0.67 hours
+2025-08-30 09:20:28,215 - INFO - DDPG-aggressive final score: -1391.77
+2025-08-30 09:20:28,215 - INFO - NEW BEST DDPG VARIANT: aggressive (Score: -1391.77)
+2025-08-30 09:20:28,215 - INFO - 
+[3/5] Training DDPG variant: balanced
+2025-08-30 09:20:28,215 - INFO - Hyperparameters: {'learning_rate': 0.0001, 'buffer_size': 1000000, 'learning_starts': 20000, 'batch_size': 256, 'tau': 0.01, 'gamma': 0.99, 'train_freq': 4, 'gradient_steps': 2, 'net_arch': [256, 256, 128], 'noise_sigma': 0.1}
+2025-08-30 09:20:28,216 - INFO - Starting DDPG variant 'balanced' training...
+2025-08-30 09:20:28,285 - INFO - Training DDPG-balanced for 100,000 timesteps...
+2025-08-30 09:31:30,700 - INFO - DDPG-balanced Step 100000: Recent Avg = 246.20, Eval Score = -3346.00
+2025-08-30 09:31:30,764 - ERROR - Error in model evaluation: cannot pickle 'TextIOWrapper' instances
+2025-08-30 09:31:35,128 - INFO - DDPG-balanced training completed in 0.19 hours
+2025-08-30 09:31:44,640 - INFO - DDPG-balanced final score: 7397.80
+2025-08-30 09:31:44,641 - INFO - NEW BEST DDPG VARIANT: balanced (Score: 7397.80)
+2025-08-30 09:31:44,641 - INFO - 
+[4/5] Training DDPG variant: exploration
+2025-08-30 09:31:44,641 - INFO - Hyperparameters: {'learning_rate': 0.0001, 'buffer_size': 800000, 'learning_starts': 30000, 'batch_size': 256, 'tau': 0.008, 'gamma': 0.98, 'train_freq': 2, 'gradient_steps': 3, 'net_arch': [256, 128, 64], 'noise_sigma': 0.2}
+2025-08-30 09:31:44,642 - INFO - Starting DDPG variant 'exploration' training...
+2025-08-30 09:31:44,714 - INFO - Training DDPG-exploration for 100,000 timesteps...
+2025-08-30 09:53:00,662 - INFO - DDPG-exploration Step 100000: Recent Avg = 599.59, Eval Score = 1640.78
+2025-08-30 09:53:00,805 - ERROR - Error in model evaluation: cannot pickle 'TextIOWrapper' instances
+2025-08-30 09:53:05,884 - INFO - DDPG-exploration training completed in 0.36 hours
+2025-08-30 09:53:17,097 - INFO - DDPG-exploration final score: -39.78
+2025-08-30 09:53:17,098 - INFO - NEW BEST DDPG VARIANT: exploration (Score: -39.78)
+2025-08-30 09:53:17,098 - INFO - 
+[5/5] Training DDPG variant: fast_learning
+2025-08-30 09:53:17,098 - INFO - Hyperparameters: {'learning_rate': 0.0003, 'buffer_size': 500000, 'learning_starts': 5000, 'batch_size': 128, 'tau': 0.05, 'gamma': 0.99, 'train_freq': 8, 'gradient_steps': 8, 'net_arch': [128, 64], 'noise_sigma': 0.1}
+2025-08-30 09:53:17,099 - INFO - Starting DDPG variant 'fast_learning' training...
+2025-08-30 09:53:17,236 - INFO - Training DDPG-fast_learning for 100,000 timesteps...
+2025-08-30 10:05:16,508 - INFO - DDPG-fast_learning Step 100000: Recent Avg = -638.24, Eval Score = -682.35
+2025-08-30 10:05:16,529 - ERROR - Error in model evaluation: cannot pickle 'TextIOWrapper' instances
+2025-08-30 10:05:19,828 - INFO - DDPG-fast_learning training completed in 0.20 hours
+2025-08-30 10:05:26,951 - INFO - DDPG-fast_learning final score: -718.48
+2025-08-30 10:05:26,952 - INFO - NEW BEST DDPG VARIANT: fast_learning (Score: -718.48)
+2025-08-30 10:05:26,952 - INFO - 
+============================================================
+2025-08-30 10:05:26,953 - INFO - DDPG VARIANTS SUMMARY
+2025-08-30 10:05:26,953 - INFO - ============================================================
+2025-08-30 10:05:26,962 - INFO -  BEST DDPG-balanced: 7397.80
+2025-08-30 10:05:26,963 - INFO - #2 DDPG-conservative: 803.21
+2025-08-30 10:05:26,964 - INFO - #3 DDPG-exploration: -39.78
+2025-08-30 10:05:26,964 - INFO - #4 DDPG-fast_learning: -718.48
+2025-08-30 10:05:26,965 - INFO - #5 DDPG-aggressive: -1391.77
+2025-08-30 10:05:26,985 - INFO - 
+ PHASE 3: Final evaluation of best models...
+2025-08-30 10:05:27,004 - INFO - ============================================================
+2025-08-30 10:05:27,004 - INFO - FINAL COMPREHENSIVE EVALUATION
+2025-08-30 10:05:27,005 - INFO - ============================================================
+2025-08-30 10:05:27,022 - INFO - Creating comprehensive comparison plots...
+2025-08-30 10:06:19,102 - INFO - Comprehensive comparison plots saved to multi_model_training_20250830_081029/plots/comprehensive_comparison.png
+2025-08-30 10:06:19,103 - INFO - 
+================================================================================
+2025-08-30 10:06:19,397 - INFO - ================================================================================
+2025-08-30 10:06:19,398 - INFO - Total training time: 1.93 hours
+2025-08-30 10:06:19,398 - INFO - Models successfully trained: 10
+2025-08-30 10:06:19,398 - INFO - Output saved to: multi_model_training_20250830_081029
+2025-08-30 10:06:19,403 - INFO - Training summary saved to multi_model_training_20250830_081029/multi_model_training_summary.json
+2025-08-30 10:06:19,404 - INFO - Multi-model training pipeline finished
