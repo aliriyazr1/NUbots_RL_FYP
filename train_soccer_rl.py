@@ -544,6 +544,97 @@ def train_ddpg_agent(config_path="SoccerEnv/field_config.yaml"):
         train_env.close()
         eval_env.close()
 
+def train_existing_ddpg_model(existing_model_name: str, config_path="SoccerEnv/field_config.yaml"):
+    """Train DDPG agent with proper hyperparameters"""
+    print("🚀 Re-Training DDPG Agent...")
+
+    # Load configuration
+    try:
+        with open(config_path, 'r') as file:
+            config = yaml.safe_load(file)
+        field_type = config['field_type']
+        print(f"📏 Using {field_type} field configuration")
+    except:
+        print("⚠️  Using default field configuration")
+        config_path = None
+    
+    # Create environments
+    train_env = create_monitored_env("easy", config_path)
+    eval_env = create_monitored_env("easy", config_path)
+
+    n_actions = train_env.action_space.shape[-1]
+    action_noise = NormalActionNoise(
+        mean=np.zeros(n_actions), 
+        sigma=0.1 * np.ones(n_actions)  # 10% noise
+    )
+
+    # Load existing DDPG model
+    model = DDPG.load(existing_model_name)
+    model.set_env(train_env)  # Important: update the environment
+    
+    # Progress tracking
+    progress_cb = ProgressTracker(train_env, eval_env, verbose=1, config_path=config_path)
+
+    # Create evaluation callback
+    eval_callback = EvalCallback(
+        eval_env,
+        best_model_save_path="./models/",
+        log_path="./logs/",
+        eval_freq=15000,
+        deterministic=True,
+        render=False,
+        n_eval_episodes=5
+    )
+
+    plotting_callback = RealtimePlottingCallback(plot_freq=2000, verbose=1)
+    
+    print("Starting DDPG training...")
+    
+    # Train the model
+    try:
+        total_timesteps = 1500000 # Used to be 250000
+        # Train the model
+        start_time = time.time()
+
+        model.learn(
+            total_timesteps=total_timesteps,
+            callback=[eval_callback, progress_cb, plotting_callback],
+            progress_bar=True
+        )
+        training_time = time.time() - start_time
+
+        # Save the final model
+        timestamp = get_timestamp()
+        model_name = "soccer_rl_ddpg_" + timestamp
+        model.save(model_name)
+        print(f"✅ DDPG training completed! Model saved as '{model_name}'")
+        print(f"⏱️  Training completed in {training_time:.2f} seconds")
+
+        # Save training plots
+        plotting_callback.save_plots("ddpg_training_progress_" + timestamp)
+
+        final_results = {}
+        for diff in ["easy", "medium", "hard"]:
+            test_env = create_monitored_env(diff, config_path)
+            mean_reward, std_reward = evaluate_policy(model, test_env, n_eval_episodes=10)
+            final_results[diff] = (mean_reward, std_reward)
+            print(f"  {diff.title()}: {mean_reward:.2f} ± {std_reward:.2f}")
+            test_env.close()
+        
+        return model, final_results
+    
+    except Exception as e:
+        print(f"❌ DDPG training error: {e}")
+        timestamp = get_timestamp()
+        model_name = "soccer_rl_ddpg_partial_" + timestamp
+        model.save(model_name)
+        plotting_callback.save_plots("ddpg_partial_training_progress_" + timestamp)
+        return None, None
+
+    finally:
+        train_env.close()
+        eval_env.close()
+
 def evaluate_and_compare(config_path="SoccerEnv/field_config.yaml"):
     """Evaluate and compare both models"""
     print("\n🔍 EVALUATING TRAINED MODELS...")
@@ -788,6 +879,7 @@ def main():
     print("2. Train DDPG only")
     print("3. Full pipeline (train both + evaluate)")
     print("4. Evaluate existing models")
+    print("5. Train an existing DDPG model")
     
     choice = input("\nEnter your choice (1-4): ").strip()
     
@@ -853,7 +945,12 @@ def main():
         # Create comparison plots if both models exist
         if results.get("PPO") and results.get("DDPG"):
             create_comparison_plots(results["PPO"], results["DDPG"])
-        
+    
+    elif choice == "5":
+        model_name = input("Enter name of the existing model: ")
+        print("Training an existing DDPG model..")
+        ddpg_model = train_existing_ddpg_model(model_name, config_path)
+
     else:
         print("Invalid choice. Exiting...")
 
