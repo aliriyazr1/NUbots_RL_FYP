@@ -1,0 +1,80 @@
+reward_parameters:
+  # === TERMINAL OUTCOMES ===
+  goal_scored_reward: 150.0          # Massive reward for scoring in target goal
+  opponent_goal_penalty: -60.0      # Massive penalty for opponent scoring
+  ball_out_bounds_penalty: -20.0     # Large penalty for losing ball out of bounds
+  robot_collision_penalty: -8.0     # Large penalty for colliding with opponent
+
+  # === PHASE 1: BALL ACQUISITION ===
+  ball_contact_reward: 3.0           # Strong reward for touching ball (within contact_threshold)
+  ball_close_reward: 2.0              # Reward for being close to ball  
+  ball_medium_reward: 1.0             # Reward for being medium distance from ball
+  ball_far_reward: 0.3                # Small reward for being far but approaching ball
+  # Distance threshold multipliers (multiply by contact_threshold)
+  close_threshold_multiplier: 2.0     # 2x contact_threshold for "close"
+  medium_threshold_multiplier: 4.0    # 4x contact_threshold for "medium"  
+  far_threshold_multiplier: 6.0       # 6x contact_threshold for "far"
+  # Ball seeking penalties and rewards
+  far_ball_threshold: 0.4             # Fraction of max field distance for "too far" 
+  far_ball_penalty: 0.5               # Penalty for being too far from ball
+  movement_threshold: 0.1             # Minimum speed to get movement rewards
+
+  ball_possession_max_reward: 25.0    # Maximum reward for ball possession (smooth transition)
+  ball_distance_penalty_rate: 2.0    # Rate of penalty increase with distance from ball
+  opponent_closer_penalty_rate: 0.01   # Penalty rate when opponent is closer to ball
+  opponent_closer_max_penalty: 2.0   # Maximum penalty for opponent being closer
+
+  # === PHASE 2: BALL CONTROL & DRIBBLING ===
+  ball_possession_reward: 3.0         # Base reward per step for having ball
+  goal_progress_reward_rate: 20.0     # Reward rate for moving ball closer to goal
+  goal_regression_penalty_rate: 5.0  # Penalty rate for moving ball away from goal
+  goal_regression_threshold: 1.0     # Minimum backward movement to trigger penalty
+  
+  shepherding_max_bonus: 3.0         # Maximum bonus for correct shepherding position
+  # Shepherding (robot positioning behind ball)
+  shepherding_alignment_threshold: 0.5  # Minimum alignment for shepherding bonus
+  shepherding_angle_threshold: 45.0   # Degrees - robot behind ball relative to goal
+  # Strategic positioning zones
+  optimal_zone_x_threshold: 0.7        # X-fraction for optimal shooting zone
+  optimal_zone_y_threshold: 0.3        # Y-center threshold for optimal zone
+  optimal_zone_reward: 5.0             # Reward for optimal shooting position
+  attacking_zone_x_threshold: 0.6      # X-fraction for attacking zone
+  attacking_zone_reward: 2.0           # Reward for attacking zone
+
+  ball_direction_reward_rate: 5.0    # Reward rate for ball moving toward goal
+  ball_direction_threshold: 0.5       # Minimum alignment to trigger reward
+  optimal_ball_speed_mps: 1.0         # Optimal dribbling speed in meters/second
+
+  # === PHASE 3: POSITIONAL STRATEGY ===
+  robot_progress_reward_rate: 5.0    # Reward rate for robot advancing toward goal
+  attacking_third_bonus: 2.5          # Bonus for being in attacking third with ball
+  middle_third_bonus: 1.0             # Bonus for being in middle third with ball
+
+  # === BEHAVIORAL PENALTIES ===
+  boundary_penalty_threshold: 0.1     # Fraction of field size for boundary penalty zone
+  boundary_penalty_max: 0.5          # Maximum penalty for robot near boundaries
+  ball_boundary_penalty_max: 2.0     # Maximum penalty for ball near boundaries
+  boundary_movement_tolerance: 0.2    # Minimum speed to avoid boundary penalties
+  boundary_goal_progress_threshold: 0.3  # Minimum goal-ward alignment to reduce boundary penalty
+  reduced_boundary_penalty: 0.1       # Reduced penalty when moving toward goal on boundary
+  stationary_boundary_penalty: 1.0    # Extra penalty for being stationary on boundary
+  
+  time_step_penalty: 0.02              # Small penalty per time step (efficiency)
+  stationary_penalty: 3.0             # Penalty for robot not moving
+  stationary_speed_threshold: 0.2     # Minimum speed to avoid stationary penalty
+  
+  opponent_possession_penalty: 1.5    # Per-step penalty while opponent has ball
+  robot_possession_bonus_rate: 0.1    # Bonus rate for maintaining possession
+  robot_possession_bonus_cap: 2.0     # Maximum possession bonus
+  robot_possession_min_time: 5        # Minimum possession time before bonus
+
+  # === OTHERS ===
+  min_required_linear_speed: 0.5  # THis is more a threshold for mon speed required to not get a penalty
+  max_rotation_without_translation: 0.1 # Threshold for max rotation while not moving
+  spinning_penalty: 8.0        # Penalty for spinning like a beyblade
+  ball_seeking_threshold: 0.3       # Reward for seeking the ball
+  ball_seeking_reward_rate: 1.0    # Reward multiplier for seeking the ball
+  wrong_direction_penalty_rate: 0.5  
+  reward_min_bound: -50.0
+  reward_max_bound: 100.0
+  invalid_state_penalty: -1.0

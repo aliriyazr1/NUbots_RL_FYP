@@ -568,9 +568,19 @@ def train_existing_ddpg_model(existing_model_name: str, config_path="SoccerEnv/f
         sigma=0.1 * np.ones(n_actions)  # 10% noise
     )
 
+    timestamp = get_timestamp()
+    run_name = f"existing_retrain_soccer_rl_ddpg_{timestamp}"
+    # Setup logging
+    tensorboard_log = f"./tensorboard_logs/{run_name}"
+    
+    # Create directories
+    os.makedirs("tensorboard_logs", exist_ok=True)
+    os.makedirs("models", exist_ok=True)
+
     # Load existing DDPG model
     model = DDPG.load(existing_model_name)
     model.set_env(train_env)  # Important: update the environment
+    model.tensorboard_log = tensorboard_log
     
     # Progress tracking
     progress_cb = ProgressTracker(train_env, eval_env, verbose=1, config_path=config_path)
@@ -599,14 +609,20 @@ def train_existing_ddpg_model(existing_model_name: str, config_path="SoccerEnv/f
         model.learn(
             total_timesteps=total_timesteps,
             callback=[eval_callback, progress_cb, plotting_callback],
-            progress_bar=True
+            tb_log_name=f"DDPG_continued_{timestamp}",
+            progress_bar=True,
+            reset_num_timesteps=False  # Important: Continue from existing timestep count
         )
+
         training_time = time.time() - start_time
 
-        # Save the final model
-        timestamp = get_timestamp()
-        model_name = "soccer_rl_ddpg_" + timestamp
-        model.save(model_name)
+        # # Save the final model
+        # timestamp = get_timestamp()
+        model_name = "existing_retrain_soccer_rl_ddpg_" + timestamp
+        model.save(
+            model_name,
+
+        )
         print(f"✅ DDPG training completed! Model saved as '{model_name}'")
         print(f"⏱️  Training completed in {training_time:.2f} seconds")
 

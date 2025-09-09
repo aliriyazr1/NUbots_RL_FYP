@@ -339,11 +339,11 @@ class SoccerEnv(gym.Env):
         # Parse action
         forward_back = action[0]  # -1 to 1
         left_right = action[1]    # -1 to 1  
-        rotation = action[2]      # -1 to 1
+        rotation = action[2]      # -1 to 1 #TODO: Should this be from 0 to 2pi instead?????
         
         # Update robot angle
         self.robot_angle += rotation * self.robot_rotation_speed
-        self.robot_angle = self.robot_angle % (2 * np.pi) # Normalize angle to [0, 2π)
+        self.robot_angle = self.robot_angle % (2 * np.pi) # Normalise angle to [0, 2π)
         
         # Calculate movement
         speed = self.robot_speed # NOTE: SHould be in pixels/frame
@@ -458,13 +458,15 @@ class SoccerEnv(gym.Env):
         # Update position
         self.opponent_pos = new_pos
 
-    def _calculate_reward(self) -> float:
+    def _calculate_reward(self):
         """
-        IMPROVED reward function that prevents spinning and encourages proper ball acquisition
-        Key fixes:
-        1. Strong anti-spinning penalties (both linear and rotational movement required)
-        2. Directional movement rewards when robot doesn't have ball possession
-        3. Clear possession-based behavior switching
+        Updated reward function that encourages aggressive dribbling around opponents.
+        
+        Key changes:
+        - Reduced collision fear near goal
+        - Added aggression bonuses for forward movement when opponent is close
+        - Enhanced rewards for attacking play
+        - Smarter opponent proximity handling
         """
         reward = 0.0
         
@@ -486,439 +488,716 @@ class SoccerEnv(gym.Env):
         contact_threshold = self.field_config.meters_to_pixels(robot_params.get('contact_threshold', 0.25))
         possession_threshold = self.field_config.meters_to_pixels(robot_params.get('possession_threshold', 0.4))
         
+        # Check if robot has ball control
+        robot_has_control = robot_ball_distance < contact_threshold
+        opponent_closer_to_ball = opponent_ball_distance < robot_ball_distance
+        
         # === TERMINAL OUTCOMES (Episode-ending rewards) ===
         if self._check_goal():
-            return reward_params.get('goal_scored_reward', 100.0)
+            return reward_params.get('goal_scored_reward', 150.0)  # Increased reward
             
         if self._check_opponent_goal():
-            return reward_params.get('opponent_goal_penalty', -60.0)
+            return reward_params.get('opponent_goal_penalty', -100.0)
             
         if self._check_ball_out_of_play():
-            return reward_params.get('ball_out_bounds_penalty', -10.0)
+            return reward_params.get('ball_out_bounds_penalty', -20.0)
         
-        # CRITICAL FAILURE: Opponent collision
-        if robot_opponent_distance < self.collision_distance:
-            return reward_params.get('robot_collision_penalty', -15.0)
-        
-        # # === ANTI-SPINNING MEASURES ===
-        # # Calculate both linear and rotational movement
-        # robot_linear_speed = np.linalg.norm(self.robot_vel)
-        # robot_rotational_speed = abs(getattr(self, '_prev_robot_angle', self.robot_angle) - self.robot_angle)
-        
-        # # Store current angle for next frame
-        # self._prev_robot_angle = self.robot_angle
-        
-        # # STRONG penalty for insufficient movement (prevents spinning in place)
-        # min_linear_speed = reward_params.get('min_required_linear_speed', 0.5)
-        # max_rotation_without_translation = reward_params.get('max_rotation_without_translation', 0.1)
-        
-        # # Detect spinning: high rotation but low linear movement
-        # if robot_linear_speed < min_linear_speed and robot_rotational_speed > max_rotation_without_translation:
-        #     spinning_penalty = reward_params.get('spinning_penalty', 15.0)  # Strong penalty
-        #     reward -= spinning_penalty
-            
-        # # General stationary penalty (weaker than spinning penalty)
-        # elif robot_linear_speed < reward_params.get('stationary_speed_threshold', 0.2):
-        #     stationary_penalty = reward_params.get('stationary_penalty', 3.0)
-        #     reward -= stationary_penalty
-        
-        # === POSSESSION-BASED BEHAVIOR SWITCHING ===
-        
-        # Check if robot has meaningful ball control
-        # robot_has_control = robot_ball_distance < possession_threshold
-        # opponent_closer_to_ball = opponent_ball_distance < robot_ball_distance
-        
-        # === PHASE 1: GET THE BALL (when robot doesn't have possession) ===
-        if not self.has_ball:
-            # Distance-based rewards (configurable thresholds)
-            contact_reward = reward_params.get('ball_contact_reward', 3.0)
-            close_reward = reward_params.get('ball_close_reward', 2.0) 
-            medium_reward = reward_params.get('ball_medium_reward', 1.0)
-            far_reward = reward_params.get('ball_far_reward', 0.3)
-            
-            # Configurable distance multipliers
-            close_threshold_multiplier = reward_params.get('close_threshold_multiplier', 2.0)
-            medium_threshold_multiplier = reward_params.get('medium_threshold_multiplier', 4.0)
-            far_threshold_multiplier = reward_params.get('far_threshold_multiplier', 6.0)
-            
-            # Dense reward shaping for approaching ball
-            if robot_ball_distance < contact_threshold:
-                reward += contact_reward
-            elif robot_ball_distance < contact_threshold * close_threshold_multiplier:
-                reward += close_reward
-            elif robot_ball_distance < contact_threshold * medium_threshold_multiplier:
-                reward += medium_reward
-            elif robot_ball_distance < contact_threshold * far_threshold_multiplier:
-                reward += far_reward
-            
-            # Penalty for being very far from ball
-            max_distance = self._max_distance
-            far_ball_threshold = reward_params.get('far_ball_threshold', 0.4)  # 40% of field
-            far_ball_penalty = reward_params.get('far_ball_penalty', 0.5)
-            
-            if robot_ball_distance > max_distance * far_ball_threshold:
-                reward -= far_ball_penalty
-            
-            # Movement direction reward (moving toward ball)
-            robot_speed = np.linalg.norm(self.robot_vel)
-            movement_threshold = reward_params.get('movement_threshold', 0.1)
-            
-            if robot_speed > movement_threshold:  # Robot is moving
-                ball_direction = self.ball_pos - self.robot_pos
-                if np.linalg.norm(ball_direction) > 1e-6:
-                    ball_direction_normalized = ball_direction / np.linalg.norm(ball_direction)
-                    robot_velocity_normalized = self.robot_vel / robot_speed
-                    movement_alignment = np.dot(robot_velocity_normalized, ball_direction_normalized)
-                    
-                    # Configurable alignment thresholds and rewards
-                    good_alignment_threshold = reward_params.get('ball_seeking_threshold', 0.3)
-                    ball_seeking_reward_rate = reward_params.get('ball_seeking_reward_rate', 1.0)
-                    wrong_direction_penalty_rate = reward_params.get('wrong_direction_penalty_rate', 0.3)
-                    
-                    if movement_alignment > good_alignment_threshold:  # Moving toward ball
-                        reward += movement_alignment * ball_seeking_reward_rate
-                    else:  # Moving away from ball
-                        reward -= wrong_direction_penalty_rate
-            
-            # Competitive pressure (opponent closer to ball)
-            opponent_ball_distance = np.linalg.norm(self.opponent_pos - self.ball_pos)
-            if opponent_ball_distance < robot_ball_distance:
-                closeness_diff = robot_ball_distance - opponent_ball_distance
-                competitive_penalty_rate = reward_params.get('opponent_closer_penalty_rate', 0.01)
-                max_competitive_penalty = reward_params.get('opponent_closer_max_penalty', 1.0)
-                penalty = min(closeness_diff * competitive_penalty_rate, max_competitive_penalty)
-                reward -= penalty
+        # === SMART COLLISION MANAGEMENT ===
+        collision_distance_threshold = self.field_config.meters_to_pixels(
+            reward_params.get('collision_distance_threshold', 0.3)
+        )
 
-        # === PHASE 2: PUSH BALL TO GOAL (when robot has possession) ===
-        else:  # self.has_ball is True
-            # Base possession reward
-            possession_reward = reward_params.get('ball_possession_reward', 3.0)
-            reward += possession_reward
-            
-            # Reward for ball progress toward goal
-            if hasattr(self, '_prev_ball_to_goal_distance'):
-                goal_progress = self._prev_ball_to_goal_distance - ball_to_goal_distance
-                goal_progress_reward_rate = reward_params.get('goal_progress_reward_rate', 20.0)
-                goal_regression_penalty_rate = reward_params.get('goal_regression_penalty_rate', 5.0)
-                regression_threshold = reward_params.get('goal_regression_threshold', 1.0)
-                
-                if goal_progress > 0:  # Ball moved closer to goal
-                    reward += goal_progress * goal_progress_reward_rate
-                elif goal_progress < -regression_threshold:  # Ball moved away significantly  
-                    reward -= abs(goal_progress) * goal_regression_penalty_rate
-            
-            # Always update for next frame
-            self._prev_ball_to_goal_distance = ball_to_goal_distance
-            
-            # Reward for robot positioning behind ball (shepherding)
-            ball_to_goal_direction = goal_center - self.ball_pos
-            robot_to_ball_direction = self.ball_pos - self.robot_pos
-            
-            if (np.linalg.norm(ball_to_goal_direction) > 1e-6 and 
-                np.linalg.norm(robot_to_ball_direction) > 1e-6):
-                
-                ball_to_goal_normalized = ball_to_goal_direction / np.linalg.norm(ball_to_goal_direction)
-                robot_to_ball_normalized = robot_to_ball_direction / np.linalg.norm(robot_to_ball_direction)
-                
-                # Good shepherding: robot behind ball relative to goal
-                shepherding_alignment = np.dot(robot_to_ball_normalized, ball_to_goal_normalized)
-                shepherding_threshold = reward_params.get('shepherding_alignment_threshold', 0.5)
-                shepherding_max_bonus = reward_params.get('shepherding_max_bonus', 2.0)
-                
-                if shepherding_alignment > shepherding_threshold:
-                    reward += shepherding_alignment * shepherding_max_bonus
-            
-            # Optimal shooting zone rewards
+        attacking_third_start = strategic_zones.get('attacking_third_start', 0.6)
+        
+        if robot_opponent_distance < collision_distance_threshold:
+            # Check if we're in attacking zone - if so, reduce penalty
             robot_x_fraction = self.robot_pos[0] / self.field_width
-            robot_y_center = abs(self.robot_pos[1] - self.field_height / 2) / (self.field_height / 2)
             
-            # Configurable zone thresholds and rewards
-            optimal_zone_x_threshold = reward_params.get('optimal_zone_x_threshold', 0.7)
-            optimal_zone_y_threshold = reward_params.get('optimal_zone_y_threshold', 0.3)
-            optimal_zone_reward = reward_params.get('optimal_zone_reward', 5.0)
-            
-            attacking_zone_x_threshold = reward_params.get('attacking_zone_x_threshold', 0.6)
-            attacking_zone_reward = reward_params.get('attacking_zone_reward', 2.0)
-            
-            # Strong reward for being in optimal shooting position with ball
-            if robot_x_fraction > optimal_zone_x_threshold and robot_y_center < optimal_zone_y_threshold:
-                reward += optimal_zone_reward
-            elif robot_x_fraction > attacking_zone_x_threshold:  # In attacking third
-                reward += attacking_zone_reward
-            
-            # Possession time bonus (capped)
-            possession_bonus_rate = reward_params.get('robot_possession_bonus_rate', 0.05)
-            possession_bonus_cap = reward_params.get('robot_possession_bonus_cap', 1.0)
-            possession_bonus = min(self.robot_possession_time * possession_bonus_rate, possession_bonus_cap)
-            reward += possession_bonus
+            if robot_x_fraction > attacking_third_start and robot_has_control:
+                # Near goal with ball - courage bonus instead of harsh penalty
+                collision_bonus = reward_params.get('collision_near_goal_bonus', 5.0)
+                reward += collision_bonus
+            else:
+                # Normal collision penalty, but reduced
+                collision_penalty = reward_params.get('robot_collision_penalty', -8.0)
+                reward += collision_penalty
         
-        # === GENERAL PENALTIES ===
-        
-        # Anti-spinning/stationary penalty
-        robot_speed = np.linalg.norm(self.robot_vel)
-        stationary_threshold = reward_params.get('stationary_speed_threshold', 0.1)
-        stationary_penalty = reward_params.get('stationary_penalty', 1.0)
-        
-        if robot_speed < stationary_threshold:  # Barely moving
-            reward -= stationary_penalty
-        
-        # Smart boundary penalties (context-aware)
-        boundary_threshold = reward_params.get('boundary_penalty_threshold', 0.1)
-        boundary_penalty_rate = reward_params.get('boundary_penalty_rate', 0.5)
-        boundary_movement_tolerance = reward_params.get('boundary_movement_tolerance', 0.2)
-        
-        boundary_margin = min(self.field_width, self.field_height) * boundary_threshold
-        robot_near_boundary = (
-            self.robot_pos[0] < boundary_margin or 
-            self.robot_pos[0] > self.field_width - boundary_margin or
-            self.robot_pos[1] < boundary_margin or 
-            self.robot_pos[1] > self.field_height - boundary_margin
+        # === AGGRESSIVE DRIBBLING SYSTEM ===
+        opponent_proximity_threshold = self.field_config.meters_to_pixels(
+            reward_params.get('opponent_proximity_threshold', 1.0)
         )
         
-        if robot_near_boundary:
-            # Check if robot is making progress toward goal while on boundary
-            robot_speed = np.linalg.norm(self.robot_vel)
+        if (robot_has_control and 
+            robot_opponent_distance < opponent_proximity_threshold):
             
-            if robot_speed > boundary_movement_tolerance:  # Robot is moving
-                # Check if movement is toward goal
+            # Calculate if robot is moving toward goal
+            robot_speed = np.linalg.norm(self.robot_vel)
+            if robot_speed > 0.1:  # Robot is moving
                 goal_direction = goal_center - self.robot_pos
                 if np.linalg.norm(goal_direction) > 1e-6:
-                    goal_direction_normalized = goal_direction / np.linalg.norm(goal_direction)
+                    goal_direction_norm = goal_direction / np.linalg.norm(goal_direction)
+                    robot_velocity_norm = self.robot_vel / robot_speed
+                    
+                    # Reward aggressive forward movement toward goal
+                    movement_toward_goal = np.dot(robot_velocity_norm, goal_direction_norm)
+                    if movement_toward_goal > 0.3:  # Moving toward goal
+                        aggressive_bonus = reward_params.get('aggressive_dribbling_bonus', 15.0)
+                        
+                        # Double bonus if in attacking third
+                        robot_x_fraction = self.robot_pos[0] / self.field_width
+                        if robot_x_fraction > attacking_third_start:
+                            goal_zone_multiplier = reward_params.get('goal_zone_aggression_multiplier', 2.0)
+                            aggressive_bonus *= goal_zone_multiplier
+                        
+                        # Scale by how well aligned with goal
+                        scaled_bonus = aggressive_bonus * movement_toward_goal
+                        reward += scaled_bonus
+        
+        # === PHASE 1: BALL ACQUISITION ===
+        if robot_has_control:
+            # Strong reward for ball contact
+            ball_contact_reward = reward_params.get('ball_contact_reward', 20.0)
+            reward += ball_contact_reward
+            
+            # Ball control and direction rewards
+            ball_speed = np.linalg.norm(self.ball_vel)
+            if ball_speed > 0.1:
+                # Reward ball movement toward goal
+                ball_to_goal = goal_center - self.ball_pos
+                if np.linalg.norm(ball_to_goal) > 1e-6:
+                    ball_to_goal_normalized = ball_to_goal / np.linalg.norm(ball_to_goal)
+                    ball_vel_normalized = self.ball_vel / ball_speed
+                    
+                    direction_alignment = np.dot(ball_vel_normalized, ball_to_goal_normalized)
+                    direction_threshold = reward_params.get('ball_direction_threshold', 0.3)
+                    
+                    if direction_alignment > direction_threshold:
+                        direction_reward_rate = reward_params.get('ball_direction_reward_rate', 8.0)
+                        direction_reward = direction_alignment * direction_reward_rate
+                        reward += direction_reward
+            
+            # Goal progress reward
+            if not hasattr(self, '_prev_ball_to_goal_distance'):
+                self._prev_ball_to_goal_distance = ball_to_goal_distance
+            
+            ball_progress = self._prev_ball_to_goal_distance - ball_to_goal_distance
+            if ball_progress > 0:  # Ball moved closer to goal
+                progress_rate = reward_params.get('goal_progress_reward_rate', 15.0)
+                ball_progress_reward = ball_progress * progress_rate
+                reward += ball_progress_reward
+            
+            self._prev_ball_to_goal_distance = ball_to_goal_distance
+            
+        else:
+            # === BALL ACQUISITION PHASE ===
+            # Distance-based reward/penalty
+            max_distance = self._max_distance
+            distance_penalty_rate = reward_params.get('ball_distance_penalty_rate', 1.5)
+            distance_penalty = min(robot_ball_distance / max_distance * distance_penalty_rate, distance_penalty_rate)
+            reward -= distance_penalty
+            
+            # Movement toward ball reward
+            robot_speed = np.linalg.norm(self.robot_vel)
+            if robot_speed > 0.1:
+                ball_direction = self.ball_pos - self.robot_pos
+                ball_direction_distance = np.linalg.norm(ball_direction)
+                
+                if ball_direction_distance > 1e-6:
+                    ball_direction_normalized = ball_direction / ball_direction_distance
                     robot_velocity_normalized = self.robot_vel / robot_speed
-                    movement_toward_goal = np.dot(robot_velocity_normalized, goal_direction_normalized)
                     
-                    goal_progress_threshold = reward_params.get('boundary_goal_progress_threshold', 0.3)
+                    movement_alignment = np.dot(robot_velocity_normalized, ball_direction_normalized)
+                    movement_threshold = reward_params.get('ball_seeking_threshold', 0.2)
                     
-                    if movement_toward_goal > goal_progress_threshold:
-                        # Robot moving toward goal along boundary - reduced penalty or no penalty
-                        if not self.has_ball:
-                            # Without ball: small penalty but allow strategic positioning
-                            reduced_boundary_penalty = reward_params.get('reduced_boundary_penalty', 0.1)
-                            reward -= reduced_boundary_penalty
-                            # No penalty if the robot has possession at this stage
-                    else:
-                        # Robot not progressing toward goal - full boundary penalty
-                        reward -= boundary_penalty_rate
-                else:
-                    # Cannot determine goal direction - apply penalty
-                    reward -= boundary_penalty_rate
-            else:
-                # Robot stationary on boundary - strong penalty
-                stationary_boundary_penalty = reward_params.get('stationary_boundary_penalty', 1.0)
-                reward -= stationary_boundary_penalty
+                    if movement_alignment > movement_threshold:
+                        ball_seeking_reward_rate = reward_params.get('ball_seeking_reward_rate', 6.0)
+                        ball_seeking_reward = movement_alignment * ball_seeking_reward_rate
+                        reward += ball_seeking_reward
+            
+            # Competitive penalty (but reduced)
+            if opponent_closer_to_ball:
+                closeness_difference = robot_ball_distance - opponent_ball_distance
+                penalty_rate = reward_params.get('opponent_closer_penalty_rate', 0.2)
+                max_penalty = reward_params.get('opponent_closer_max_penalty', 3.0)
+                competitive_penalty = min(closeness_difference * penalty_rate, max_penalty)
+                reward -= competitive_penalty
+        
+        # === POSITIONAL STRATEGY REWARDS ===
+        # Robot progress toward goal when has control
+        if robot_has_control:
+            if not hasattr(self, '_prev_robot_to_goal_distance'):
+                self._prev_robot_to_goal_distance = robot_to_goal_distance
+            
+            robot_progress = self._prev_robot_to_goal_distance - robot_to_goal_distance
+            if robot_progress > 0:
+                progress_rate = reward_params.get('robot_progress_reward_rate', 8.0)
+                robot_progress_reward = robot_progress * progress_rate
+                reward += robot_progress_reward
+            
+            self._prev_robot_to_goal_distance = robot_to_goal_distance
+        
+        # Strategic zone bonuses
+        robot_x_fraction = self.robot_pos[0] / self.field_width
+        
+        if robot_has_control:
+            if robot_x_fraction > attacking_third_start:
+                attacking_bonus = reward_params.get('attacking_third_bonus', 5.0)
+                reward += attacking_bonus
+            elif robot_x_fraction > strategic_zones.get('middle_third_start', 0.3):
+                middle_bonus = reward_params.get('middle_third_bonus', 2.0)
+                reward += middle_bonus
+        
+        # === OPPONENT PRESSURE MANAGEMENT ===
+        # Courage bonus for staying near goal despite opponent
+        opponent_fear_distance = self.field_config.meters_to_pixels(
+            reward_params.get('opponent_fear_distance', 0.8)
+        )
+        
+        if (robot_has_control and 
+            robot_x_fraction > 0.7 and 
+            robot_opponent_distance < opponent_fear_distance):
+            
+            courage_bonus = reward_params.get('opponent_near_goal_courage', 10.0)
+            reward += courage_bonus
         
         # Opponent possession penalty
         if self.opponent_has_ball:
-            opponent_possession_penalty = reward_params.get('opponent_possession_penalty', 1.0)
+            opponent_possession_penalty = reward_params.get('opponent_possession_penalty', 2.0)
             reward -= opponent_possession_penalty
         
-        # Safety checks
-        if not np.isfinite(reward):
-            invalid_penalty = reward_params.get('invalid_state_penalty', 0.0)
-            reward = invalid_penalty
+        # Robot possession bonus
+        min_possession_time = reward_params.get('robot_possession_min_time', 3)
+        if self.has_ball and self.robot_possession_time > min_possession_time:
+            possession_bonus_rate = reward_params.get('robot_possession_bonus_rate', 0.5)
+            possession_bonus_cap = reward_params.get('robot_possession_bonus_cap', 5.0)
+            possession_bonus = min(self.robot_possession_time * possession_bonus_rate, possession_bonus_cap)
+            reward += possession_bonus
+        
+        # === BEHAVIORAL PENALTIES (REDUCED) ===
+        # Boundary penalties (reduced)
+        boundary_threshold = reward_params.get('boundary_penalty_threshold', 0.05)
+        field_margin_x = self.field_width * boundary_threshold
+        field_margin_y = self.field_height * boundary_threshold
+        
+        if (self.robot_pos[0] < field_margin_x or 
+            self.robot_pos[0] > self.field_width - field_margin_x or
+            self.robot_pos[1] < field_margin_y or 
+            self.robot_pos[1] > self.field_height - field_margin_y):
+            
+            edge_distances = [
+                self.robot_pos[0],
+                self.field_width - self.robot_pos[0],
+                self.robot_pos[1],
+                self.field_height - self.robot_pos[1]
+            ]
+            
+            min_edge_distance = min(edge_distances)
+            robot_edge_threshold = min(field_margin_x, field_margin_y)
+            
+            if min_edge_distance < robot_edge_threshold:
+                boundary_penalty_factor = (robot_edge_threshold - min_edge_distance) / robot_edge_threshold
+                max_boundary_penalty = reward_params.get('boundary_penalty_max', 1.5)
+                boundary_penalty = boundary_penalty_factor * max_boundary_penalty
+                reward -= boundary_penalty
+        
+        # === ANTI-SPINNING AND MOVEMENT ===
+        robot_linear_speed = np.linalg.norm(self.robot_vel)
+        robot_rotational_speed = abs(getattr(self, '_prev_robot_angle', self.robot_angle) - self.robot_angle)
+        self._prev_robot_angle = self.robot_angle
+        
+        # Reduced spinning penalty
+        min_linear_speed = reward_params.get('min_required_linear_speed', 0.3)
+        max_rotation_without_translation = reward_params.get('max_rotation_without_translation', 0.15)
+        
+        if (robot_linear_speed < min_linear_speed and 
+            robot_rotational_speed > max_rotation_without_translation):
+            spinning_penalty = reward_params.get('spinning_penalty', 5.0)
+            reward -= spinning_penalty
         
         # === TIME AND EFFICIENCY ===
-        
-        # Small time penalty to encourage efficiency
-        time_penalty = reward_params.get('time_step_penalty', 0.1)
+        time_penalty = reward_params.get('time_step_penalty', 0.01)
         reward -= time_penalty
         
-        # NaN/inf safety check
+        # === SAFETY AND BOUNDS ===
         if not np.isfinite(reward):
-            default_penalty = reward_params.get('invalid_state_penalty', -1.0)
+            default_penalty = reward_params.get('invalid_state_penalty', -0.5)
             reward = default_penalty
         
-        # Optional: Soft bounds warning (for debugging, not clipping)
-        if abs(reward) > 200:
-            print(f"⚠️ Unusually high reward: {reward:.2f} - check reward scaling")
-                
+        # Apply bounds
+        reward_min = reward_params.get('reward_min_bound', -30.0)
+        reward_max = reward_params.get('reward_max_bound', 150.0)
+        reward = np.clip(reward, reward_min, reward_max)
+        
         return float(reward)
-    # # Function to calculate rewards as an episode progresses during training   
+    
     # def _calculate_reward(self) -> float:
+    #     """
+    #     IMPROVED reward function that prevents spinning and encourages proper ball acquisition
+    #     Key fixes:
+    #     1. Strong anti-spinning penalties (both linear and rotational movement required)
+    #     2. Directional movement rewards when robot doesn't have ball possession
+    #     3. Clear possession-based behavior switching
+    #     """
     #     reward = 0.0
-
-    #     # Load parameters from config
+        
+    #     # Load all parameters from config
     #     reward_params = self.field_config.config.get('reward_parameters', {})
     #     robot_params = self.field_config.config.get('robot_parameters', {})
     #     strategic_zones = self.field_config.config.get('strategic_zones', {})
         
-    #     # Time penalty
-    #     reward += reward_params['time_penalty']
-
-    #     # Calculate key distances  using configurable field dimensions
-    #     robot_x, robot_y = self.robot_pos
-    #     ball_x, ball_y = self.ball_pos
+    #     # Calculate key distances and states
     #     robot_ball_distance = np.linalg.norm(self.robot_pos - self.ball_pos)
     #     opponent_ball_distance = np.linalg.norm(self.opponent_pos - self.ball_pos)
-    #     goal_center = self._goal_center # Goal distance that considers BOTH X and Y coordinates (adapt to field size)
+    #     robot_opponent_distance = np.linalg.norm(self.robot_pos - self.opponent_pos)
+        
+    #     goal_center = self._goal_center
     #     ball_to_goal_distance = np.linalg.norm(self.ball_pos - goal_center)
     #     robot_to_goal_distance = np.linalg.norm(self.robot_pos - goal_center)
-    #     robot_opponent_distance = np.linalg.norm(self.robot_pos - self.opponent_pos)
-
-    #     # Convert thresholds to pixels
+        
+    #     # Convert thresholds from meters to pixels
     #     contact_threshold = self.field_config.meters_to_pixels(robot_params.get('contact_threshold', 0.25))
-    #     close_threshold = self.field_config.meters_to_pixels(robot_params.get('close_threshold', 0.4))
-    #     medium_threshold = self.field_config.meters_to_pixels(robot_params.get('medium_threshold', 0.8))
-    #     far_threshold = self.field_config.meters_to_pixels(robot_params.get('far_threshold', 1.5))
     #     possession_threshold = self.field_config.meters_to_pixels(robot_params.get('possession_threshold', 0.4))
         
-    #     #TODO: THIS IS NOT USED Check if robot is actually in front of goal (scaled to field size)
-    #     # goal_area_x_min = self.field_width * 0.75  # 75% of field width
-    #     # goal_area_y_min = self.field_height * 0.4   # 40% of field height
-    #     # goal_area_y_max = self.field_height * 0.6   # 60% of field height
-    #     # goal_aligned = (robot_x > goal_area_x_min and goal_area_y_min < robot_y < goal_area_y_max)
-        
-    #     # PRIORITY 1: Major outcomes (also since the episode should end with either of these 3 outcomes)
-    #     # HUGE reward for scoring
-    #     if self._check_goal():
-    #         # reward += reward_params['goal_scored']
-    #         print("🎉 GOAL SCORED!")
-    #         return reward_params.get('goal_scored', 100.0)
+    #     # Check if robot has ball control
+    #     robot_has_control = robot_ball_distance < contact_threshold
+    #     opponent_closer_to_ball = opponent_ball_distance < robot_ball_distance
 
-    #     # HUGE penalty for opponent scoring
+    #     # === TERMINAL OUTCOMES (Episode-ending rewards) ===
+    #     if self._check_goal():
+    #         return reward_params.get('goal_scored_reward', 150.0)
+            
     #     if self._check_opponent_goal():
-    #         # reward += -reward_params['goal_scored']  # Negative of goal reward
-    #         print("😭 OPPONENT SCORED!")
-    #         return -reward_params.get('goal_scored', 100.0) # Negative of goal reward
+    #         return reward_params.get('opponent_goal_penalty', -60.0)
             
     #     if self._check_ball_out_of_play():
-    #         return reward_params.get('out_of_bounds_penalty', -10.0)
-
+    #         return reward_params.get('ball_out_bounds_penalty', -20.0)
+        
+    #     # CRITICAL FAILURE: Opponent collision
     #     if robot_opponent_distance < self.collision_distance:
-    #         return reward_params.get('collision_penalty')
+    #         return reward_params.get('robot_collision_penalty', -8.0)
+        
+    #     collision_distance_threshold = self.field_config.meters_to_pixels(
+    #         reward_params.get('collision_distance_threshold', 0.3)
+    #     )
+    #     # # === ANTI-SPINNING MEASURES ===
+    #     # # Calculate both linear and rotational movement
+    #     # robot_linear_speed = np.linalg.norm(self.robot_vel)
+    #     # robot_rotational_speed = abs(getattr(self, '_prev_robot_angle', self.robot_angle) - self.robot_angle)
+        
+    #     # # Store current angle for next frame
+    #     # self._prev_robot_angle = self.robot_angle
+        
+    #     # # STRONG penalty for insufficient movement (prevents spinning in place)
+    #     # min_linear_speed = reward_params.get('min_required_linear_speed', 0.5)
+    #     # max_rotation_without_translation = reward_params.get('max_rotation_without_translation', 0.1)
+        
+    #     # # Detect spinning: high rotation but low linear movement
+    #     # if robot_linear_speed < min_linear_speed and robot_rotational_speed > max_rotation_without_translation:
+    #     #     spinning_penalty = reward_params.get('spinning_penalty', 15.0)  # Strong penalty
+    #     #     reward -= spinning_penalty
+            
+    #     # # General stationary penalty (weaker than spinning penalty)
+    #     # elif robot_linear_speed < reward_params.get('stationary_speed_threshold', 0.2):
+    #     #     stationary_penalty = reward_params.get('stationary_penalty', 3.0)
+    #     #     reward -= stationary_penalty
+        
+    #     # === POSSESSION-BASED BEHAVIOR SWITCHING ===
+        
+    #     # Check if robot has meaningful ball control
+    #     # robot_has_control = robot_ball_distance < possession_threshold
+    #     # opponent_closer_to_ball = opponent_ball_distance < robot_ball_distance
+        
+    #     # === PHASE 1: GET THE BALL (when robot doesn't have possession) ===
+    #     if not self.has_ball:
+    #         # Distance-based rewards (configurable thresholds)
+    #         contact_reward = reward_params.get('ball_contact_reward', 3.0)
+    #         close_reward = reward_params.get('ball_close_reward', 2.0) 
+    #         medium_reward = reward_params.get('ball_medium_reward', 1.0)
+    #         far_reward = reward_params.get('ball_far_reward', 0.3)
+            
+    #         # Configurable distance multipliers
+    #         close_threshold_multiplier = reward_params.get('close_threshold_multiplier', 2.0)
+    #         medium_threshold_multiplier = reward_params.get('medium_threshold_multiplier', 4.0)
+    #         far_threshold_multiplier = reward_params.get('far_threshold_multiplier', 6.0)
+            
+    #         # Dense reward shaping for approaching ball
+    #         if robot_ball_distance < contact_threshold:
+    #             reward += contact_reward
+    #         elif robot_ball_distance < contact_threshold * close_threshold_multiplier:
+    #             reward += close_reward
+    #         elif robot_ball_distance < contact_threshold * medium_threshold_multiplier:
+    #             reward += medium_reward
+    #         elif robot_ball_distance < contact_threshold * far_threshold_multiplier:
+    #             reward += far_reward
+            
+    #         # Penalty for being very far from ball
+    #         max_distance = self._max_distance
+    #         far_ball_threshold = reward_params.get('far_ball_threshold', 0.4)  # 40% of field
+    #         far_ball_penalty = reward_params.get('far_ball_penalty', 0.5)
+            
+    #         if robot_ball_distance > max_distance * far_ball_threshold:
+    #             reward -= far_ball_penalty
+            
+    #         # Movement direction reward (moving toward ball)
+    #         robot_speed = np.linalg.norm(self.robot_vel)
+    #         movement_threshold = reward_params.get('movement_threshold', 0.1)
+            
+    #         if robot_speed > movement_threshold:  # Robot is moving
+    #             ball_direction = self.ball_pos - self.robot_pos
+    #             if np.linalg.norm(ball_direction) > 1e-6:
+    #                 ball_direction_normalized = ball_direction / np.linalg.norm(ball_direction)
+    #                 robot_velocity_normalized = self.robot_vel / robot_speed
+    #                 movement_alignment = np.dot(robot_velocity_normalized, ball_direction_normalized)
+                    
+    #                 # Configurable alignment thresholds and rewards
+    #                 good_alignment_threshold = reward_params.get('ball_seeking_threshold', 0.3)
+    #                 ball_seeking_reward_rate = reward_params.get('ball_seeking_reward_rate', 1.0)
+    #                 wrong_direction_penalty_rate = reward_params.get('wrong_direction_penalty_rate', 0.3)
+                    
+    #                 if movement_alignment > good_alignment_threshold:  # Moving toward ball
+    #                     reward += movement_alignment * ball_seeking_reward_rate
+    #                 else:  # Moving away from ball
+    #                     reward -= wrong_direction_penalty_rate
+            
+    #         # Competitive pressure (opponent closer to ball)
+    #         opponent_ball_distance = np.linalg.norm(self.opponent_pos - self.ball_pos)
+    #         if opponent_ball_distance < robot_ball_distance:
+    #             closeness_diff = robot_ball_distance - opponent_ball_distance
+    #             competitive_penalty_rate = reward_params.get('opponent_closer_penalty_rate', 0.01)
+    #             max_competitive_penalty = reward_params.get('opponent_closer_max_penalty', 1.0)
+    #             penalty = min(closeness_diff * competitive_penalty_rate, max_competitive_penalty)
+    #             reward -= penalty
 
-    #     # PRIORITY 2: Ball acquisition
-    #     if robot_ball_distance < contact_threshold:
-    #         reward += reward_params.get('ball_contact_reward', 15.0)
-    #     elif robot_ball_distance < close_threshold:
-    #         reward += reward_params.get('close_reward', 8.0)
-    #     elif robot_ball_distance < medium_threshold:
-    #         reward += reward_params.get('medium_reward', 4.0)
-    #     elif robot_ball_distance < far_threshold:
-    #         reward += reward_params.get('far_reward', 1.0)
-    #     else:
-    #         reward += reward_params.get('too_far_penalty', -2.0)
-
-    #     # COMPETITIVE ELEMENT: Penalty if opponent is closer to ball
-    #     if opponent_ball_distance < robot_ball_distance:
-    #         closeness_difference = robot_ball_distance - opponent_ball_distance
-    #         penalty_rate = reward_params.get('opponent_closer_penalty_rate', 0.2)
-    #         max_penalty = reward_params.get('opponent_closer_max_penalty', 10.0)
-    #         competitive_penalty = min(closeness_difference * penalty_rate, max_penalty)
-    #         reward -= competitive_penalty
-
-    #     max_distance = self._max_distance  # Maximum distance in the field
-    #     ball_proximity_reward = (max_distance - robot_ball_distance) / max_distance # Idea to maximise this reward as the robot is close to the ball
-    #     reward += ball_proximity_reward * reward_params.get('proximity_multiplier', 10.0)  # Strong ball proximity reward
-
-    #     # PHASE 2: Reward for moving towards ball (velocity-based)
+    #     # === PHASE 2: PUSH BALL TO GOAL (when robot has possession) ===
+    #     else:  # self.has_ball is True
+    #         # Base possession reward
+    #         possession_reward = reward_params.get('ball_possession_reward', 3.0)
+    #         reward += possession_reward
+            
+    #         # Reward for ball progress toward goal
+    #         if hasattr(self, '_prev_ball_to_goal_distance'):
+    #             goal_progress = self._prev_ball_to_goal_distance - ball_to_goal_distance
+    #             goal_progress_reward_rate = reward_params.get('goal_progress_reward_rate', 20.0)
+    #             goal_regression_penalty_rate = reward_params.get('goal_regression_penalty_rate', 5.0)
+    #             regression_threshold = reward_params.get('goal_regression_threshold', 1.0)
+                
+    #             if goal_progress > 0:  # Ball moved closer to goal
+    #                 reward += goal_progress * goal_progress_reward_rate
+    #             elif goal_progress < -regression_threshold:  # Ball moved away significantly  
+    #                 reward -= abs(goal_progress) * goal_regression_penalty_rate
+            
+    #         # Always update for next frame
+    #         self._prev_ball_to_goal_distance = ball_to_goal_distance
+            
+    #         # Reward for robot positioning behind ball (shepherding)
+    #         ball_to_goal_direction = goal_center - self.ball_pos
+    #         robot_to_ball_direction = self.ball_pos - self.robot_pos
+            
+    #         if (np.linalg.norm(ball_to_goal_direction) > 1e-6 and 
+    #             np.linalg.norm(robot_to_ball_direction) > 1e-6):
+                
+    #             ball_to_goal_normalized = ball_to_goal_direction / np.linalg.norm(ball_to_goal_direction)
+    #             robot_to_ball_normalized = robot_to_ball_direction / np.linalg.norm(robot_to_ball_direction)
+                
+    #             # Good shepherding: robot behind ball relative to goal
+    #             shepherding_alignment = np.dot(robot_to_ball_normalized, ball_to_goal_normalized)
+    #             shepherding_threshold = reward_params.get('shepherding_alignment_threshold', 0.5)
+    #             shepherding_max_bonus = reward_params.get('shepherding_max_bonus', 2.0)
+                
+    #             if shepherding_alignment > shepherding_threshold:
+    #                 reward += shepherding_alignment * shepherding_max_bonus
+            
+    #         # Optimal shooting zone rewards
+    #         robot_x_fraction = self.robot_pos[0] / self.field_width
+    #         robot_y_center = abs(self.robot_pos[1] - self.field_height / 2) / (self.field_height / 2)
+            
+    #         # Configurable zone thresholds and rewards
+    #         optimal_zone_x_threshold = reward_params.get('optimal_zone_x_threshold', 0.7)
+    #         optimal_zone_y_threshold = reward_params.get('optimal_zone_y_threshold', 0.3)
+    #         optimal_zone_reward = reward_params.get('optimal_zone_reward', 5.0)
+            
+    #         attacking_zone_x_threshold = reward_params.get('attacking_zone_x_threshold', 0.6)
+    #         attacking_zone_reward = reward_params.get('attacking_zone_reward', 2.0)
+            
+    #         # Strong reward for being in optimal shooting position with ball
+    #         if robot_x_fraction > optimal_zone_x_threshold and robot_y_center < optimal_zone_y_threshold:
+    #             reward += optimal_zone_reward
+    #         elif robot_x_fraction > attacking_zone_x_threshold:  # In attacking third
+    #             reward += attacking_zone_reward
+            
+    #         # Possession time bonus (capped)
+    #         possession_bonus_rate = reward_params.get('robot_possession_bonus_rate', 0.05)
+    #         possession_bonus_cap = reward_params.get('robot_possession_bonus_cap', 1.0)
+    #         possession_bonus = min(self.robot_possession_time * possession_bonus_rate, possession_bonus_cap)
+    #         reward += possession_bonus
+        
+    #     # === GENERAL PENALTIES ===
+        
+    #     # Anti-spinning/stationary penalty
     #     robot_speed = np.linalg.norm(self.robot_vel)
-    #     if robot_ball_distance > close_threshold and robot_speed > 0.1:  # Only if moving fast enough
-    #         # Calculate if robot is moving towards ball
-    #         ball_direction = (self.ball_pos - self.robot_pos)
-    #         if np.linalg.norm(ball_direction) > 0:
-    #             ball_direction_norm = ball_direction / np.linalg.norm(ball_direction)
-    #             robot_velocity_norm = self.robot_vel / robot_speed
-                
-    #             # Reward for moving towards ball
-    #             velocity_alignment = np.dot(robot_velocity_norm, ball_direction_norm)
-    #             if velocity_alignment > 0:
-    #                 reward += velocity_alignment * robot_speed * 0.9  # Reward moving towards ball
-
-    #     # PHASE 3: Reward for pushing ball toward goal
+    #     stationary_threshold = reward_params.get('stationary_speed_threshold', 0.1)
+    #     stationary_penalty = reward_params.get('stationary_penalty', 1.0)
         
+    #     if robot_speed < stationary_threshold:  # Barely moving
+    #         reward -= stationary_penalty
         
-    #     # Only reward ball progress when robot is close to ball
-    #     if robot_ball_distance < medium_threshold:
-    #         max_goal_distance = np.linalg.norm([0, self.field_height//2] - goal_center)
-    #         goal_progress = (max_goal_distance - ball_to_goal_distance) / max_goal_distance
-    #         reward += goal_progress * 4.0
+    #     # Smart boundary penalties (context-aware)
+    #     boundary_threshold = reward_params.get('boundary_penalty_threshold', 0.1)
+    #     boundary_penalty_rate = reward_params.get('boundary_penalty_rate', 0.5)
+    #     boundary_movement_tolerance = reward_params.get('boundary_movement_tolerance', 0.2)
+        
+    #     boundary_margin = min(self.field_width, self.field_height) * boundary_threshold
+    #     robot_near_boundary = (
+    #         self.robot_pos[0] < boundary_margin or 
+    #         self.robot_pos[0] > self.field_width - boundary_margin or
+    #         self.robot_pos[1] < boundary_margin or 
+    #         self.robot_pos[1] > self.field_height - boundary_margin
+    #     )
+        
+    #     if robot_near_boundary:
+    #         # Check if robot is making progress toward goal while on boundary
+    #         robot_speed = np.linalg.norm(self.robot_vel)
             
-    #         # Extra reward if robot is "shepherding" ball toward goal
-    #         shepherding_threshold = self.field_config.meters_to_pixels(0.35)  # 35cm
-    #         if robot_ball_distance < shepherding_threshold:
-    #             robot_ball_goal_angle = self._calculate_shepherding_angle()
-    #             if robot_ball_goal_angle < 30:  # Very good angle
-    #                 reward += 6.0
-    #             elif robot_ball_goal_angle < 60:  # Good angle
-    #                 reward += 4.0
-    #             elif robot_ball_goal_angle < 90:  # Okay angle
-    #                 reward += 2.0
-
-    #     # PHASE 4: Reward for ball speed toward goal (good pushing)
-    #     ball_speed = np.linalg.norm(self.ball_vel)
-    #     if ball_speed > 0.1 and robot_ball_distance < medium_threshold:  # Only when close to ball
-    #         ball_to_goal = goal_center - self.ball_pos
-    #         if np.linalg.norm(ball_to_goal) > 1e-6:
-    #             ball_to_goal_normalized = ball_to_goal / np.linalg.norm(ball_to_goal)
-    #             ball_vel_normalized = self.ball_vel / ball_speed
-                
-    #             # Dot product: 1 = moving directly toward goal, -1 = away from goal
-    #             goal_direction_alignment = np.dot(ball_vel_normalized, ball_to_goal_normalized)
-    #             if goal_direction_alignment > 0:
-    #                 reward += goal_direction_alignment * min(ball_speed, 2.0) * 1.5
+    #         if robot_speed > boundary_movement_tolerance:  # Robot is moving
+    #             # Check if movement is toward goal
+    #             goal_direction = goal_center - self.robot_pos
+    #             if np.linalg.norm(goal_direction) > 1e-6:
+    #                 goal_direction_normalized = goal_direction / np.linalg.norm(goal_direction)
+    #                 robot_velocity_normalized = self.robot_vel / robot_speed
+    #                 movement_toward_goal = np.dot(robot_velocity_normalized, goal_direction_normalized)
+                    
+    #                 goal_progress_threshold = reward_params.get('boundary_goal_progress_threshold', 0.3)
+                    
+    #                 if movement_toward_goal > goal_progress_threshold:
+    #                     # Robot moving toward goal along boundary - reduced penalty or no penalty
+    #                     if not self.has_ball:
+    #                         # Without ball: small penalty but allow strategic positioning
+    #                         reduced_boundary_penalty = reward_params.get('reduced_boundary_penalty', 0.1)
+    #                         reward -= reduced_boundary_penalty
+    #                         # No penalty if the robot has possession at this stage
+    #                 else:
+    #                     # Robot not progressing toward goal - full boundary penalty
+    #                     reward -= boundary_penalty_rate
+    #             else:
+    #                 # Cannot determine goal direction - apply penalty
+    #                 reward -= boundary_penalty_rate
+    #         else:
+    #             # Robot stationary on boundary - strong penalty
+    #             stationary_boundary_penalty = reward_params.get('stationary_boundary_penalty', 1.0)
+    #             reward -= stationary_boundary_penalty
         
+    #     # Opponent possession penalty
+    #     if self.opponent_has_ball:
+    #         opponent_possession_penalty = reward_params.get('opponent_possession_penalty', 1.0)
+    #         reward -= opponent_possession_penalty
         
-
-    #     # === ANTI-EXPLOIT PENALTIES ===
-    #     # 4A: STRONG penalties for edge/corner behavior (scaled to field size)
-    #     edge_threshold = min(self.field_width, self.field_height) * 0.05  # Reduced from 0.1 to 0.05
-    #     corner_threshold = min(self.field_width, self.field_height) * 0.08  # Reduced from 0.15 to 0.08
-
-    #     # Robot near edges
-    #     if (robot_x < edge_threshold or robot_x > (self.field_width - edge_threshold) or 
-    #         robot_y < edge_threshold or robot_y > (self.field_height - edge_threshold)):
-    #         reward += reward_params['edge_penalty']  # Strong penalty for robot camping edges
-        
-    #     # Ball near edges (prevents pushing ball to edges)
-    #     if (ball_x < edge_threshold or ball_x > (self.field_width - edge_threshold) or 
-    #         ball_y < edge_threshold or ball_y > (self.field_height - edge_threshold)):
-
-    #         if self._check_ball_out_of_play():
-    #             reward -= 2.0  # Major penalty for losing ball
-        
-    #     # 4C: Reward for ball being in center field (encourage proper play)
-    #     field_center = np.array([self.field_width // 2, self.field_height // 2])
-    #     ball_to_center_distance = np.linalg.norm(self.ball_pos - field_center)
-    #     center_zone_radius = min(self.field_width, self.field_height) * 0.25  # 25% of field size
-    #     if ball_to_center_distance < center_zone_radius:  # Ball near center
-    #         reward += reward_params['center_field_bonus']
-
-    #     # Collision (moderate penalty)
-    #     robot_opponent_distance = np.linalg.norm(self.robot_pos - self.opponent_pos)
-    #     if robot_opponent_distance < self.collision_distance:
-    #         reward += reward_params['collision_penalty']
-            
-    #     # Corner camping prevention (scaled to field)
-    #     # corner_threshold = min(self.field_width, self.field_height) * 0.15  # 15% of field size
-    #     if (robot_x < corner_threshold or robot_x > (self.field_width - corner_threshold) or 
-    #         robot_y < corner_threshold or robot_y > (self.field_height - corner_threshold)):
-    #         reward += reward_params['corner_penalty']
-
-    #     # Extra reward for getting ball into dangerous areas (near goal) - scaled to field
-    #     dangerous_area_x = self.field_width * 0.75  # 75% of field width
-    #     dangerous_area_y_min = self.field_height * 0.375  # 37.5% of field height
-    #     dangerous_area_y_max = self.field_height * 0.625  # 62.5% of field height
-        
-    #     if ball_x > dangerous_area_x and dangerous_area_y_min < ball_y < dangerous_area_y_max:
-    #         reward += 3.0  # Ball in scoring area
-            
-    #         # Even more if robot is still close (maintaining control)
-    #         if robot_ball_distance < self.field_config.meters_to_pixels(0.4):  # Within 40cm
-    #             reward += 5.0 # (USED TO BE 3.0)
-
-    #     # Penalty if opponent is closer to ball (competitive element)
-    #     if opponent_ball_distance < robot_ball_distance:
-    #         reward -= 0.05
-
-    #     # Clip rewards to prevent explosions
-    #     reward = np.clip(reward, -2.0, 30.0)
-        
-    #     # Safety check
+    #     # Safety checks
     #     if not np.isfinite(reward):
-    #         reward = 0.0
-            
+    #         invalid_penalty = reward_params.get('invalid_state_penalty', 0.0)
+    #         reward = invalid_penalty
+        
+    #     # === TIME AND EFFICIENCY ===
+        
+    #     # Small time penalty to encourage efficiency
+    #     time_penalty = reward_params.get('time_step_penalty', 0.1)
+    #     reward -= time_penalty
+        
+    #     # NaN/inf safety check
+    #     if not np.isfinite(reward):
+    #         default_penalty = reward_params.get('invalid_state_penalty', -1.0)
+    #         reward = default_penalty
+        
+    #     # Optional: Soft bounds warning (for debugging, not clipping)
+    #     if abs(reward) > 200:
+    #         print(f"⚠️ Unusually high reward: {reward:.2f} - check reward scaling")
+                
     #     return float(reward)
+    # # # Function to calculate rewards as an episode progresses during training   
+    # # def _calculate_reward(self) -> float:
+    # #     reward = 0.0
+
+    # #     # Load parameters from config
+    # #     reward_params = self.field_config.config.get('reward_parameters', {})
+    # #     robot_params = self.field_config.config.get('robot_parameters', {})
+    # #     strategic_zones = self.field_config.config.get('strategic_zones', {})
+        
+    # #     # Time penalty
+    # #     reward += reward_params['time_penalty']
+
+    # #     # Calculate key distances  using configurable field dimensions
+    # #     robot_x, robot_y = self.robot_pos
+    # #     ball_x, ball_y = self.ball_pos
+    # #     robot_ball_distance = np.linalg.norm(self.robot_pos - self.ball_pos)
+    # #     opponent_ball_distance = np.linalg.norm(self.opponent_pos - self.ball_pos)
+    # #     goal_center = self._goal_center # Goal distance that considers BOTH X and Y coordinates (adapt to field size)
+    # #     ball_to_goal_distance = np.linalg.norm(self.ball_pos - goal_center)
+    # #     robot_to_goal_distance = np.linalg.norm(self.robot_pos - goal_center)
+    # #     robot_opponent_distance = np.linalg.norm(self.robot_pos - self.opponent_pos)
+
+    # #     # Convert thresholds to pixels
+    # #     contact_threshold = self.field_config.meters_to_pixels(robot_params.get('contact_threshold', 0.25))
+    # #     close_threshold = self.field_config.meters_to_pixels(robot_params.get('close_threshold', 0.4))
+    # #     medium_threshold = self.field_config.meters_to_pixels(robot_params.get('medium_threshold', 0.8))
+    # #     far_threshold = self.field_config.meters_to_pixels(robot_params.get('far_threshold', 1.5))
+    # #     possession_threshold = self.field_config.meters_to_pixels(robot_params.get('possession_threshold', 0.4))
+        
+    # #     #TODO: THIS IS NOT USED Check if robot is actually in front of goal (scaled to field size)
+    # #     # goal_area_x_min = self.field_width * 0.75  # 75% of field width
+    # #     # goal_area_y_min = self.field_height * 0.4   # 40% of field height
+    # #     # goal_area_y_max = self.field_height * 0.6   # 60% of field height
+    # #     # goal_aligned = (robot_x > goal_area_x_min and goal_area_y_min < robot_y < goal_area_y_max)
+        
+    # #     # PRIORITY 1: Major outcomes (also since the episode should end with either of these 3 outcomes)
+    # #     # HUGE reward for scoring
+    # #     if self._check_goal():
+    # #         # reward += reward_params['goal_scored']
+    # #         print("🎉 GOAL SCORED!")
+    # #         return reward_params.get('goal_scored', 100.0)
+
+    # #     # HUGE penalty for opponent scoring
+    # #     if self._check_opponent_goal():
+    # #         # reward += -reward_params['goal_scored']  # Negative of goal reward
+    # #         print("😭 OPPONENT SCORED!")
+    # #         return -reward_params.get('goal_scored', 100.0) # Negative of goal reward
+            
+    # #     if self._check_ball_out_of_play():
+    # #         return reward_params.get('out_of_bounds_penalty', -10.0)
+
+    # #     if robot_opponent_distance < self.collision_distance:
+    # #         return reward_params.get('collision_penalty')
+
+    # #     # PRIORITY 2: Ball acquisition
+    # #     if robot_ball_distance < contact_threshold:
+    # #         reward += reward_params.get('ball_contact_reward', 15.0)
+    # #     elif robot_ball_distance < close_threshold:
+    # #         reward += reward_params.get('close_reward', 8.0)
+    # #     elif robot_ball_distance < medium_threshold:
+    # #         reward += reward_params.get('medium_reward', 4.0)
+    # #     elif robot_ball_distance < far_threshold:
+    # #         reward += reward_params.get('far_reward', 1.0)
+    # #     else:
+    # #         reward += reward_params.get('too_far_penalty', -2.0)
+
+    # #     # COMPETITIVE ELEMENT: Penalty if opponent is closer to ball
+    # #     if opponent_ball_distance < robot_ball_distance:
+    # #         closeness_difference = robot_ball_distance - opponent_ball_distance
+    # #         penalty_rate = reward_params.get('opponent_closer_penalty_rate', 0.2)
+    # #         max_penalty = reward_params.get('opponent_closer_max_penalty', 10.0)
+    # #         competitive_penalty = min(closeness_difference * penalty_rate, max_penalty)
+    # #         reward -= competitive_penalty
+
+    # #     max_distance = self._max_distance  # Maximum distance in the field
+    # #     ball_proximity_reward = (max_distance - robot_ball_distance) / max_distance # Idea to maximise this reward as the robot is close to the ball
+    # #     reward += ball_proximity_reward * reward_params.get('proximity_multiplier', 10.0)  # Strong ball proximity reward
+
+    # #     # PHASE 2: Reward for moving towards ball (velocity-based)
+    # #     robot_speed = np.linalg.norm(self.robot_vel)
+    # #     if robot_ball_distance > close_threshold and robot_speed > 0.1:  # Only if moving fast enough
+    # #         # Calculate if robot is moving towards ball
+    # #         ball_direction = (self.ball_pos - self.robot_pos)
+    # #         if np.linalg.norm(ball_direction) > 0:
+    # #             ball_direction_norm = ball_direction / np.linalg.norm(ball_direction)
+    # #             robot_velocity_norm = self.robot_vel / robot_speed
+                
+    # #             # Reward for moving towards ball
+    # #             velocity_alignment = np.dot(robot_velocity_norm, ball_direction_norm)
+    # #             if velocity_alignment > 0:
+    # #                 reward += velocity_alignment * robot_speed * 0.9  # Reward moving towards ball
+
+    # #     # PHASE 3: Reward for pushing ball toward goal
+        
+        
+    # #     # Only reward ball progress when robot is close to ball
+    # #     if robot_ball_distance < medium_threshold:
+    # #         max_goal_distance = np.linalg.norm([0, self.field_height//2] - goal_center)
+    # #         goal_progress = (max_goal_distance - ball_to_goal_distance) / max_goal_distance
+    # #         reward += goal_progress * 4.0
+            
+    # #         # Extra reward if robot is "shepherding" ball toward goal
+    # #         shepherding_threshold = self.field_config.meters_to_pixels(0.35)  # 35cm
+    # #         if robot_ball_distance < shepherding_threshold:
+    # #             robot_ball_goal_angle = self._calculate_shepherding_angle()
+    # #             if robot_ball_goal_angle < 30:  # Very good angle
+    # #                 reward += 6.0
+    # #             elif robot_ball_goal_angle < 60:  # Good angle
+    # #                 reward += 4.0
+    # #             elif robot_ball_goal_angle < 90:  # Okay angle
+    # #                 reward += 2.0
+
+    # #     # PHASE 4: Reward for ball speed toward goal (good pushing)
+    # #     ball_speed = np.linalg.norm(self.ball_vel)
+    # #     if ball_speed > 0.1 and robot_ball_distance < medium_threshold:  # Only when close to ball
+    # #         ball_to_goal = goal_center - self.ball_pos
+    # #         if np.linalg.norm(ball_to_goal) > 1e-6:
+    # #             ball_to_goal_normalized = ball_to_goal / np.linalg.norm(ball_to_goal)
+    # #             ball_vel_normalized = self.ball_vel / ball_speed
+                
+    # #             # Dot product: 1 = moving directly toward goal, -1 = away from goal
+    # #             goal_direction_alignment = np.dot(ball_vel_normalized, ball_to_goal_normalized)
+    # #             if goal_direction_alignment > 0:
+    # #                 reward += goal_direction_alignment * min(ball_speed, 2.0) * 1.5
+        
+        
+
+    # #     # === ANTI-EXPLOIT PENALTIES ===
+    # #     # 4A: STRONG penalties for edge/corner behavior (scaled to field size)
+    # #     edge_threshold = min(self.field_width, self.field_height) * 0.05  # Reduced from 0.1 to 0.05
+    # #     corner_threshold = min(self.field_width, self.field_height) * 0.08  # Reduced from 0.15 to 0.08
+
+    # #     # Robot near edges
+    # #     if (robot_x < edge_threshold or robot_x > (self.field_width - edge_threshold) or 
+    # #         robot_y < edge_threshold or robot_y > (self.field_height - edge_threshold)):
+    # #         reward += reward_params['edge_penalty']  # Strong penalty for robot camping edges
+        
+    # #     # Ball near edges (prevents pushing ball to edges)
+    # #     if (ball_x < edge_threshold or ball_x > (self.field_width - edge_threshold) or 
+    # #         ball_y < edge_threshold or ball_y > (self.field_height - edge_threshold)):
+
+    # #         if self._check_ball_out_of_play():
+    # #             reward -= 2.0  # Major penalty for losing ball
+        
+    # #     # 4C: Reward for ball being in center field (encourage proper play)
+    # #     field_center = np.array([self.field_width // 2, self.field_height // 2])
+    # #     ball_to_center_distance = np.linalg.norm(self.ball_pos - field_center)
+    # #     center_zone_radius = min(self.field_width, self.field_height) * 0.25  # 25% of field size
+    # #     if ball_to_center_distance < center_zone_radius:  # Ball near center
+    # #         reward += reward_params['center_field_bonus']
+
+    # #     # Collision (moderate penalty)
+    # #     robot_opponent_distance = np.linalg.norm(self.robot_pos - self.opponent_pos)
+    # #     if robot_opponent_distance < self.collision_distance:
+    # #         reward += reward_params['collision_penalty']
+            
+    # #     # Corner camping prevention (scaled to field)
+    # #     # corner_threshold = min(self.field_width, self.field_height) * 0.15  # 15% of field size
+    # #     if (robot_x < corner_threshold or robot_x > (self.field_width - corner_threshold) or 
+    # #         robot_y < corner_threshold or robot_y > (self.field_height - corner_threshold)):
+    # #         reward += reward_params['corner_penalty']
+
+    # #     # Extra reward for getting ball into dangerous areas (near goal) - scaled to field
+    # #     dangerous_area_x = self.field_width * 0.75  # 75% of field width
+    # #     dangerous_area_y_min = self.field_height * 0.375  # 37.5% of field height
+    # #     dangerous_area_y_max = self.field_height * 0.625  # 62.5% of field height
+        
+    # #     if ball_x > dangerous_area_x and dangerous_area_y_min < ball_y < dangerous_area_y_max:
+    # #         reward += 3.0  # Ball in scoring area
+            
+    # #         # Even more if robot is still close (maintaining control)
+    # #         if robot_ball_distance < self.field_config.meters_to_pixels(0.4):  # Within 40cm
+    # #             reward += 5.0 # (USED TO BE 3.0)
+
+    # #     # Penalty if opponent is closer to ball (competitive element)
+    # #     if opponent_ball_distance < robot_ball_distance:
+    # #         reward -= 0.05
+
+    # #     # Clip rewards to prevent explosions
+    # #     reward = np.clip(reward, -2.0, 30.0)
+        
+    # #     # Safety check
+    # #     if not np.isfinite(reward):
+    # #         reward = 0.0
+            
+    # #     return float(reward)
 
     def _calculate_shepherding_angle(self) -> float:
         """Calculate the angle between robot-ball vector and ball-goal vector"""
