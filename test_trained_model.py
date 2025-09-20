@@ -8,11 +8,13 @@ Last Updated: 10/08/2025
 import time, yaml
 from stable_baselines3 import PPO, DDPG
 from SoccerEnv.soccerenv import SoccerEnv
+from train_GUI import TrainGUI
 import numpy as np
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import seaborn as sns
 from scipy import stats
+from SoccerEnv.soccerenv import ActionSmoothingWrapper
 
 import traceback
 import sys
@@ -60,7 +62,9 @@ def watch_trained_robot(model_name, model_type=None, episodes=5, difficulty="med
         # Load the trained model        
         ModelName = model_types[model_type]
         model = ModelName.load(model_name)
-        
+
+        smooth_model = ActionSmoothingWrapper(model, smoothing_factor=0.6)
+
         # Create environment with human rendering
         env = SoccerEnv(render_mode="human", difficulty=difficulty, config_path=config_path, testing_mode=testing_mode)
         env.dt *= 4.0  # TODO: REMOVE THIS WHEN DONE WITH TESTING. THis is Just to speed up the visualisation
@@ -103,6 +107,8 @@ def watch_trained_robot(model_name, model_type=None, episodes=5, difficulty="med
             for step in range(env.max_steps):  # Max 1000 steps per episode
                 # Get action from trained model
                 action, _ = model.predict(obs, deterministic=True)
+
+                # action, _ = smooth_model.predict(obs, deterministic=True)
                 
                 # Take step in environment
                 obs, reward, terminated, truncated, _ = env.step(action)
@@ -263,17 +269,24 @@ if __name__ == "__main__":
         watch_trained_robot(model_name, model_type="PPO", episodes=5, difficulty=difficulty, config_path=config_path)
         
     elif choice == "2":
-        model_name = input("Enter the model name to load:").strip()
+        app = TrainGUI()
+        model_file_path = app.open_file_dialog()
+        if model_file_path:
+            app.close_window()
+
+        # model_name = input("Enter the model name to load:").strip()
+
+
         print("\nSelect difficulty:")
         print("1. Easy")
-        print("2. Medium") 
+        print("2. Medium")
         print("3. Hard")
         diff_choice = input("Enter choice (1-3): ").strip()
         
         difficulty_map = {"1": "easy", "2": "medium", "3": "hard"}
         difficulty = difficulty_map.get(diff_choice, "medium")
         
-        watch_trained_robot(model_name, model_type="DDPG", episodes=5, difficulty=difficulty, config_path=config_path)
+        watch_trained_robot(model_file_path, model_type="DDPG", episodes=5, difficulty=difficulty, config_path=config_path)
         
     elif choice == "3":
         # compare_models(config_path)

@@ -1,0 +1,210 @@
+2025-08-31 17:28:15,316 - INFO - ================================================================================
+2025-08-31 17:28:15,316 - INFO - STARTING MULTI-MODEL TRAINING PIPELINE
+2025-08-31 17:28:15,317 - INFO - ================================================================================
+2025-08-31 17:28:15,317 - INFO - Output directory: multi_model_training_20250831_172815
+2025-08-31 17:28:15,317 - INFO - Device: CPU
+2025-08-31 17:28:15,343 - INFO - Environment validation successful
+2025-08-31 17:28:15,343 - INFO - Training configuration:
+2025-08-31 17:28:15,344 - INFO -   PPO variants to train: 5
+2025-08-31 17:28:15,344 - INFO -   DDPG variants to train: 5
+2025-08-31 17:28:15,344 - INFO -   Timesteps per model: 1,500,000
+2025-08-31 17:28:15,344 - INFO -   Estimated total time: 45.0-75.0 hours
+2025-08-31 17:28:15,344 - INFO - 
+ PHASE 1: Training 5 PPO variants...
+2025-08-31 17:28:15,344 - INFO - ============================================================
+2025-08-31 17:28:15,345 - INFO - STARTING MULTI-PPO TRAINING
+2025-08-31 17:28:15,345 - INFO - ============================================================
+2025-08-31 17:28:15,345 - INFO - 
+[1/5] Training PPO variant: conservative
+2025-08-31 17:28:15,345 - INFO - Hyperparameters: {'learning_rate': 0.0002, 'n_steps': 2048, 'batch_size': 128, 'n_epochs': 5, 'gamma': 0.99, 'gae_lambda': 0.95, 'clip_range': 0.1, 'ent_coef': 0.05, 'vf_coef': 0.5, 'net_arch': [128, 128]}
+2025-08-31 17:28:15,345 - INFO - Starting PPO variant 'conservative' training...
+2025-08-31 17:28:18,421 - INFO - Training PPO-conservative for 1,500,000 timesteps...
+2025-08-31 17:30:40,768 - INFO - PPO-conservative Step 100000: Recent Avg = 11.53, Eval Score = 653.80
+2025-08-31 17:30:40,779 - INFO - NEW BEST PPO-conservative MODEL! Score: 653.80 (saved to multi_model_training_20250831_172815/models/ppo/ppo_conservative_20250831_173040_step100000)
+2025-08-31 17:33:05,793 - INFO - PPO-conservative Step 200000: Recent Avg = -17.11, Eval Score = 759.19
+2025-08-31 17:33:05,810 - INFO - NEW BEST PPO-conservative MODEL! Score: 759.19 (saved to multi_model_training_20250831_172815/models/ppo/ppo_conservative_20250831_173305_step200000)
+2025-08-31 17:35:33,229 - INFO - PPO-conservative Step 300000: Recent Avg = -135.07, Eval Score = 348.81
+2025-08-31 17:38:02,564 - INFO - PPO-conservative Step 400000: Recent Avg = -72.27, Eval Score = 237.77
+2025-08-31 17:40:23,796 - INFO - PPO-conservative Step 500000: Recent Avg = -68.13, Eval Score = 1460.22
+2025-08-31 17:40:23,814 - INFO - NEW BEST PPO-conservative MODEL! Score: 1460.22 (saved to multi_model_training_20250831_172815/models/ppo/ppo_conservative_20250831_174023_step500000)
+2025-08-31 17:42:42,005 - INFO - PPO-conservative Step 600000: Recent Avg = -145.99, Eval Score = 559.62
+2025-08-31 17:45:01,630 - INFO - PPO-conservative Step 700000: Recent Avg = -77.95, Eval Score = 1158.92
+2025-08-31 17:47:21,285 - INFO - PPO-conservative Step 800000: Recent Avg = 4.57, Eval Score = 923.62
+2025-08-31 17:49:41,191 - INFO - PPO-conservative Step 900000: Recent Avg = -42.11, Eval Score = 138.68
+2025-08-31 17:52:03,935 - INFO - PPO-conservative Step 1000000: Recent Avg = -85.31, Eval Score = 3518.92
+2025-08-31 17:52:03,948 - INFO - NEW BEST PPO-conservative MODEL! Score: 3518.92 (saved to multi_model_training_20250831_172815/models/ppo/ppo_conservative_20250831_175203_step1000000)
+2025-08-31 17:54:25,475 - INFO - PPO-conservative Step 1100000: Recent Avg = -66.56, Eval Score = 2643.76
+2025-08-31 17:56:45,409 - INFO - PPO-conservative Step 1200000: Recent Avg = -68.57, Eval Score = 648.26
+2025-08-31 17:59:07,116 - INFO - PPO-conservative Step 1300000: Recent Avg = -77.66, Eval Score = 844.93
+2025-08-31 18:01:26,487 - INFO - PPO-conservative Step 1400000: Recent Avg = -111.00, Eval Score = 2143.95
+2025-08-31 18:03:44,676 - INFO - PPO-conservative Step 1500000: Recent Avg = -87.04, Eval Score = 435.24
+2025-08-31 18:03:49,679 - INFO - PPO-conservative training completed in 0.59 hours
+2025-08-31 18:03:55,337 - INFO - PPO-conservative final score: 404.83
+2025-08-31 18:03:55,338 - INFO - 
+[2/5] Training PPO variant: aggressive
+2025-08-31 18:03:55,338 - INFO - Hyperparameters: {'learning_rate': 0.0005, 'n_steps': 4096, 'batch_size': 256, 'n_epochs': 15, 'gamma': 0.995, 'gae_lambda': 0.98, 'clip_range': 0.3, 'ent_coef': 0.15, 'vf_coef': 0.8, 'net_arch': [256, 256, 128]}
+2025-08-31 18:03:55,338 - INFO - Starting PPO variant 'aggressive' training...
+2025-08-31 18:03:55,444 - INFO - Training PPO-aggressive for 1,500,000 timesteps...
+2025-08-31 18:06:48,213 - INFO - PPO-aggressive Step 100000: Recent Avg = -77.06, Eval Score = -110.83
+2025-08-31 18:06:48,226 - INFO - NEW BEST PPO-aggressive MODEL! Score: -110.83 (saved to multi_model_training_20250831_172815/models/ppo/ppo_aggressive_20250831_180648_step100000)
+2025-08-31 18:09:41,517 - INFO - PPO-aggressive Step 200000: Recent Avg = -144.26, Eval Score = 12.04
+2025-08-31 18:09:41,532 - INFO - NEW BEST PPO-aggressive MODEL! Score: 12.04 (saved to multi_model_training_20250831_172815/models/ppo/ppo_aggressive_20250831_180941_step200000)
+2025-08-31 18:12:40,095 - INFO - PPO-aggressive Step 300000: Recent Avg = -114.89, Eval Score = 289.90
+2025-08-31 18:12:40,112 - INFO - NEW BEST PPO-aggressive MODEL! Score: 289.90 (saved to multi_model_training_20250831_172815/models/ppo/ppo_aggressive_20250831_181240_step300000)
+2025-08-31 18:15:33,581 - INFO - PPO-aggressive Step 400000: Recent Avg = -189.22, Eval Score = 55.41
+2025-08-31 18:18:37,058 - INFO - PPO-aggressive Step 500000: Recent Avg = -99.63, Eval Score = 433.40
+2025-08-31 18:18:37,072 - INFO - NEW BEST PPO-aggressive MODEL! Score: 433.40 (saved to multi_model_training_20250831_172815/models/ppo/ppo_aggressive_20250831_181837_step500000)
+2025-08-31 18:21:55,738 - INFO - PPO-aggressive Step 600000: Recent Avg = -218.54, Eval Score = -134.43
+2025-08-31 18:24:55,397 - INFO - PPO-aggressive Step 700000: Recent Avg = -163.03, Eval Score = 157.63
+2025-08-31 18:27:52,854 - INFO - PPO-aggressive Step 800000: Recent Avg = -172.38, Eval Score = -202.37
+2025-08-31 18:30:47,402 - INFO - PPO-aggressive Step 900000: Recent Avg = -230.41, Eval Score = 322.88
+2025-08-31 18:33:46,263 - INFO - PPO-aggressive Step 1000000: Recent Avg = -126.52, Eval Score = -236.21
+2025-08-31 18:36:41,426 - INFO - PPO-aggressive Step 1100000: Recent Avg = -200.59, Eval Score = 331.72
+2025-08-31 18:39:37,632 - INFO - PPO-aggressive Step 1200000: Recent Avg = -175.37, Eval Score = -10.36
+2025-08-31 18:42:38,892 - INFO - PPO-aggressive Step 1300000: Recent Avg = -155.71, Eval Score = 150.36
+2025-08-31 18:45:37,517 - INFO - PPO-aggressive Step 1400000: Recent Avg = -225.66, Eval Score = 163.35
+2025-08-31 18:48:39,622 - INFO - PPO-aggressive Step 1500000: Recent Avg = -200.92, Eval Score = 137.94
+2025-08-31 18:48:49,672 - INFO - PPO-aggressive training completed in 0.75 hours
+2025-08-31 18:48:54,660 - INFO - PPO-aggressive final score: 86.20
+2025-08-31 18:48:54,660 - INFO - 
+[3/5] Training PPO variant: balanced
+2025-08-31 18:48:54,661 - INFO - Hyperparameters: {'learning_rate': 0.0003, 'n_steps': 4096, 'batch_size': 256, 'n_epochs': 10, 'gamma': 0.99, 'gae_lambda': 0.95, 'clip_range': 0.2, 'ent_coef': 0.1, 'vf_coef': 0.5, 'net_arch': [128, 128, 64]}
+2025-08-31 18:48:54,661 - INFO - Starting PPO variant 'balanced' training...
+2025-08-31 18:48:54,728 - INFO - Training PPO-balanced for 1,500,000 timesteps...
+2025-08-31 18:51:22,613 - INFO - PPO-balanced Step 100000: Recent Avg = -136.06, Eval Score = -521.05
+2025-08-31 18:51:22,628 - INFO - NEW BEST PPO-balanced MODEL! Score: -521.05 (saved to multi_model_training_20250831_172815/models/ppo/ppo_balanced_20250831_185122_step100000)
+2025-08-31 18:53:51,954 - INFO - PPO-balanced Step 200000: Recent Avg = -54.73, Eval Score = -220.63
+2025-08-31 18:53:51,972 - INFO - NEW BEST PPO-balanced MODEL! Score: -220.63 (saved to multi_model_training_20250831_172815/models/ppo/ppo_balanced_20250831_185351_step200000)
+2025-08-31 18:56:22,380 - INFO - PPO-balanced Step 300000: Recent Avg = -143.04, Eval Score = -264.32
+2025-08-31 18:58:57,671 - INFO - PPO-balanced Step 400000: Recent Avg = -233.25, Eval Score = 266.34
+2025-08-31 18:58:57,685 - INFO - NEW BEST PPO-balanced MODEL! Score: 266.34 (saved to multi_model_training_20250831_172815/models/ppo/ppo_balanced_20250831_185857_step400000)
+2025-08-31 19:01:25,872 - INFO - PPO-balanced Step 500000: Recent Avg = -170.51, Eval Score = 401.01
+2025-08-31 19:01:25,886 - INFO - NEW BEST PPO-balanced MODEL! Score: 401.01 (saved to multi_model_training_20250831_172815/models/ppo/ppo_balanced_20250831_190125_step500000)
+2025-08-31 19:03:52,705 - INFO - PPO-balanced Step 600000: Recent Avg = -209.61, Eval Score = -147.17
+2025-08-31 19:06:20,403 - INFO - PPO-balanced Step 700000: Recent Avg = -169.60, Eval Score = -173.91
+2025-08-31 19:08:49,349 - INFO - PPO-balanced Step 800000: Recent Avg = -233.24, Eval Score = -33.52
+2025-08-31 19:11:16,767 - INFO - PPO-balanced Step 900000: Recent Avg = -163.46, Eval Score = -122.45
+2025-08-31 19:13:46,932 - INFO - PPO-balanced Step 1000000: Recent Avg = -226.01, Eval Score = -316.32
+2025-08-31 19:16:23,738 - INFO - PPO-balanced Step 1100000: Recent Avg = -165.60, Eval Score = -294.84
+2025-08-31 19:19:17,763 - INFO - PPO-balanced Step 1200000: Recent Avg = -149.74, Eval Score = -136.59
+2025-08-31 19:22:13,937 - INFO - PPO-balanced Step 1300000: Recent Avg = -220.63, Eval Score = -113.88
+2025-08-31 19:25:07,401 - INFO - PPO-balanced Step 1400000: Recent Avg = -195.49, Eval Score = -175.90
+2025-08-31 19:27:53,976 - INFO - PPO-balanced Step 1500000: Recent Avg = -190.66, Eval Score = -18.35
+2025-08-31 19:28:03,022 - INFO - PPO-balanced training completed in 0.65 hours
+2025-08-31 19:28:11,233 - INFO - PPO-balanced final score: -217.14
+2025-08-31 19:28:11,233 - INFO - 
+[4/5] Training PPO variant: exploration
+2025-08-31 19:28:11,234 - INFO - Hyperparameters: {'learning_rate': 0.0003, 'n_steps': 8192, 'batch_size': 512, 'n_epochs': 8, 'gamma': 0.99, 'gae_lambda': 0.9, 'clip_range': 0.25, 'ent_coef': 0.2, 'vf_coef': 0.3, 'net_arch': [256, 128, 64]}
+2025-08-31 19:28:11,234 - INFO - Starting PPO variant 'exploration' training...
+2025-08-31 19:28:11,371 - INFO - Training PPO-exploration for 1,500,000 timesteps...
+2025-08-31 19:30:32,235 - INFO - PPO-exploration Step 100000: Recent Avg = -98.08, Eval Score = -378.72
+2025-08-31 19:30:32,367 - INFO - NEW BEST PPO-exploration MODEL! Score: -378.72 (saved to multi_model_training_20250831_172815/models/ppo/ppo_exploration_20250831_193032_step100000)
+2025-08-31 19:32:56,985 - INFO - PPO-exploration Step 200000: Recent Avg = -138.39, Eval Score = 638.55
+2025-08-31 19:32:57,035 - INFO - NEW BEST PPO-exploration MODEL! Score: 638.55 (saved to multi_model_training_20250831_172815/models/ppo/ppo_exploration_20250831_193256_step200000)
+2025-08-31 19:35:24,294 - INFO - PPO-exploration Step 300000: Recent Avg = -44.33, Eval Score = 604.04
+2025-08-31 19:37:42,680 - INFO - PPO-exploration Step 400000: Recent Avg = -55.09, Eval Score = 239.07
+2025-08-31 19:40:09,317 - INFO - PPO-exploration Step 500000: Recent Avg = 17.77, Eval Score = 961.87
+2025-08-31 19:40:09,471 - INFO - NEW BEST PPO-exploration MODEL! Score: 961.87 (saved to multi_model_training_20250831_172815/models/ppo/ppo_exploration_20250831_194009_step500000)
+2025-08-31 19:42:42,659 - INFO - PPO-exploration Step 600000: Recent Avg = 22.33, Eval Score = 572.70
+2025-08-31 19:45:13,621 - INFO - PPO-exploration Step 700000: Recent Avg = 101.31, Eval Score = 1498.37
+2025-08-31 19:45:13,854 - INFO - NEW BEST PPO-exploration MODEL! Score: 1498.37 (saved to multi_model_training_20250831_172815/models/ppo/ppo_exploration_20250831_194513_step700000)
+2025-08-31 19:47:35,640 - INFO - PPO-exploration Step 800000: Recent Avg = 95.13, Eval Score = 924.12
+2025-08-31 19:50:07,679 - INFO - PPO-exploration Step 900000: Recent Avg = 104.27, Eval Score = -176.83
+2025-08-31 19:52:30,031 - INFO - PPO-exploration Step 1000000: Recent Avg = 53.29, Eval Score = 270.64
+2025-08-31 19:54:47,854 - INFO - PPO-exploration Step 1100000: Recent Avg = 78.94, Eval Score = 1266.81
+2025-08-31 19:57:05,784 - INFO - PPO-exploration Step 1200000: Recent Avg = 4.89, Eval Score = 99.09
+2025-08-31 19:59:26,103 - INFO - PPO-exploration Step 1300000: Recent Avg = 9.42, Eval Score = 36.18
+2025-08-31 20:01:46,496 - INFO - PPO-exploration Step 1400000: Recent Avg = -66.30, Eval Score = -239.12
+2025-08-31 20:04:04,177 - INFO - PPO-exploration Step 1500000: Recent Avg = -46.12, Eval Score = 56.95
+2025-08-31 20:04:16,812 - INFO - PPO-exploration training completed in 0.60 hours
+2025-08-31 20:04:22,206 - INFO - PPO-exploration final score: -242.11
+2025-08-31 20:04:22,207 - INFO - 
+[5/5] Training PPO variant: large_network
+2025-08-31 20:04:22,208 - INFO - Hyperparameters: {'learning_rate': 0.0001, 'n_steps': 2048, 'batch_size': 128, 'n_epochs': 12, 'gamma': 0.99, 'gae_lambda': 0.95, 'clip_range': 0.2, 'ent_coef': 0.08, 'vf_coef': 0.5, 'net_arch': [512, 512, 256, 128]}
+2025-08-31 20:04:22,210 - INFO - Starting PPO variant 'large_network' training...
+2025-08-31 20:04:22,328 - INFO - Training PPO-large_network for 1,500,000 timesteps...
+2025-08-31 20:08:38,401 - INFO - PPO-large_network Step 100000: Recent Avg = -101.38, Eval Score = -92.36
+2025-08-31 20:08:38,580 - INFO - NEW BEST PPO-large_network MODEL! Score: -92.36 (saved to multi_model_training_20250831_172815/models/ppo/ppo_large_network_20250831_200838_step100000)
+2025-08-31 20:12:57,128 - INFO - PPO-large_network Step 200000: Recent Avg = -81.86, Eval Score = -27.09
+2025-08-31 20:12:57,512 - INFO - NEW BEST PPO-large_network MODEL! Score: -27.09 (saved to multi_model_training_20250831_172815/models/ppo/ppo_large_network_20250831_201257_step200000)
+2025-08-31 20:17:18,198 - INFO - PPO-large_network Step 300000: Recent Avg = -88.83, Eval Score = -603.04
+2025-08-31 20:21:35,245 - INFO - PPO-large_network Step 400000: Recent Avg = -133.37, Eval Score = -156.99
+2025-08-31 20:25:55,474 - INFO - PPO-large_network Step 500000: Recent Avg = -139.97, Eval Score = -132.58
+2025-08-31 20:30:11,033 - INFO - PPO-large_network Step 600000: Recent Avg = -71.89, Eval Score = -54.04
+2025-08-31 20:34:30,725 - INFO - PPO-large_network Step 700000: Recent Avg = -171.47, Eval Score = -241.99
+2025-08-31 20:38:52,677 - INFO - PPO-large_network Step 800000: Recent Avg = -209.27, Eval Score = 143.88
+2025-08-31 20:38:53,037 - INFO - NEW BEST PPO-large_network MODEL! Score: 143.88 (saved to multi_model_training_20250831_172815/models/ppo/ppo_large_network_20250831_203852_step800000)
+2025-08-31 20:43:19,868 - INFO - PPO-large_network Step 900000: Recent Avg = -259.03, Eval Score = -249.81
+2025-08-31 20:47:48,081 - INFO - PPO-large_network Step 1000000: Recent Avg = -161.70, Eval Score = -99.89
+2025-08-31 20:52:21,546 - INFO - PPO-large_network Step 1100000: Recent Avg = -206.77, Eval Score = 241.01
+2025-08-31 20:52:21,713 - INFO - NEW BEST PPO-large_network MODEL! Score: 241.01 (saved to multi_model_training_20250831_172815/models/ppo/ppo_large_network_20250831_205221_step1100000)
+2025-08-31 20:56:48,087 - INFO - PPO-large_network Step 1200000: Recent Avg = -150.31, Eval Score = 119.96
+2025-08-31 21:01:16,291 - INFO - PPO-large_network Step 1300000: Recent Avg = -222.45, Eval Score = -136.72
+2025-08-31 21:05:54,040 - INFO - PPO-large_network Step 1400000: Recent Avg = -177.53, Eval Score = -173.44
+2025-08-31 21:10:28,579 - INFO - PPO-large_network Step 1500000: Recent Avg = -183.70, Eval Score = 100.54
+2025-08-31 21:10:36,167 - INFO - PPO-large_network training completed in 1.10 hours
+2025-08-31 21:10:43,985 - INFO - PPO-large_network final score: -102.44
+2025-08-31 21:10:44,074 - INFO - 
+============================================================
+2025-08-31 21:10:44,074 - INFO - PPO VARIANTS SUMMARY
+2025-08-31 21:10:44,075 - INFO - ============================================================
+2025-08-31 21:10:44,103 - INFO -  BEST PPO-conservative: 404.83
+2025-08-31 21:10:44,103 - INFO - #2 PPO-aggressive: 86.20
+2025-08-31 21:10:44,104 - INFO - #3 PPO-large_network: -102.44
+2025-08-31 21:10:44,104 - INFO - #4 PPO-balanced: -217.14
+2025-08-31 21:10:44,104 - INFO - #5 PPO-exploration: -242.11
+2025-08-31 21:10:44,171 - INFO - 
+ PHASE 2: Training 5 DDPG variants...
+2025-08-31 21:10:44,171 - INFO - ============================================================
+2025-08-31 21:10:44,172 - INFO - STARTING MULTI-DDPG TRAINING
+2025-08-31 21:10:44,172 - INFO - ============================================================
+2025-08-31 21:10:44,172 - INFO - 
+[1/5] Training DDPG variant: conservative
+2025-08-31 21:10:44,172 - INFO - Hyperparameters: {'learning_rate': 5e-05, 'buffer_size': 500000, 'learning_starts': 10000, 'batch_size': 128, 'tau': 0.005, 'gamma': 0.99, 'train_freq': 1, 'gradient_steps': 1, 'net_arch': [128, 128], 'noise_sigma': 0.05}
+2025-08-31 21:10:44,173 - INFO - Starting DDPG variant 'conservative' training...
+2025-08-31 21:10:45,595 - INFO - Training DDPG-conservative for 1,500,000 timesteps...
+2025-08-31 21:22:46,264 - INFO - DDPG-conservative Step 100000: Recent Avg = -85.71, Eval Score = -170.71
+2025-08-31 21:22:46,445 - INFO - NEW BEST DDPG-conservative MODEL! Score: -170.71 (saved to multi_model_training_20250831_172815/models/ddpg/ddpg_conservative_20250831_212246_step100000)
+2025-08-31 21:35:51,170 - INFO - DDPG-conservative Step 200000: Recent Avg = 214.47, Eval Score = -306.05
+2025-08-31 21:49:06,780 - INFO - DDPG-conservative Step 300000: Recent Avg = 193.83, Eval Score = 169.43
+2025-08-31 21:49:07,043 - INFO - NEW BEST DDPG-conservative MODEL! Score: 169.43 (saved to multi_model_training_20250831_172815/models/ddpg/ddpg_conservative_20250831_214906_step300000)
+2025-08-31 22:02:21,824 - INFO - DDPG-conservative Step 400000: Recent Avg = 821.08, Eval Score = 681.15
+2025-08-31 22:02:22,014 - INFO - NEW BEST DDPG-conservative MODEL! Score: 681.15 (saved to multi_model_training_20250831_172815/models/ddpg/ddpg_conservative_20250831_220221_step400000)
+2025-08-31 22:15:38,405 - INFO - DDPG-conservative Step 500000: Recent Avg = 1017.45, Eval Score = 1491.37
+2025-08-31 22:15:38,558 - INFO - NEW BEST DDPG-conservative MODEL! Score: 1491.37 (saved to multi_model_training_20250831_172815/models/ddpg/ddpg_conservative_20250831_221538_step500000)
+2025-08-31 22:29:00,714 - INFO - DDPG-conservative Step 600000: Recent Avg = 1839.35, Eval Score = 2815.77
+2025-08-31 22:29:00,928 - INFO - NEW BEST DDPG-conservative MODEL! Score: 2815.77 (saved to multi_model_training_20250831_172815/models/ddpg/ddpg_conservative_20250831_222900_step600000)
+2025-08-31 22:42:19,566 - INFO - DDPG-conservative Step 700000: Recent Avg = 2852.31, Eval Score = 3111.82
+2025-08-31 22:42:20,150 - INFO - NEW BEST DDPG-conservative MODEL! Score: 3111.82 (saved to multi_model_training_20250831_172815/models/ddpg/ddpg_conservative_20250831_224219_step700000)
+2025-08-31 22:55:39,628 - INFO - DDPG-conservative Step 800000: Recent Avg = 3284.58, Eval Score = 4279.34
+2025-08-31 22:55:39,800 - INFO - NEW BEST DDPG-conservative MODEL! Score: 4279.34 (saved to multi_model_training_20250831_172815/models/ddpg/ddpg_conservative_20250831_225539_step800000)
+2025-08-31 23:08:56,684 - INFO - DDPG-conservative Step 900000: Recent Avg = 3831.70, Eval Score = 5619.58
+2025-08-31 23:08:56,790 - INFO - NEW BEST DDPG-conservative MODEL! Score: 5619.58 (saved to multi_model_training_20250831_172815/models/ddpg/ddpg_conservative_20250831_230856_step900000)
+2025-08-31 23:22:25,451 - INFO - DDPG-conservative Step 1000000: Recent Avg = 4189.97, Eval Score = 4779.22
+2025-08-31 23:35:48,975 - INFO - DDPG-conservative Step 1100000: Recent Avg = 4606.58, Eval Score = 6819.47
+2025-08-31 23:35:49,196 - INFO - NEW BEST DDPG-conservative MODEL! Score: 6819.47 (saved to multi_model_training_20250831_172815/models/ddpg/ddpg_conservative_20250831_233548_step1100000)
+2025-08-31 23:49:14,892 - INFO - DDPG-conservative Step 1200000: Recent Avg = 4338.82, Eval Score = 6661.92
+2025-09-01 00:02:38,848 - INFO - DDPG-conservative Step 1300000: Recent Avg = 4076.33, Eval Score = 5062.92
+2025-09-01 00:16:00,542 - INFO - DDPG-conservative Step 1400000: Recent Avg = 3948.58, Eval Score = 3449.09
+2025-09-01 00:29:25,371 - INFO - DDPG-conservative Step 1500000: Recent Avg = 3104.51, Eval Score = 2546.68
+2025-09-01 00:29:29,634 - INFO - DDPG-conservative training completed in 3.31 hours
+2025-09-01 00:29:38,567 - INFO - DDPG-conservative final score: 5237.79
+2025-09-01 00:29:38,567 - INFO - 
+[2/5] Training DDPG variant: aggressive
+2025-09-01 00:29:38,568 - INFO - Hyperparameters: {'learning_rate': 0.0002, 'buffer_size': 1000000, 'learning_starts': 25000, 'batch_size': 512, 'tau': 0.02, 'gamma': 0.995, 'train_freq': 4, 'gradient_steps': 4, 'net_arch': [512, 512, 256], 'noise_sigma': 0.15}
+2025-09-01 00:29:38,568 - INFO - Starting DDPG variant 'aggressive' training...
+2025-09-01 00:29:38,681 - INFO - Training DDPG-aggressive for 1,500,000 timesteps...
+2025-09-01 01:07:32,245 - INFO - DDPG-aggressive Step 100000: Recent Avg = -531.13, Eval Score = -205.10
+2025-09-01 01:07:32,450 - INFO - NEW BEST DDPG-aggressive MODEL! Score: -205.10 (saved to multi_model_training_20250831_172815/models/ddpg/ddpg_aggressive_20250901_010732_step100000)
+2025-09-01 01:56:30,385 - INFO - DDPG-aggressive Step 200000: Recent Avg = -436.60, Eval Score = -1087.81
+2025-09-01 02:45:27,902 - INFO - DDPG-aggressive Step 300000: Recent Avg = -402.36, Eval Score = -417.77
+2025-09-01 03:34:16,054 - INFO - DDPG-aggressive Step 400000: Recent Avg = -348.98, Eval Score = -689.54
+2025-09-01 04:23:49,624 - INFO - DDPG-aggressive Step 500000: Recent Avg = -666.92, Eval Score = -796.64
+2025-09-01 05:13:49,477 - INFO - DDPG-aggressive Step 600000: Recent Avg = -552.67, Eval Score = -261.48
+2025-09-01 06:45:19,497 - INFO - DDPG-aggressive Step 700000: Recent Avg = -456.22, Eval Score = -242.96
+2025-09-01 07:38:06,217 - INFO - DDPG-aggressive Step 800000: Recent Avg = -409.10, Eval Score = -818.66
+2025-09-01 08:49:38,809 - INFO - DDPG-aggressive Step 900000: Recent Avg = -483.26, Eval Score = -467.44
+2025-09-01 09:41:26,045 - INFO - DDPG-aggressive Step 1000000: Recent Avg = -448.37, Eval Score = -598.97
+2025-09-01 10:33:08,363 - INFO - DDPG-aggressive Step 1100000: Recent Avg = -663.12, Eval Score = -545.51
+2025-09-01 11:25:33,129 - INFO - DDPG-aggressive Step 1200000: Recent Avg = -465.80, Eval Score = -1105.01
+2025-09-01 12:19:05,697 - INFO - DDPG-aggressive Step 1300000: Recent Avg = -364.33, Eval Score = -469.23

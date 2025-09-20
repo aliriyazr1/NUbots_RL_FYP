@@ -52,7 +52,7 @@ robot_parameters:
 # Physics parameters
 physics:
   ball_mass: 0.5               # Ball mass for physics calculations
-  ball_friction: 0.8           # Ball friction (0-1, lower = more friction)
+  ball_friction: 0.95           # Ball friction (0-1, lower = more friction)
   ball_bounce: 0.2             # Wall bounce dampening
   ball_max_speed: 3.0          # Maximum ball speed (m/s)
   push_force_multiplier: 1.2   # How strong robot pushes ball
@@ -62,20 +62,20 @@ difficulty_settings:
   easy:
     possession_distance: 0.5   # Easier to get ball (50cm)
     collision_distance: 0.2    # More forgiving collisions (20cm)
-    max_steps: 500             # Shorter episodes (Used to be 150)
-    opponent_speed_multiplier: 0.8        # Slower opponent
+    max_steps: 800             # Shorter episodes (Used to be 500)
+    opponent_speed: 0.4        # Slower opponent (used to be 0.8)
     
   medium:
     possession_distance: 0.4   # Medium ball possession range (40cm)
     collision_distance: 0.25   # Medium collision distance (25cm)
-    max_steps: 800             # Medium episode length (Used to be 200)
-    opponent_speed_multiplier: 1.0        # Normal opponent speed
+    max_steps: 1000             # Medium episode length (Used to be 800)
+    opponent_speed: 0.6        # Normal opponent speed (Used to be 1.0)
     
   hard:
     possession_distance: 0.35  # Harder to get ball (35cm)
     collision_distance: 0.3    # Less forgiving collisions (30cm)
-    max_steps: 1000             # Longer episodes (Used to be 250)
-    opponent_speed_multiplier: 1.2        # Faster opponent
+    max_steps: 1200             # Longer episodes (Used to be 1000)
+    opponent_speed: 0.9        # Faster opponent (Used to be 1.2)
 
 # CONFIG FOR THE BEST MODEL BTW
 # # Strategic zones (as percentages of field dimensions)

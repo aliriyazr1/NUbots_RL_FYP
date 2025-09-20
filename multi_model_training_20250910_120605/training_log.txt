@@ -1,0 +1,19 @@
+2025-09-10 12:06:05,573 - INFO - Continuing training for 1 DDPG models
+2025-09-10 12:06:05,573 - INFO - 800,000 additional timesteps per model
+2025-09-10 12:06:05,573 - INFO - ============================================================
+2025-09-10 12:06:05,574 - INFO - CONTINUING MODEL 1/1: continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_120556
+2025-09-10 12:06:05,574 - INFO - Original model: existing_retrain_soccer_rl_ddpg_20250908_162139.zip
+2025-09-10 12:06:05,574 - INFO - ============================================================
+2025-09-10 12:06:05,574 - INFO - Loading existing DDPG model: existing_retrain_soccer_rl_ddpg_20250908_162139.zip
+2025-09-10 12:06:05,575 - INFO - Continue training run: 'continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_120556'
+2025-09-10 12:06:07,760 - INFO - Model loaded successfully!
+2025-09-10 12:06:07,817 - INFO - Continue training continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_120556 for 800,000 additional timesteps...
+2025-09-10 12:06:07,820 - ERROR - Continue training continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_120556 failed: [Errno 2] No such file or directory: b'multi_model_training_20250910_120605/logs\\DDPG_continued_continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_120556_0\\events.out.tfevents.1757469967.LAPTOP-T8MBHU6P.30688.0'
+2025-09-10 12:06:07,821 - INFO - Completed continuing continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_120556: Score = -inf
+2025-09-10 12:06:07,821 - INFO - ================================================================================
+2025-09-10 12:06:07,821 - INFO - CONTINUED TRAINING COMPLETE!
+2025-09-10 12:06:07,821 - INFO - ================================================================================
+2025-09-10 12:06:07,822 - INFO - Total training time: 0.00 hours
+2025-09-10 12:06:07,822 - INFO - Models continued: 1
+2025-09-10 12:06:07,822 - ERROR - No models continued successfully!
+2025-09-10 12:06:07,822 - INFO - All outputs saved to: multi_model_training_20250910_120605

@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 import yaml
 
@@ -5,7 +6,13 @@ class FieldConfig:
     """Class to handle field configuration loading and calculations"""
     
     def __init__(self, config_path="field_config.yaml"):
-        self.config_path = config_path
+        # If config_path is just a filename, look for it relative to this script's directory
+        if not os.path.isabs(config_path) and not os.path.dirname(config_path):
+            script_dir = Path(__file__).parent
+            self.config_path = script_dir / config_path
+        else:
+            self.config_path = config_path
+                   
         self.config = self._load_config()
         self._calculate_derived_values()
     

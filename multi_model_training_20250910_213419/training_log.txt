@@ -1,0 +1,29 @@
+2025-09-10 21:34:19,391 - INFO - Continuing training for 1 DDPG models
+2025-09-10 21:34:19,392 - INFO - 800,000 additional timesteps per model
+2025-09-10 21:34:19,392 - INFO - ============================================================
+2025-09-10 21:34:19,393 - INFO - CONTINUING MODEL 1/1: retrained_ddpg_model
+2025-09-10 21:34:19,393 - INFO - Original model: multi_model_training_20250910_121044/models/ddpg/continued_continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_121039_20250910_121044.zip
+2025-09-10 21:34:19,393 - INFO - ============================================================
+2025-09-10 21:34:19,394 - INFO - Loading existing DDPG model: multi_model_training_20250910_121044/models/ddpg/continued_continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_121039_20250910_121044.zip
+2025-09-10 21:34:19,394 - INFO - Continue training run: 'retrained_ddpg_model'
+2025-09-10 21:34:21,696 - INFO - Model loaded successfully!
+2025-09-10 21:34:21,755 - INFO - Continue training retrained_ddpg_model for 800,000 additional timesteps...
+2025-09-10 21:46:23,389 - INFO - DDPG_Continue-retrained_ddpg_model Step 3900000: Recent Avg = 38215.96, Eval Score = 67511.01
+2025-09-10 21:46:23,407 - INFO - NEW BEST DDPG_Continue-retrained_ddpg_model MODEL! Score: 67511.01 (saved to multi_model_training_20250910_213419/models/ddpg_continue/ddpg_continue_retrained_ddpg_model_20250910_214623_step3900000)
+2025-09-10 21:58:26,027 - INFO - DDPG_Continue-retrained_ddpg_model Step 4000000: Recent Avg = 52829.49, Eval Score = 57178.55
+2025-09-10 22:10:27,187 - INFO - DDPG_Continue-retrained_ddpg_model Step 4100000: Recent Avg = 38191.43, Eval Score = 28169.80
+2025-09-10 22:22:46,615 - INFO - DDPG_Continue-retrained_ddpg_model Step 4200000: Recent Avg = 37415.94, Eval Score = 41935.24
+2025-09-10 22:35:02,418 - INFO - DDPG_Continue-retrained_ddpg_model Step 4300000: Recent Avg = 39572.65, Eval Score = 55942.89
+2025-09-10 22:47:11,185 - INFO - DDPG_Continue-retrained_ddpg_model Step 4400000: Recent Avg = 31154.05, Eval Score = 17027.22
+2025-09-10 23:01:41,375 - INFO - DDPG_Continue-retrained_ddpg_model Step 4500000: Recent Avg = 26724.96, Eval Score = 11256.91
+2025-09-10 23:16:02,012 - INFO - DDPG_Continue-retrained_ddpg_model Step 4600000: Recent Avg = 38276.73, Eval Score = 33275.87
+2025-09-10 23:16:02,026 - INFO - retrained_ddpg_model continued training completed in 1.69 hours
+2025-09-10 23:16:09,375 - ERROR - Continue training retrained_ddpg_model failed: [Errno 2] No such file or directory: 'multi_model_training_20250910_213419/summaries/continued_retrained_ddpg_model_info.json'
+2025-09-10 23:16:09,376 - INFO - Completed continuing retrained_ddpg_model: Score = -inf
+2025-09-10 23:16:09,376 - INFO - ================================================================================
+2025-09-10 23:16:09,377 - INFO - CONTINUED TRAINING COMPLETE!
+2025-09-10 23:16:09,377 - INFO - ================================================================================
+2025-09-10 23:16:09,377 - INFO - Total training time: 1.70 hours
+2025-09-10 23:16:09,378 - INFO - Models continued: 1
+2025-09-10 23:16:09,378 - ERROR - No models continued successfully!
+2025-09-10 23:16:09,379 - INFO - All outputs saved to: multi_model_training_20250910_213419

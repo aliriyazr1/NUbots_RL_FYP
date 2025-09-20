@@ -1,0 +1,30 @@
+2025-09-10 12:10:44,877 - INFO - Continuing training for 1 DDPG models
+2025-09-10 12:10:44,878 - INFO - 800,000 additional timesteps per model
+2025-09-10 12:10:44,878 - INFO - ============================================================
+2025-09-10 12:10:44,878 - INFO - CONTINUING MODEL 1/1: continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_121039
+2025-09-10 12:10:44,879 - INFO - Original model: existing_retrain_soccer_rl_ddpg_20250908_162139.zip
+2025-09-10 12:10:44,879 - INFO - ============================================================
+2025-09-10 12:10:44,880 - INFO - Loading existing DDPG model: existing_retrain_soccer_rl_ddpg_20250908_162139.zip
+2025-09-10 12:10:44,880 - INFO - Continue training run: 'continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_121039'
+2025-09-10 12:10:47,037 - INFO - Model loaded successfully!
+2025-09-10 12:10:47,090 - INFO - Continue training continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_121039 for 800,000 additional timesteps...
+2025-09-10 12:22:48,198 - INFO - DDPG_Continue-continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_121039 Step 3100000: Recent Avg = 37440.62, Eval Score = 53699.69
+2025-09-10 12:22:48,357 - ERROR - Error in model evaluation: maximum recursion depth exceeded
+2025-09-10 12:34:36,424 - INFO - DDPG_Continue-continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_121039 Step 3200000: Recent Avg = 38173.66, Eval Score = 45788.22
+2025-09-10 12:47:27,095 - INFO - DDPG_Continue-continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_121039 Step 3300000: Recent Avg = 34927.20, Eval Score = 43069.79
+2025-09-10 13:00:07,083 - INFO - DDPG_Continue-continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_121039 Step 3400000: Recent Avg = 28167.50, Eval Score = 46289.70
+2025-09-10 13:11:54,598 - INFO - DDPG_Continue-continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_121039 Step 3500000: Recent Avg = 28747.57, Eval Score = 37379.90
+2025-09-10 13:25:16,088 - INFO - DDPG_Continue-continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_121039 Step 3600000: Recent Avg = 32195.04, Eval Score = 50463.18
+2025-09-10 13:37:01,711 - INFO - DDPG_Continue-continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_121039 Step 3700000: Recent Avg = 40625.26, Eval Score = 33221.46
+2025-09-10 13:48:43,901 - INFO - DDPG_Continue-continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_121039 Step 3800000: Recent Avg = 39834.34, Eval Score = 63655.51
+2025-09-10 13:48:44,053 - ERROR - Error in model evaluation: maximum recursion depth exceeded
+2025-09-10 13:48:44,066 - INFO - continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_121039 continued training completed in 1.63 hours
+2025-09-10 13:48:51,265 - ERROR - Continue training continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_121039 failed: [Errno 2] No such file or directory: 'multi_model_training_20250910_121044/summaries/continued_continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_121039_info.json'
+2025-09-10 13:48:51,266 - INFO - Completed continuing continued_existing_retrain_soccer_rl_ddpg_20250908_162139_20250910_121039: Score = -inf
+2025-09-10 13:48:51,266 - INFO - ================================================================================
+2025-09-10 13:48:51,266 - INFO - CONTINUED TRAINING COMPLETE!
+2025-09-10 13:48:51,267 - INFO - ================================================================================
+2025-09-10 13:48:51,267 - INFO - Total training time: 1.64 hours
+2025-09-10 13:48:51,267 - INFO - Models continued: 1
+2025-09-10 13:48:51,267 - ERROR - No models continued successfully!
+2025-09-10 13:48:51,268 - INFO - All outputs saved to: multi_model_training_20250910_121044

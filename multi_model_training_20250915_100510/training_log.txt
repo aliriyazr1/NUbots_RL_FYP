@@ -1,0 +1,28 @@
+2025-09-15 10:05:10,975 - INFO - Creating new DDPG model from scratch
+2025-09-15 10:05:10,975 - INFO - New training run: 'new_ddpg_20250915_100500'
+2025-09-15 10:05:10,975 - INFO - Hyperparameters: {'learning_rate': 0.001, 'buffer_size': 1000000, 'learning_starts': 25000, 'batch_size': 256, 'tau': 0.01, 'gamma': 0.99, 'noise_sigma': 0.1, 'train_freq': (2, 'step'), 'gradient_steps': 1, 'net_arch': [256, 256, 128]}
+2025-09-15 10:05:14,889 - INFO - New DDPG model created successfully!
+2025-09-15 10:05:14,889 - INFO - Training new new_ddpg_20250915_100500 for 1,500,000 timesteps...
+2025-09-15 10:14:17,688 - INFO - DDPG_New-new_ddpg_20250915_100500 Step 100000: Recent Avg = 44384.03, Eval Score = 83846.46
+2025-09-15 10:14:17,713 - INFO - NEW BEST DDPG_New-new_ddpg_20250915_100500 MODEL! Score: 83846.46 (saved to multi_model_training_20250915_100510/models/ddpg_new/ddpg_new_new_ddpg_20250915_100500_20250915_101417_step100000)
+2025-09-15 10:26:27,436 - INFO - DDPG_New-new_ddpg_20250915_100500 Step 200000: Recent Avg = 66295.26, Eval Score = 84879.56
+2025-09-15 10:26:27,452 - INFO - NEW BEST DDPG_New-new_ddpg_20250915_100500 MODEL! Score: 84879.56 (saved to multi_model_training_20250915_100510/models/ddpg_new/ddpg_new_new_ddpg_20250915_100500_20250915_102627_step200000)
+2025-09-15 10:39:30,254 - INFO - DDPG_New-new_ddpg_20250915_100500 Step 300000: Recent Avg = 70454.34, Eval Score = 97554.75
+2025-09-15 10:39:30,274 - INFO - NEW BEST DDPG_New-new_ddpg_20250915_100500 MODEL! Score: 97554.75 (saved to multi_model_training_20250915_100510/models/ddpg_new/ddpg_new_new_ddpg_20250915_100500_20250915_103930_step300000)
+2025-09-15 10:52:37,658 - INFO - DDPG_New-new_ddpg_20250915_100500 Step 400000: Recent Avg = 71808.85, Eval Score = 78179.37
+2025-09-15 11:05:56,673 - INFO - DDPG_New-new_ddpg_20250915_100500 Step 500000: Recent Avg = 72243.60, Eval Score = 94704.76
+2025-09-15 11:18:25,827 - INFO - DDPG_New-new_ddpg_20250915_100500 Step 600000: Recent Avg = 72528.34, Eval Score = 95857.31
+2025-09-15 11:31:59,048 - INFO - DDPG_New-new_ddpg_20250915_100500 Step 700000: Recent Avg = 72743.77, Eval Score = 93059.11
+2025-09-15 11:44:22,108 - INFO - DDPG_New-new_ddpg_20250915_100500 Step 800000: Recent Avg = 72429.56, Eval Score = 97192.42
+2025-09-15 11:57:21,956 - INFO - DDPG_New-new_ddpg_20250915_100500 Step 900000: Recent Avg = 72611.07, Eval Score = 94476.97
+2025-09-15 12:10:33,464 - INFO - DDPG_New-new_ddpg_20250915_100500 Step 1000000: Recent Avg = 73067.22, Eval Score = 99611.36
+2025-09-15 12:10:33,565 - INFO - NEW BEST DDPG_New-new_ddpg_20250915_100500 MODEL! Score: 99611.36 (saved to multi_model_training_20250915_100510/models/ddpg_new/ddpg_new_new_ddpg_20250915_100500_20250915_121033_step1000000)
+2025-09-15 12:39:11,877 - INFO - DDPG_New-new_ddpg_20250915_100500 Step 1100000: Recent Avg = 73228.91, Eval Score = 98615.00
+2025-09-15 13:00:03,647 - INFO - DDPG_New-new_ddpg_20250915_100500 Step 1200000: Recent Avg = 72142.75, Eval Score = 101346.08
+2025-09-15 13:00:04,015 - INFO - NEW BEST DDPG_New-new_ddpg_20250915_100500 MODEL! Score: 101346.08 (saved to multi_model_training_20250915_100510/models/ddpg_new/ddpg_new_new_ddpg_20250915_100500_20250915_130003_step1200000)
+2025-09-15 13:13:45,619 - INFO - DDPG_New-new_ddpg_20250915_100500 Step 1300000: Recent Avg = 73510.84, Eval Score = 101978.41
+2025-09-15 13:13:46,105 - INFO - NEW BEST DDPG_New-new_ddpg_20250915_100500 MODEL! Score: 101978.41 (saved to multi_model_training_20250915_100510/models/ddpg_new/ddpg_new_new_ddpg_20250915_100500_20250915_131345_step1300000)
+2025-09-15 13:26:51,606 - INFO - DDPG_New-new_ddpg_20250915_100500 Step 1400000: Recent Avg = 73679.52, Eval Score = 101502.28
+2025-09-15 13:39:50,058 - INFO - DDPG_New-new_ddpg_20250915_100500 Step 1500000: Recent Avg = 73101.89, Eval Score = 101624.41
+2025-09-15 13:39:54,568 - INFO - new_ddpg_20250915_100500 training completed in 3.58 hours
+2025-09-15 13:40:06,296 - ERROR - New model training new_ddpg_20250915_100500 failed: [Errno 2] No such file or directory: 'multi_model_training_20250915_100510/summaries/new_new_ddpg_20250915_100500_info.json'

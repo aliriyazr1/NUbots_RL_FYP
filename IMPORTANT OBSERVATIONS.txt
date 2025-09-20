@@ -56,3 +56,33 @@ TODO LIST:
 - Week 12 PRESENTATION !!!!!!!!
 - THESIS REPORT !!!!!!!!!!!!!!!!!!!
 
+
+
+TODO: 11/09/2025::
+1) Train without opponent
+2) Tune reward function to work without opponent for a bit????
+3) Focus on getting a good policy first more than deployment
+4) Test that the actions or velocity is in the correct direction
+5) Somehow smooth out the movement of the robots and maybe the ball
+Right now it keeps teleporting bit by bit.
+
+Also somehow reducing the friction by increasing the friction value to seems to get the robot zooming to score
+
+
+
+# Changes:
+# apply_robot_action
+self.robot_angle += rotation * self.robot_rotation_speed #NOTE:1 Should this be -= rotation???
+self.robot_angle = self.robot_angle % (2 * np.pi) # Normalise angle to [0, 2π)
+
+strafe_x = -strafe_vel * np.sin(self.robot_angle)
+strafe_y = strafe_vel * np.cos(self.robot_angle)
+
+forward_x = forward_vel * np.cos(self.robot_angle) #NOTE:1 Changed from sin(angle + π/2)
+forward_y = forward_vel * np.sin(self.robot_angle) #NOTE:1 New version removed minus sign and changed from cos(angle + π/2)
+
+In render():
+direction_end_y = robot_y + direction_length * np.sin(self.robot_angle) #NOTE:1 Claude AI flips to + in the 'correct' version??
+
+
+

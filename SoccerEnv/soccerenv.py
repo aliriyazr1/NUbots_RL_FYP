@@ -11,12 +11,67 @@ Last Updated: 30/08/2025
 
 #TODO: Remember to fix the comments!!!!!!!!!!!!!!!!!!
 
+#TODO: BRING BACK OPPONENT RELATED CODE ONCE WE GET A GOOD REWARD FUNCTION FOR THE ROBOT TO SCORE RELIABLY
+"""TODO list of changes that were made to remove the opponent:
+1) get_obs function: changed norm_opponent_x and y to 0.0 instead of the calculation
+2) reset() function (Also commented out the while loop to ensure the 2 robots don't start in collision)
+3) calculate_reward function
+4) update_ball_physics function
+5) check_terminated function
+6) step function to include the update_opponent function
+7) update_possession_flags function
+"""
+
+
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
 import pygame
 from .fieldconfig import FieldConfig
 
+
+#TODO: Figure out the reward function calculations and scaling factors
+#TODO: try to better understand and come up with the math for the rewards rather than just blindlhy aiming/vibing
+#TODO: Figure out if the rewards should be in bounds like normalised. Johanne used a bell curve function to tell the robot that 1 action is good and the other is bad 
+# between 0 and 1
+# It should have a derivative at every point. Multiplied it by 2 and subtracted by 1 to make the bounds of the reward to be -1 and 1. 
+# This was so that he could couple the pitch and yaw
+# so that the robot wouldn't have the correct yaw but the wrong pitch
+# This was to make sure that the robot doesn't "technically" do the right thing if it gets the value as 0, So he'll get either -1 or +1 (somehow, I forgot)
+# NNeed to be smart about the rewards
+#TODO: Look up research papers on reward functions. Maybe to see if the total reward as a whole is also normalised or scaled?????
+
+#TODO: Ask Claude how to test the performance of models for evaluation and testing for FYP as a whole (probably won't do deployment or C++ integration)
+
+#TODO: Stuff to ask Tom:
+# TODO: 1) Ask about whether to keep going with the 'wrong' environment or to go with the 'correct' one
+#TODO: 2) Ask which one looks correct because I am now confused
+#TODO: 3) Ask about the momentum damping to smoothen movement
+#TODO: 4) Ask if I have enough for the thesis report and presentation
+#TODO: 5) Ask when to stop fine-tuning and when to finish FYP and focus on the assessments
+
+
+class ActionSmoothingWrapper:
+    """Wrapper to smooth model actions - no retraining needed"""
+    
+    def __init__(self, model, smoothing_factor=0.7):
+        self.model = model
+        self.smoothing_factor = smoothing_factor
+        self.prev_action = np.array([0.0, 0.0, 0.0])
+    
+    def predict(self, obs, deterministic=True):
+        # Get raw action from trained model
+        raw_action, state = self.model.predict(obs, deterministic=deterministic)
+        
+        # Smooth the action with previous action
+        smoothed_action = (self.smoothing_factor * self.prev_action + 
+                          (1 - self.smoothing_factor) * raw_action)
+        
+        # Store for next iteration
+        self.prev_action = smoothed_action.copy()
+        
+        return smoothed_action, state
+    
 class SoccerEnv(gym.Env):
     """
     Simple 2D Soccer Environment for FYP
@@ -34,11 +89,6 @@ class SoccerEnv(gym.Env):
         self.difficulty = difficulty
         self.testing_mode = testing_mode
         
-        # # Field dimensions (4x4 meters as per field size requirements)
-        # self.field_width = 400  # pixels
-        # self.field_height = 400  # pixels
-        # self.goal_width = 80
-
         # Set up field dimensions from config
         self.field_width = self.field_config.field_width_pixels # X-axis
         self.field_height = self.field_config.field_height_pixels # Y-axis
@@ -61,12 +111,6 @@ class SoccerEnv(gym.Env):
         self.window = None
         self.clock = None
 
-        # # Ball physics parameters
-        # self.ball_mass = 0.5          # Ball mass for physics calculations
-        # self.ball_friction = 0.8     # Ball friction (0-1, lower = more friction) was 0.92
-        # self.ball_bounce = 0.2        # Wall bounce dampening (was 0.3)
-        # self.ball_max_speed = 3.0     # Maximum ball speed (OG was 8.0 then 0.5)
-
         # Load physics parameters from config
         physics = self.field_config.config['physics']
         self.ball_mass = physics['ball_mass']
@@ -84,24 +128,13 @@ class SoccerEnv(gym.Env):
         self.robot_radius = self.field_config.meters_to_pixels(robot_params['robot_radius'])
         self.ball_radius = self.field_config.meters_to_pixels(robot_params['ball_radius'])
         self.possession_threshold = self.field_config.meters_to_pixels(robot_params['possession_threshold'])
-        
-        # # Robot-ball interaction parameters
-        # self.robot_radius = 15        # Robot collision radius
-        # self.ball_radius = 8          # Ball radius
-        # self.push_force_multiplier = 1.2  # How strong robot pushes ball (was 2.0)
-        # self.possession_threshold = 25    # Distance to consider "close to ball"
-        
-        # # Game parameters
-        # TODO: See if we need these in some way or to change them and then use it
-        # self.possession_distance = 40.0 # Used to be 35.0
-        # self.collision_distance = 30.0
-
+                
         # Load difficulty-specific parameters from config
         diff_settings = self.field_config.config['difficulty_settings'][difficulty]
         self.possession_distance = self.field_config.meters_to_pixels(diff_settings['possession_distance'])
         self.collision_distance = self.field_config.meters_to_pixels(diff_settings['collision_distance'])
         self.max_steps = diff_settings['max_steps']
-        self.opponent_speed = diff_settings['opponent_speed_multiplier']
+        self.opponent_speed = diff_settings['opponent_speed']
 
         # Initialise state variables first
         self.robot_pos = None
@@ -141,7 +174,7 @@ class SoccerEnv(gym.Env):
         # Convert to pixels per frame for internal use
         self.opponent_speed_pixels_per_frame = opponent_speed_mps * self.field_config.pixels_per_meter * self.dt
 
-        
+
         # Apply testing mode speed multiplier
         if self.testing_mode or self.field_config.config.get('rendering', {}).get('testing_mode', False):
             speed_multiplier = self.field_config.config.get('rendering', {}).get('testing_speed_multiplier', 2.0)
@@ -182,6 +215,12 @@ class SoccerEnv(gym.Env):
             np.random.uniform(self.robot_radius + 20, self.field_height - self.robot_radius - 20)
         ], dtype=np.float64)
 
+        #TODO: Make the robot's position to be at the center of the field
+        # self.robot_pos = np.array([
+        #     self.field_width / 2,
+        #     self.field_height / 2
+        # ], dtype=np.float64)
+
         # Place ball very close to robot (within contact distance + small margin)
         contact_distance = self.robot_radius + self.ball_radius
         ball_distance = contact_distance + np.random.uniform(5, 30)  # Just outside contact range
@@ -196,7 +235,7 @@ class SoccerEnv(gym.Env):
         self.ball_pos[0] = np.clip(self.ball_pos[0], self.ball_radius + 10, self.field_width - self.ball_radius - 10)
         self.ball_pos[1] = np.clip(self.ball_pos[1], self.ball_radius + 10, self.field_height - self.ball_radius - 10)
         
-        # Randomize opponent position (right third of field)
+        # TODO: from list of changes to remove opponent # Randomize opponent position (right third of field)
         self.opponent_pos = np.array([
             np.random.uniform(self.field_width * 0.6, self.field_width - self.robot_radius - 20),
             np.random.uniform(self.robot_radius + 20, self.field_height - self.robot_radius - 20)
@@ -209,6 +248,23 @@ class SoccerEnv(gym.Env):
         # Goal position (right side, center)
         self.goal_pos = np.array([self.field_width, self.field_height // 2])
         
+        # Get training progress (you'll need to pass this from your training script)
+        training_timesteps = getattr(self, 'relative_timesteps', 0)
+        print(f"🔍 TEST: Current timesteps = {training_timesteps}")
+
+        #TODO: WIP This is for no opponent
+        # if training_timesteps < 200000:
+        #     # Phase 1: No opponent - robot learns to score freely
+        #     self.opponent_enabled = False
+        #     self.opponent_pos = np.array([self.field_width + 100, self.field_height + 100])  # Off-field
+        # else:
+        # Phase 2+: Normal opponent
+
+        self.opponent_enabled = True
+        #TODO: CHeck whether any opponent pos or velocity impacts the behaviours or reward Function
+        #  self.opponent_pos = np.array([self.field_width + 100, self.field_height + 100])  # Off-field
+
+        #NOTE: THIS IS TEMPORARY 
         # Ensure minimum distances to avoid starting in collision
         while np.linalg.norm(self.robot_pos - self.opponent_pos) < 50:
             self.opponent_pos = np.array([
@@ -232,9 +288,7 @@ class SoccerEnv(gym.Env):
             delattr(self, '_prev_robot_angle')
 
         # Reset opponent behavior
-        self.opponent_behavior = np.random.choice(['aggressive', 'defensive', 'balanced'])
-        self.opponent_target = None
-        
+        self.opponent_behavior = np.random.choice(['aggressive', 'defensive', 'balanced'])        
         return self._get_obs(), {}
     
     # Function to 
@@ -244,8 +298,12 @@ class SoccerEnv(gym.Env):
         norm_robot_y = np.clip((2 * self.robot_pos[1] / self.field_height) - 1, -1, 1)
         norm_ball_x = np.clip((2 * self.ball_pos[0] / self.field_width) - 1, -1, 1)
         norm_ball_y = np.clip((2 * self.ball_pos[1] / self.field_height) - 1, -1, 1)
+
+        #TODO: BRING BACK OPPONENT RELATED CODE ONCE WE GET A GOOD REWARD FUNCTION FOR THE ROBOT TO SCORE RELIABLY
         norm_opponent_x = np.clip((2 * self.opponent_pos[0] / self.field_width) - 1, -1, 1)
         norm_opponent_y = np.clip((2 * self.opponent_pos[1] / self.field_height) - 1, -1, 1)
+        # norm_opponent_x = 0.0
+        # norm_opponent_y = 0.0
         
         # Normalize velocities # should hopefully be in pixels/fame, pls verify
         # This came from manually mathing that max value of forward_x or strafe_x is 4.175 pixels/frame (from init method calculating self.robot_speed 
@@ -289,7 +347,7 @@ class SoccerEnv(gym.Env):
         # Update ball movements (position, velocity, etc.) accordingly
         self._update_ball_physics()
 
-        # Opponent AI's behavior (can be offensive, defensive, or balanced)
+        # # Opponent AI's behavior (can be offensive, defensive, or balanced)
         self._update_opponent()
         
         # Update possession flags based on proximity (transition period)
@@ -341,8 +399,8 @@ class SoccerEnv(gym.Env):
         left_right = action[1]    # -1 to 1  
         rotation = action[2]      # -1 to 1 #TODO: Should this be from 0 to 2pi instead?????
         
-        # Update robot angle
-        self.robot_angle += rotation * self.robot_rotation_speed
+        # Update robot angle2
+        self.robot_angle += rotation * self.robot_rotation_speed #NOTE:1 Should this be -= rotation???
         self.robot_angle = self.robot_angle % (2 * np.pi) # Normalise angle to [0, 2π)
         
         # Calculate movement
@@ -350,15 +408,21 @@ class SoccerEnv(gym.Env):
         
         # Forward/backward movement (in robot's facing direction)
         forward_vel = speed * forward_back
-        forward_x = forward_vel * np.cos(self.robot_angle)
-
-        #TODO: Validate the NOTE as well as strafe_vel calculation
-        forward_y = - forward_vel * np.sin(self.robot_angle) #NOTE: Added minus sign because in render, positive y-axis points down
+        forward_x = forward_vel * np.cos(self.robot_angle) #NOTE:1 Changed from cos(angle + π/2)
+        forward_y = - forward_vel * np.sin(self.robot_angle) #NOTE:1 New version removed minus sign and changed from sin(angle + π/2)
         
         # Left/right movement (perpendicular to robot's facing direction)
         strafe_vel = speed * left_right
+        # strafe_x = -strafe_vel * np.sin(self.robot_angle)
+        # strafe_y = strafe_vel * np.cos(self.robot_angle)
+
+        #NOTE:1 OLD:
         strafe_x = strafe_vel * np.cos(self.robot_angle + np.pi/2)
-        strafe_y = - strafe_vel * np.sin(self.robot_angle + np.pi/2) #NOTE: Validate that its correct
+        strafe_y = - strafe_vel * np.sin(self.robot_angle + np.pi/2)
+
+        # #NOTE:1 NEW (Claude AI says this is correct):
+        # strafe_x = -strafe_vel * np.sin(self.robot_angle)
+        # strafe_y = strafe_vel * np.cos(self.robot_angle)
         
         # Combine movements
         self.robot_vel = np.array([forward_x + strafe_x, forward_y + strafe_y]) # Should hopefully be pixels/frame
@@ -376,7 +440,10 @@ class SoccerEnv(gym.Env):
     #TODO: Deal with opponent's velocity as well in the init method 
     def _update_opponent(self):
         """Enhanced opponent AI with different behaviors"""
-        
+        # At start of _update_opponent():
+        if not getattr(self, 'opponent_enabled', True):
+            return  # Skip opponent updates if disabled
+
         if not hasattr(self, 'opponent_behavior'):
             self.opponent_behavior = 'balanced'
         
@@ -474,6 +541,9 @@ class SoccerEnv(gym.Env):
         reward_params = self.field_config.config.get('reward_parameters', {})
         robot_params = self.field_config.config.get('robot_parameters', {})
         strategic_zones = self.field_config.config.get('strategic_zones', {})
+
+        # # Check if opponent is enabled
+        # opponent_enabled = getattr(self, 'opponent_enabled', True)
         
         # Calculate key distances and states
         robot_ball_distance = np.linalg.norm(self.robot_pos - self.ball_pos)
@@ -497,7 +567,7 @@ class SoccerEnv(gym.Env):
             return reward_params.get('goal_scored_reward', 150.0)  # Increased reward
             
         if self._check_opponent_goal():
-            return reward_params.get('opponent_goal_penalty', -100.0)
+            return reward_params.get('opponent_goal_penalty', -60.0)
             
         if self._check_ball_out_of_play():
             return reward_params.get('ball_out_bounds_penalty', -20.0)
@@ -509,6 +579,7 @@ class SoccerEnv(gym.Env):
 
         attacking_third_start = strategic_zones.get('attacking_third_start', 0.6)
         
+        # if opponent_enabled:
         if robot_opponent_distance < collision_distance_threshold:
             # Check if we're in attacking zone - if so, reduce penalty
             robot_x_fraction = self.robot_pos[0] / self.field_width
@@ -527,8 +598,9 @@ class SoccerEnv(gym.Env):
             reward_params.get('opponent_proximity_threshold', 1.0)
         )
         
-        if (robot_has_control and 
-            robot_opponent_distance < opponent_proximity_threshold):
+        if (robot_has_control 
+            and robot_opponent_distance < opponent_proximity_threshold
+            ):
             
             # Calculate if robot is moving toward goal
             robot_speed = np.linalg.norm(self.robot_vel)
@@ -1239,11 +1311,6 @@ class SoccerEnv(gym.Env):
         # Check if robot is touching/pushing the ball
         contact_distance = self.robot_radius + self.ball_radius
         if robot_ball_distance < contact_distance and robot_ball_distance > 0.1:
-            
-            # if robot_ball_distance > 1e-6: # Avoid Division by zero
-            #     push_direction = robot_to_ball / robot_ball_distance
-
-
             # Calculate push force based on robot velocity and distance
             overlap = contact_distance - robot_ball_distance
             
@@ -1254,8 +1321,18 @@ class SoccerEnv(gym.Env):
             robot_speed = np.linalg.norm(self.robot_vel)
             push_force = (robot_speed * 0.3 + overlap * 0.2) * self.push_force_multiplier
             
+            # # NEW: Gradual force buildup prevents jerky movement
+            # if not hasattr(self, '_ball_push_momentum'):
+            #     self._ball_push_momentum = np.array([0.0, 0.0])
+
             # Apply push to ball velocity
             push_velocity = push_direction * push_force
+
+            # #  # Smooth momentum change (prevents instant ball jumps)
+            # momentum_change_rate = 0.3  # Lower = smoother, higher = more responsive
+            # self._ball_push_momentum += (push_velocity - self._ball_push_momentum) * momentum_change_rate
+            # self.ball_vel += self._ball_push_momentum
+
             self.ball_vel += push_velocity
             
             # Add some robot direction influence (robot can "guide" the ball)
@@ -1301,9 +1378,6 @@ class SoccerEnv(gym.Env):
         
         # Update ball position
         self.ball_pos = self.ball_pos + self.ball_vel * self.dt
-        
-        # # Handle wall bounces
-        # self._handle_ball_wall_bounces()
 
         # Handle goalpost collisions
         self._handle_goalpost_collision()
@@ -1386,37 +1460,6 @@ class SoccerEnv(gym.Env):
             
             # Add small random component to prevent getting stuck
             self.ball_vel += np.random.uniform(-0.1, 0.1, 2)
-            
-    def _handle_ball_wall_bounces(self):
-        """Handle ball bouncing off walls with dampening"""
-        
-        # Left and right walls
-        if self.ball_pos[0] <= self.ball_radius:
-            self.ball_pos[0] = self.ball_radius
-            self.ball_vel[0] = -self.ball_vel[0] * self.ball_bounce
-            # Add some randomness to prevent edge exploitation
-            self.ball_vel[1] += np.random.uniform(-0.2, 0.2)
-        elif self.ball_pos[0] >= self.field_width - self.ball_radius:
-            # Don't bounce off right wall if it's in the goal area
-            goal_center_y = self.field_height // 2
-            goal_half_width = self.goal_width // 2
-            if not (goal_center_y - goal_half_width <= self.ball_pos[1] <= goal_center_y + goal_half_width):
-                self.ball_pos[0] = self.field_width - self.ball_radius
-                self.ball_vel[0] = -self.ball_vel[0] * self.ball_bounce
-                # Add randomness to prevent corner camping
-                self.ball_vel[1] += np.random.uniform(-0.2, 0.2)
-        
-        # Top and bottom walls
-        if self.ball_pos[1] <= self.ball_radius:
-            self.ball_pos[1] = self.ball_radius
-            self.ball_vel[1] = -self.ball_vel[1] * self.ball_bounce
-            # Prevent bottom edge exploitation
-            self.ball_vel[0] += np.random.uniform(-0.2, 0.2)
-        elif self.ball_pos[1] >= self.field_height - self.ball_radius:
-            self.ball_pos[1] = self.field_height - self.ball_radius
-            self.ball_vel[1] = -self.ball_vel[1] * self.ball_bounce
-            # Prevent top edge exploitation  
-            self.ball_vel[0] += np.random.uniform(-0.2, 0.2)
 
     def _update_possession_flags(self):
         """Update possession flags based on proximity (transition method)"""
@@ -1503,7 +1546,7 @@ class SoccerEnv(gym.Env):
         if self._check_ball_out_of_play():
             return True
         
-        # Failure: collision with opponent
+        #TODO: REmoved this for now # Failure: collision with opponent
         if np.linalg.norm(self.robot_pos - self.opponent_pos) < self.collision_distance:
             return True
 
@@ -1607,7 +1650,7 @@ class SoccerEnv(gym.Env):
         # Draw robot facing direction
         direction_length = self.robot_radius + 10
         direction_end_x = robot_x + direction_length * np.cos(self.robot_angle)
-        direction_end_y = robot_y - direction_length * np.sin(self.robot_angle)
+        direction_end_y = robot_y - direction_length * np.sin(self.robot_angle) #NOTE:1 Claude AI flips to + in the 'correct' version??
         pygame.draw.line(self.window, line_white, 
                         (robot_x, robot_y), (int(direction_end_x), int(direction_end_y)), 3)
         
@@ -1631,7 +1674,7 @@ class SoccerEnv(gym.Env):
             if not hasattr(self, '_font_small'):
                 pygame.font.init()
                 self._font_small = pygame.font.Font(None, 20)
-            text = self._font_small.render("BALL", True, possession_green)
+            text = self._font_small.render("ROBOT", True, possession_green)
             self.window.blit(text, (robot_x - 15, robot_y - self.robot_radius - 25))
         
         if self.opponent_has_ball:
@@ -1650,7 +1693,7 @@ class SoccerEnv(gym.Env):
         # Draw field information panel
         self._draw_field_info_panel()
         
-        # Draw opponent behavior indicator
+        # # Draw opponent behavior indicator
         self._draw_opponent_behavior()
         
         pygame.display.flip()
