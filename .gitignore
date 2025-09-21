@@ -1,5 +1,39 @@
-# Ignore Python bytecode files
+# Python
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
 
-# Ignore text editor specific files
+# Experiment outputs (keep archives for reference)
+experiments/runs/
+outputs/plots/*.png
+outputs/videos/
+outputs/tensorboard_logs/
+*.zip
+backup_before_reorg_*.tar.gz
+
+# IDE
 .vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+file_inventory_*.txt
+
+# Model files (keep final models in models/ directory)
+soccer_rl_*.zip
+
+# Private files
+private.txt
+
+# Ignore venv/ directory if you create one
+venv/
