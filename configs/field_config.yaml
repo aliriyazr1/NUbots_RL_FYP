@@ -210,10 +210,42 @@ difficulty_settings:
 # Replace your existing reward_parameters section with this updated version
 
 reward_parameters:
+  # === MULTI-OBJECTIVE WEIGHTS ===
+  # Primary objective weights for multi-objective optimization
+  possession_weight: 2.0              # Weight for ball possession objectives
+  goal_weight: 3.0                    # Weight for goal progress objectives
+  efficiency_weight: 1.5              # Weight for movement efficiency
+  safety_weight: 1.0                  # Weight for collision avoidance
+
+  # === CONTINUOUS TRANSITION PARAMETERS ===
+  # Sharpness parameters for smooth sigmoid/tanh transitions
+  possession_sharpness: 8.0           # Sharp possession transitions (higher = sharper)
+  zone_sharpness: 5.0                 # Moderate zone transitions
+  avoidance_sharpness: 10.0           # Sharp collision avoidance
+  transition_sharpness: 5.0           # Default transition sharpness
+
+  # === GAUSSIAN PARAMETERS ===
+  # Sigma values for Gaussian rewards (in contact_threshold units)
+  optimal_ball_sigma_multiplier: 1.5  # Multiplier for ball proximity Gaussian
+  optimal_goal_sigma: 1.0             # Sigma for goal positioning (meters)
+  optimal_position_sigma: 0.8         # Sigma for strategic positioning
+
+  # === EXPONENTIAL DECAY PARAMETERS ===
+  # Scale factors for exponential rewards/penalties
+  goal_approach_scale: 2.0            # Scale for exponential goal approach
+  collision_decay_scale: 0.3          # Scale for collision penalty decay
+  wall_decay_scale: 0.5               # Scale for wall penalty decay
+
+  # === POTENTIAL-BASED SHAPING ===
+  # Potential function parameters (preserves optimal policy)
+  potential_discount: 0.99             # Discount factor for potential shaping
+  potential_scale: 10.0                # Scale factor for potential differences
+  use_potential_shaping: true          # Enable potential-based reward shaping
+
   # === TERMINAL OUTCOMES ===
   goal_scored_reward: 150.0          # Increased from 100.0 - MASSIVE reward for scoring
-  opponent_goal_penalty: -60.0      # Penalty for opponent scoring
-  ball_out_bounds_penalty: -20.0     # Large penalty for losing ball out of bounds
+  opponent_goal_penalty: -100.0      # Penalty for opponent scoring
+  ball_out_bounds_penalty: -50.0     # Large penalty for losing ball out of bounds
   
   # === COLLISION MANAGEMENT (UPDATED) ===
   robot_collision_penalty: -8.0      # Reduced from -15.0 - less fear of opponent
@@ -285,10 +317,51 @@ reward_parameters:
   ball_seeking_reward_rate: 3.0       # Increased from 5.0 - better seeking reward
   wrong_direction_penalty_rate: 0.5   # Reduced from 3.0 - less harsh wrong direction penalty
   
+  # === ANTI-EXPLOITATION PENALTIES ===
+  # Prevent stationary ball holding
+  ball_holding_time_threshold: 20     # Steps before ball holding penalty kicks in
+  ball_holding_penalty_rate: 0.5      # Penalty per step for holding ball stationary
+  ball_holding_max_penalty: 10.0      # Maximum penalty for ball holding
+
+  # Prevent spinning in place
+  spin_detection_threshold: 0.2       # Max linear speed for spin detection
+  spin_rotation_threshold: 0.5        # Min rotation speed for spin detection
+  spinning_penalty_multiplier: 2.0    # Multiplier for spinning penalty
+
+  # Prevent wall hugging
+  wall_hugging_distance: 0.3          # Distance from wall to trigger penalty (meters)
+  wall_hugging_penalty_rate: 1.0      # Penalty rate for wall hugging
+  wall_hugging_time_threshold: 10     # Steps before wall hugging penalty increases
+  wall_hugging_penalty_multiplier: 2.0 # Multiplier after time threshold
+
+  # Prevent backward movement
+  backward_movement_penalty: 2.0      # Penalty for moving away from goal with ball
+  backward_threshold: -0.1            # Threshold for backward movement detection
+
+  # Prevent aimless wandering
+  progress_check_interval: 50         # Steps between progress checks
+  no_progress_penalty: 5.0            # Penalty for no meaningful progress
+  min_progress_distance: 0.5          # Minimum distance for progress (meters)
+
+  # === CURRICULUM LEARNING PARAMETERS ===
+  # Parameters for training without opponent first
+  solo_training_bonus: 1.2            # Multiplier for rewards during solo training
+  opponent_introduction_step: 50000   # When to introduce opponent
+  opponent_difficulty_ramp: 0.1       # How quickly opponent gets harder (0-1)
+
+  # === DEBUG PARAMETERS ===
+  debug_prints_enabled: false          # Enable detailed debug prints
+  debug_print_interval: 100           # Steps between debug prints
+  reward_component_tracking: true     # Track individual reward components
+
   # === SAFETY AND BOUNDS ===
   reward_min_bound: -30.0             # Increased from -50.0 - less harsh minimum
   reward_max_bound: 150.0             # Increased from 100.0 - higher maximum rewards
   invalid_state_penalty: -0.5         # Reduced from -1.0 - less harsh invalid state penalty
+
+  # === SOFT CLIPPING PARAMETERS ===
+  use_soft_clipping: true              # Use tanh for soft reward clipping
+  soft_clip_scale: 20.0                # Scale factor for tanh clipping
 
 # Updated strategic zones for more aggressive play
 strategic_zones:

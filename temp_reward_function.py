@@ -69,6 +69,7 @@ class SmoothRewardFunction:
 
         # Initialize reward
         reward = 0.0
+        #TODO: Ask Claude Code to review this section so that it is correct and then ask to continue with anti-exploitation penalties
 
         # ============================================================
         # 1. TERMINAL REWARDS (Still discrete, but rare)
