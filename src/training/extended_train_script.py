@@ -19,6 +19,17 @@ from src.training.train_GUI import TrainGUI
 import os, time, yaml, torch, datetime, json, copy
 from collections import deque
 import logging
+import multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from functools import partial
+from typing import Dict, List, Tuple, Optional, Any, Union
+
+#TODO: Need to see if I'm collecting metrics like ball possession time, goals scored
+#TODO: Number of times ball went out of bounds, collision frequency, etc
+
+#TODO: Need to actually use the create_enhanced_metrics whatever function
+#TODO: Need to actually train the models as well
+
 
 
 class MultiModelTrainingSystem:
@@ -44,8 +55,8 @@ class MultiModelTrainingSystem:
         # Setup logging
         self._setup_logging()
         
-    def create_experiment_directory(self, timestamp=None, base_dir="experiments/runs"):
-        """Create organized experiment directory structure with tensorboard support"""
+    def create_experiment_directory(self, timestamp=None, base_dir="experiments/runs") -> str:
+        """Create organised experiment directory structure with tensorboard support"""
         if timestamp is None:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -243,719 +254,185 @@ class ModelTracker(BaseCallback):
         with open(eval_file, 'w') as f:
             json.dump(existing_data, f, indent=2)
 
+def create_ppo_model(env: Monitor, hyperparams: Dict[str, Any],
+                    tensorboard_log: str) -> PPO:
+    """
+    Create PPO model with standardized configuration.
 
-def get_ppo_hyperparameter_variants():
-    """Generate different PPO hyperparameter configurations to try"""
-    variants = {
-        "conservative": {
-            "learning_rate": 2e-4,
-            "n_steps": 2048,
-            "batch_size": 128,
-            "n_epochs": 5,
-            "gamma": 0.99,
-            "gae_lambda": 0.95,
-            "clip_range": 0.1,
-            "ent_coef": 0.05,
-            "vf_coef": 0.5,
-            "net_arch": [128, 128],
-        },
-        "aggressive": {
-            "learning_rate": 5e-4,
-            "n_steps": 4096,
-            "batch_size": 256,
-            "n_epochs": 15,
-            "gamma": 0.995,
-            "gae_lambda": 0.98,
-            "clip_range": 0.3,
-            "ent_coef": 0.15,
-            "vf_coef": 0.8,
-            "net_arch": [256, 256, 128],
-        },
-        "balanced": {
-            "learning_rate": 3e-4,
-            "n_steps": 4096,
-            "batch_size": 256,
-            "n_epochs": 10,
-            "gamma": 0.99,
-            "gae_lambda": 0.95,
-            "clip_range": 0.2,
-            "ent_coef": 0.1,
-            "vf_coef": 0.5,
-            "net_arch": [128, 128, 64],
-        },
-        "exploration": {
-            "learning_rate": 3e-4,
-            "n_steps": 8192,
-            "batch_size": 512,
-            "n_epochs": 8,
-            "gamma": 0.99,
-            "gae_lambda": 0.9,
-            "clip_range": 0.25,
-            "ent_coef": 0.2,  # Higher exploration
-            "vf_coef": 0.3,
-            "net_arch": [256, 128, 64],
-        },
-        "large_network": {
-            "learning_rate": 1e-4,
-            "n_steps": 2048,
-            "batch_size": 128,
-            "n_epochs": 12,
-            "gamma": 0.99,
-            "gae_lambda": 0.95,
-            "clip_range": 0.2,
-            "ent_coef": 0.08,
-            "vf_coef": 0.5,
-            "net_arch": [512, 512, 256, 128],
-        }
-    }
-    return variants
+    Args:
+        env: Training environment
+        hyperparams: Hyperparameter dictionary
+        tensorboard_log: TensorBoard log directory
 
+    Returns:
+        Configured PPO model
+    """
+    return PPO(
+        policy="MlpPolicy",
+        env=env,
+        learning_rate=hyperparams["learning_rate"],
+        n_steps=hyperparams["n_steps"],
+        batch_size=hyperparams["batch_size"],
+        n_epochs=hyperparams["n_epochs"],
+        gamma=hyperparams["gamma"],
+        gae_lambda=hyperparams["gae_lambda"],
+        clip_range=hyperparams["clip_range"],
+        ent_coef=hyperparams["ent_coef"],
+        vf_coef=hyperparams["vf_coef"],
+        max_grad_norm=0.5,
+        normalize_advantage=True,
+        policy_kwargs=dict(
+            net_arch=hyperparams["net_arch"],
+            activation_fn=torch.nn.ReLU
+        ),
+        verbose=1,
+        device="cuda" if torch.cuda.is_available() else "cpu",
+        tensorboard_log=tensorboard_log
+    )
 
-def get_ddpg_hyperparameter_variants():
-    """Generate different DDPG hyperparameter configurations to try"""
-    variants = {
-        "conservative": {
-            "learning_rate": 5e-5,
-            "buffer_size": 500000,
-            "learning_starts": 10000,
-            "batch_size": 128,
-            "tau": 0.005,
-            "gamma": 0.99,
-            "train_freq": 1,
-            "gradient_steps": 1,
-            "net_arch": [128, 128],
-            "noise_sigma": 0.05,
-        },
-        "aggressive": {
-            "learning_rate": 2e-4,
-            "buffer_size": 1000000,
-            "learning_starts": 25000,
-            "batch_size": 512,
-            "tau": 0.02,
-            "gamma": 0.995,
-            "train_freq": 4,
-            "gradient_steps": 4,
-            "net_arch": [512, 512, 256],
-            "noise_sigma": 0.15,
-        },
-        "balanced": {
-            "learning_rate": 1e-4,
-            "buffer_size": 1000000,
-            "learning_starts": 20000,
-            "batch_size": 256,
-            "tau": 0.01,
-            "gamma": 0.99,
-            "train_freq": 4,
-            "gradient_steps": 2,
-            "net_arch": [256, 256, 128],
-            "noise_sigma": 0.1,
-        },
-        "exploration": {
-            "learning_rate": 1e-4,
-            "buffer_size": 800000,
-            "learning_starts": 30000,
-            "batch_size": 256,
-            "tau": 0.008,
-            "gamma": 0.98,
-            "train_freq": 2,
-            "gradient_steps": 3,
-            "net_arch": [256, 128, 64],
-            "noise_sigma": 0.2,  # More exploration noise
-        },
-        "fast_learning": {
-            "learning_rate": 3e-4,
-            "buffer_size": 500000,
-            "learning_starts": 5000,
-            "batch_size": 128,
-            "tau": 0.05,
-            "gamma": 0.99,
-            "train_freq": 8,
-            "gradient_steps": 8,
-            "net_arch": [128, 64],
-            "noise_sigma": 0.1,
-        }
-    }
-    return variants
+def create_ddpg_model(env: Monitor, hyperparams: Dict[str, Any],
+                     tensorboard_log: str) -> DDPG:
+    """
+    Create DDPG model with standardized configuration.
 
-def train_ppo_variant(training_system, variant_name, hyperparams, total_timesteps=1500000):
-    """Train a single PPO variant with specific hyperparameters"""
-    training_system.logger.info(f"Starting PPO variant '{variant_name}' training...")
-    
-    try:
-        # Create environments
-        train_env = Monitor(SoccerEnv(difficulty="easy", config_path=training_system.config_path))
-        eval_env = Monitor(SoccerEnv(difficulty="easy", config_path=training_system.config_path))
-        
-        # Create PPO model with variant-specific hyperparameters
-        model = PPO(
-            policy="MlpPolicy",
-            env=train_env,
-            learning_rate=hyperparams["learning_rate"],
-            n_steps=hyperparams["n_steps"],
-            batch_size=hyperparams["batch_size"],
-            n_epochs=hyperparams["n_epochs"],
-            gamma=hyperparams["gamma"],
-            gae_lambda=hyperparams["gae_lambda"],
-            clip_range=hyperparams["clip_range"],
-            ent_coef=hyperparams["ent_coef"],
-            vf_coef=hyperparams["vf_coef"],
-            max_grad_norm=0.5,
-            normalize_advantage=True,
-            policy_kwargs=dict(
-                net_arch=hyperparams["net_arch"],
-                activation_fn=torch.nn.ReLU
-            ),
-            verbose=1,
-            device="cuda" if torch.cuda.is_available() else "cpu",
-            tensorboard_log=f"{training_system.output_dir}/tensorboard_logs"
-        )
-        
-        # Setup callbacks
-        model_tracker = ModelTracker("PPO", training_system, variant_name, verbose=1)
-        model_tracker.set_model(model)
-        
-        eval_callback = EvalCallback(
-            eval_env,
-            best_model_save_path=f"{training_system.output_dir}/models/ppo/",
-            log_path=f"{training_system.output_dir}/logs/",
-            eval_freq=50000,
-            deterministic=True,
-            render=False,
-            n_eval_episodes=10,
-            verbose=1,
-        )
-        
-        # Train model
-        training_system.logger.info(f"Training PPO-{variant_name} for {total_timesteps:,} timesteps...")
-        start_time = time.time()
-        
-        model.learn(
-            total_timesteps=total_timesteps,
-            callback=[model_tracker, eval_callback],
-            progress_bar=True
-        )
-        
-        training_time = time.time() - start_time
-        training_system.logger.info(f"PPO-{variant_name} training completed in {training_time/3600:.2f} hours")
-        
-        # Final evaluation and save
-        final_score = model_tracker._comprehensive_evaluation()
-        final_model_path = f"{training_system.output_dir}/models/ppo/final_ppo_{variant_name}_{training_system.timestamp}"
-        model.save(final_model_path)
-        
-        # Save hyperparameters for this variant
-        hyperparam_file = f"{training_system.output_dir}/hyperparameters/ppo_{variant_name}_hyperparams.json"
-        with open(hyperparam_file, 'w') as f:
-            json.dump(hyperparams, f, indent=2)
-        
-        return final_model_path, final_score, variant_name
-        
-    except Exception as e:
-        training_system.logger.error(f"PPO-{variant_name} training failed: {e}")
-        return None, -np.inf, variant_name
-        
-    finally:
-        train_env.close()
-        eval_env.close()
+    Args:
+        env: Training environment
+        hyperparams: Hyperparameter dictionary
+        tensorboard_log: TensorBoard log directory
 
+    Returns:
+        Configured DDPG model
+    """
+    # Action noise for exploration
+    n_actions = env.action_space.shape[-1]
+    action_noise = NormalActionNoise(
+        mean=np.zeros(n_actions),
+        sigma=hyperparams["noise_sigma"] * np.ones(n_actions)
+    )
 
-def train_ddpg_variant(training_system, variant_name, hyperparams, total_timesteps=1500000):
-    """Train a single DDPG variant with specific hyperparameters"""
-    training_system.logger.info(f"Starting DDPG variant '{variant_name}' training...")
-    
-    try:
-        # Create environments
-        train_env = Monitor(SoccerEnv(difficulty="easy", config_path=training_system.config_path))
-        eval_env = Monitor(SoccerEnv(difficulty="easy", config_path=training_system.config_path))
-        
-        # Action noise for exploration
-        n_actions = train_env.action_space.shape[-1]
-        action_noise = NormalActionNoise(
-            mean=np.zeros(n_actions),
-            sigma=hyperparams["noise_sigma"] * np.ones(n_actions)
-        )
-        
-        # Create DDPG model with variant-specific hyperparameters
-        model = DDPG(
-            policy="MlpPolicy",
-            env=train_env,
-            learning_rate=hyperparams["learning_rate"],
-            buffer_size=hyperparams["buffer_size"],
-            learning_starts=hyperparams["learning_starts"],
-            batch_size=hyperparams["batch_size"],
-            tau=hyperparams["tau"],
-            gamma=hyperparams["gamma"],
-            action_noise=action_noise,
-            train_freq=hyperparams["train_freq"],
-            gradient_steps=hyperparams["gradient_steps"],
-            policy_kwargs=dict(
-                net_arch=hyperparams["net_arch"],
-                activation_fn=torch.nn.ReLU
-            ),
-            verbose=1,
-            device="cuda" if torch.cuda.is_available() else "cpu",
-            tensorboard_log=f"{training_system.output_dir}/tensorboard_logs"
-        )
-        
-        # Setup callbacks
-        model_tracker = ModelTracker("DDPG", training_system, variant_name, verbose=1)
-        model_tracker.set_model(model)
-        
-        eval_callback = EvalCallback(
-            eval_env,
-            best_model_save_path=f"{training_system.output_dir}/models/ddpg/",
-            log_path=f"{training_system.output_dir}/logs/",
-            eval_freq=50000,  # Same as PPO for fair comparison
-            deterministic=True,
-            render=False,
-            n_eval_episodes=10,
-            verbose=1
-        )
-        
-        # Train model
-        training_system.logger.info(f"Training DDPG-{variant_name} for {total_timesteps:,} timesteps...")
-        start_time = time.time()
-        
-        model.learn(
-            total_timesteps=total_timesteps,
-            callback=[model_tracker, eval_callback],
-            progress_bar=True
-        )
-        
-        training_time = time.time() - start_time
-        training_system.logger.info(f"DDPG-{variant_name} training completed in {training_time/3600:.2f} hours")
-        
-        # Final evaluation and save
-        final_score = model_tracker._comprehensive_evaluation()
-        final_model_path = f"{training_system.output_dir}/models/ddpg/final_ddpg_{variant_name}_{training_system.timestamp}"
-        model.save(final_model_path)
-        
-        # Save hyperparameters for this variant
-        hyperparam_file = f"{training_system.output_dir}/hyperparameters/ddpg_{variant_name}_hyperparams.json"
-        with open(hyperparam_file, 'w') as f:
-            json.dump({k: (v if not isinstance(v, np.ndarray) else v.tolist()) 
-                      for k, v in hyperparams.items()}, f, indent=2)
-        
-        return final_model_path, final_score, variant_name
-        
-    except Exception as e:
-        training_system.logger.error(f"DDPG-{variant_name} training failed: {e}")
-        return None, -np.inf, variant_name
-        
-    finally:
-        train_env.close()
-        eval_env.close()
+    return DDPG(
+        policy="MlpPolicy",
+        env=env,
+        learning_rate=hyperparams["learning_rate"],
+        buffer_size=hyperparams["buffer_size"],
+        learning_starts=hyperparams["learning_starts"],
+        batch_size=hyperparams["batch_size"],
+        tau=hyperparams["tau"],
+        gamma=hyperparams["gamma"],
+        action_noise=action_noise,
+        train_freq=hyperparams["train_freq"],
+        gradient_steps=hyperparams["gradient_steps"],
+        policy_kwargs=dict(
+            net_arch=hyperparams["net_arch"],
+            activation_fn=torch.nn.ReLU
+        ),
+        verbose=1,
+        device="cuda" if torch.cuda.is_available() else "cpu",
+        tensorboard_log=tensorboard_log
+    )
 
-def continue_ddpg_training(training_system, model_path, run_name, total_timesteps=800000):
-    """Continue training an existing DDPG model with comprehensive logging"""
-    
-    training_system.logger.info(f"Loading existing DDPG model: {model_path}")
-    training_system.logger.info(f"Continue training run: '{run_name}'")
-    
-    try:
-        # Load the existing model
-        model = DDPG.load(model_path)
-        training_system.logger.info("Model loaded successfully!")
-
-        initial_timesteps = model.num_timesteps  # Remember where we started
-        print(f"🔍 Starting retraining from timestep: {initial_timesteps}")
-        
-        # Create environments
-        train_env = Monitor(SoccerEnv(difficulty="easy", config_path=training_system.config_path))
-        eval_env = Monitor(SoccerEnv(difficulty="easy", config_path=training_system.config_path))
-        
-        # Update model's environment and tensorboard logging
-        model.set_env(train_env)
-        model.tensorboard_log = f"{training_system.output_dir}/tensorboard_logs"
-
-        # Setup callbacks
-        # model_tracker = ModelTracker("DDPG_Continue", training_system, run_name, verbose=1)
-        model_tracker = ModelTracker("DDPG", training_system, run_name, verbose=1)
-        model_tracker.set_model(model)
-        
-        train_env.total_timesteps_trained = model.num_timesteps  # Pass current timesteps to env
-        train_env.initial_timesteps = initial_timesteps  # Store the starting point
-        train_env.relative_timesteps = 0  # Reset relative timesteps
-        model_tracker.train_env = train_env  # Pass env to tracker for timestep tracking
-
-        # ADD THIS DEBUG:
-        print(f"🔍 train_env type: {type(train_env)}")
-        print(f"🔍 train_env has total_timesteps_trained: {hasattr(train_env, 'total_timesteps_trained')}")
-        
-        eval_callback = EvalCallback(
-            eval_env,
-            best_model_save_path=f"{training_system.output_dir}/models/ddpg/",
-            log_path=f"{training_system.output_dir}/logs/",
-            eval_freq=15000,  # Evaluate every 15k steps
-            deterministic=True,
-            render=False,
-            n_eval_episodes=5,
-            verbose=1
-        )
-        
-        # Train model (continue from existing state)
-        training_system.logger.info(f"Continue training {run_name} for {total_timesteps:,} additional timesteps...")
-        start_time = time.time()
-        
-        model.learn(
-            total_timesteps=total_timesteps,
-            callback=[model_tracker, eval_callback],
-            tb_log_name=None,
-            progress_bar=True,
-            reset_num_timesteps=False  # Continue from existing timestep count
-        )
-        
-        training_time = time.time() - start_time
-        training_system.logger.info(f"{run_name} continued training completed in {training_time/3600:.2f} hours")
-        
-        # Final evaluation and save
-        final_score = model_tracker._comprehensive_evaluation()
-        final_model_path = f"{training_system.output_dir}/models/ddpg/{run_name}_{training_system.timestamp}"
-        model.save(final_model_path)
-        
-        # Save training information
-        continue_info = {
-            'original_model_path': model_path,
-            'run_name': run_name,
-            'additional_timesteps': total_timesteps,
-            'training_time_hours': training_time/3600,
-            'final_score': final_score,
-            'continued_model_path': final_model_path,
-            'timestamp': training_system.timestamp
-        }
-        
-        info_file = f"{training_system.output_dir}/summaries/continued_{run_name}_info.json"
-        with open(info_file, 'w') as f:
-            json.dump(continue_info, f, indent=2)
-        
-        training_system.logger.info(f"Continued model saved: {final_model_path}")
-        training_system.logger.info(f"Final score: {final_score:.2f}")
-        
-        return final_model_path, final_score, run_name
-        
-    except Exception as e:
-        training_system.logger.error(f"Continue training {run_name} failed: {e}")
-        return None, -np.inf, run_name
-        
-    finally:
-        train_env.close()
-        eval_env.close()
-
-
-def continue_multiple_ddpg_models(model_info_list, timesteps_per_model=800000, config_path="SoccerEnv/field_config.yaml"):
-    """Continue training multiple existing DDPG models
+def create_callbacks_and_tracker(
+    algorithm_name: str,
+    training_system,
+    variant_name: str,
+    eval_env: Monitor,
+    train_env: Optional[Monitor] = None,
+    eval_freq: int = 15000,
+    n_eval_episodes: int = 5,
+    verbose: int = 1
+) -> Tuple[ModelTracker, EvalCallback]:
+    """
+    Create ModelTracker and EvalCallback for training.
     
     Args:
-        model_info_list: List of tuples (model_path, run_name)
-                        e.g., [("models/my_model.zip", "aggressive_v1"), 
-                               ("models/other_model.zip", "aggressive_v2")]
-        timesteps_per_model: Additional timesteps to train each model
-        config_path: Path to field configuration
+        algorithm_name: Name of algorithm ("PPO", "DDPG", etc.)
+        training_system: Training system instance with output_dir, logger, etc.
+        variant_name: Name of the variant being trained
+        eval_env: Environment for evaluation
+        train_env: Training environment (optional, for timestep tracking)
+        eval_freq: Frequency of evaluation (steps)
+        n_eval_episodes: Number of episodes per evaluation
+        verbose: Verbosity level
+    
+    Returns:
+        Tuple of (ModelTracker, EvalCallback)
     """
+    # Create ModelTracker
+    model_tracker = ModelTracker(algorithm_name, training_system, variant_name, verbose=verbose)
     
-    # Initialize training system
-    training_system = MultiModelTrainingSystem(config_path)
-    training_system.training_start_time = time.time()
-    training_system.logger.info(f"Continuing training for {len(model_info_list)} DDPG models")
-    training_system.logger.info(f"{timesteps_per_model:,} additional timesteps per model")
+    # Set train_env if provided for timestep tracking
+    if train_env is not None:
+        model_tracker.train_env = train_env
     
-    results = []
+    # Create EvalCallback
+    eval_callback = EvalCallback(
+        eval_env,
+        best_model_save_path=f"{training_system.output_dir}/models/{algorithm_name.lower()}/",
+        log_path=f"{training_system.output_dir}/logs/",
+        eval_freq=eval_freq,
+        deterministic=True,
+        render=False,
+        n_eval_episodes=n_eval_episodes,
+        verbose=verbose
+    )
     
-    for i, (model_path, run_name) in enumerate(model_info_list):
-        training_system.logger.info("="*60)
-        training_system.logger.info(f"CONTINUING MODEL {i+1}/{len(model_info_list)}: {run_name}")
-        training_system.logger.info(f"Original model: {model_path}")
-        training_system.logger.info("="*60)
-        
-        # Check if model file exists
-        if not os.path.exists(model_path):
-            training_system.logger.error(f"Model file not found: {model_path}")
-            results.append((None, -np.inf, run_name))
-            continue
-        
-        continued_model_path, score, name = continue_ddpg_training(
-            training_system, 
-            model_path,
-            run_name, 
-            timesteps_per_model
-        )
-        
-        results.append((continued_model_path, score, name))
-        
-        training_system.logger.info(f"Completed continuing {run_name}: Score = {score:.2f}")
-    
-    # Create final summary
-    total_time = (time.time() - training_system.training_start_time) / 3600
-    
-    training_system.logger.info("="*80)
-    training_system.logger.info("CONTINUED TRAINING COMPLETE!")
-    training_system.logger.info("="*80)
-    training_system.logger.info(f"Total training time: {total_time:.2f} hours")
-    training_system.logger.info(f"Models continued: {len(results)}")
-    
-    # Find best model
-    successful_models = [(path, score, name) for path, score, name in results if path is not None]
-    
-    if successful_models:
-        best_model = max(successful_models, key=lambda x: x[1])
-        training_system.logger.info(f"Best continued model: {best_model[2]} (Score: {best_model[1]:.2f})")
-        training_system.logger.info(f"Best model path: {best_model[0]}")
-        
-        # Save overall summary
-        overall_summary = {
-            'training_session': training_system.timestamp,
-            'training_type': 'continue_existing_models',
-            'total_time_hours': total_time,
-            'models_continued': len(results),
-            'successful_continuations': len(successful_models),
-            'additional_timesteps_per_model': timesteps_per_model,
-            'best_continued_model': {
-                'name': best_model[2],
-                'score': best_model[1],
-                'path': best_model[0]
-            },
-            'all_results': [{'name': name, 'score': score, 'path': path} for path, score, name in results],
-            'original_models': [{'original_path': model_path, 'run_name': run_name} 
-                              for model_path, run_name in model_info_list]
-        }
-        
-        final_summary_file = f"{training_system.output_dir}/final_continued_training_summary.json"
-        with open(final_summary_file, 'w') as f:
-            json.dump(overall_summary, f, indent=2)
-            
-        training_system.logger.info(f"Final summary saved: {final_summary_file}")
-    else:
-        training_system.logger.error("No models continued successfully!")
-    
-    training_system.logger.info(f"All outputs saved to: {training_system.output_dir}")
-    
-    return results, training_system.output_dir
+    return model_tracker, eval_callback
 
-def train_all_ppo_variants(training_system, total_timesteps=1500000):
-    """Train all PPO variants and track the best performer"""
-    training_system.logger.info("="*60)
-    training_system.logger.info("STARTING MULTI-PPO TRAINING")
-    training_system.logger.info("="*60)
-    
-    ppo_variants = get_ppo_hyperparameter_variants()
-    ppo_results = []
-    
-    for i, (variant_name, hyperparams) in enumerate(ppo_variants.items(), 1):
-        training_system.logger.info(f"\n[{i}/{len(ppo_variants)}] Training PPO variant: {variant_name}")
-        training_system.logger.info(f"Hyperparameters: {hyperparams}")
-        
-        model_path, score, variant = train_ppo_variant(
-            training_system, variant_name, hyperparams, total_timesteps
-        )
-        
-        ppo_results.append((model_path, score, variant, hyperparams))
-        
-        training_system.logger.info(f"PPO-{variant_name} final score: {score:.2f}")
-        
-        if score > training_system.best_ppo_score:
-            training_system.logger.info(f"NEW BEST PPO VARIANT: {variant_name} (Score: {score:.2f})")
-    
-    # Log PPO summary
-    training_system.logger.info("\n" + "="*60)
-    training_system.logger.info("PPO VARIANTS SUMMARY")
-    training_system.logger.info("="*60)
-    
-    # Sort by score
-    ppo_results.sort(key=lambda x: x[1], reverse=True)
-    
-    for i, (model_path, score, variant, hyperparams) in enumerate(ppo_results):
-        status = " BEST" if i == 0 else f"#{i+1}"
-        training_system.logger.info(f"{status} PPO-{variant}: {score:.2f}")
-    
-    return ppo_results
+def evaluate_model_comprehensive(model: Union[PPO, DDPG], env: Monitor,
+                                n_episodes: int = 50, algorithm: str = "") -> Dict[str, Any]:
+    """
+    Comprehensive model evaluation with detailed metrics.
+
+    Args:
+        model: Trained model to evaluate
+        env: Environment for evaluation
+        n_episodes: Number of evaluation episodes
+        algorithm: Algorithm name for logging
+
+    Returns:
+        Dictionary with evaluation results
+    """
+    episode_rewards = []
+    episode_lengths = []
+    success_count = 0
+
+    for episode in range(n_episodes):
+        obs, _ = env.reset()
+        episode_reward = 0
+        episode_length = 0
+        done = False
+
+        while not done:
+            action, _ = model.predict(obs, deterministic=True)
+            obs, reward, terminated, truncated, info = env.step(action)
+            episode_reward += reward
+            episode_length += 1
+            done = terminated or truncated
+
+            # Check for goal (success)
+            if terminated and hasattr(env.unwrapped, '_check_goal'):
+                if env.unwrapped._check_goal():
+                    success_count += 1
+
+        episode_rewards.append(episode_reward)
+        episode_lengths.append(episode_length)
+
+    return {
+        'algorithm': algorithm,
+        'episode_rewards': episode_rewards,
+        'episode_lengths': episode_lengths,
+        'mean_reward': np.mean(episode_rewards),
+        'std_reward': np.std(episode_rewards),
+        'min_reward': np.min(episode_rewards),
+        'max_reward': np.max(episode_rewards),
+        'mean_episode_length': np.mean(episode_lengths),
+        'std_episode_length': np.std(episode_lengths),
+        'success_rate': (success_count / n_episodes) * 100.0,
+        'total_episodes': n_episodes
+    }
 
 
-def train_all_ddpg_variants(training_system, total_timesteps=1500000):
-    """Train all DDPG variants and track the best performer"""
-    training_system.logger.info("="*60)
-    training_system.logger.info("STARTING MULTI-DDPG TRAINING")
-    training_system.logger.info("="*60)
-    
-    ddpg_variants = get_ddpg_hyperparameter_variants()
-    ddpg_results = []
-    
-    for i, (variant_name, hyperparams) in enumerate(ddpg_variants.items(), 1):
-        training_system.logger.info(f"\n[{i}/{len(ddpg_variants)}] Training DDPG variant: {variant_name}")
-        training_system.logger.info(f"Hyperparameters: {hyperparams}")
-        
-        model_path, score, variant = train_ddpg_variant(
-            training_system, variant_name, hyperparams, total_timesteps
-        )
-        
-        ddpg_results.append((model_path, score, variant, hyperparams))
-        
-        training_system.logger.info(f"DDPG-{variant_name} final score: {score:.2f}")
-        
-        if score > training_system.best_ddpg_score:
-            training_system.logger.info(f"NEW BEST DDPG VARIANT: {variant_name} (Score: {score:.2f})")
-    
-    # Log DDPG summary
-    training_system.logger.info("\n" + "="*60)
-    training_system.logger.info("DDPG VARIANTS SUMMARY")
-    training_system.logger.info("="*60)
-    
-    # Sort by score
-    ddpg_results.sort(key=lambda x: x[1], reverse=True)
-    
-    for i, (model_path, score, variant, hyperparams) in enumerate(ddpg_results):
-        status = " BEST" if i == 0 else f"#{i+1}"
-        training_system.logger.info(f"{status} DDPG-{variant}: {score:.2f}")
-    
-    return ddpg_results
 
-def train_new_ddpg_model(training_system, run_name, hyperparams=None, total_timesteps=1500000, n_envs=4):
-    """Train a brand new DDPG model from scratch with comprehensive logging"""
-    
-    training_system.logger.info(f"Creating new DDPG model from scratch")
-    training_system.logger.info(f"New training run: '{run_name}'")
-    
-    # Use default hyperparameters if none provided
-    if hyperparams is None:
-        hyperparams = {
-            "learning_rate": 1e-3,
-            "buffer_size": 1000000,
-            "learning_starts": 25000,
-            "batch_size": 256,
-            "tau": 0.01,
-            "gamma": 0.99,
-            "noise_sigma": 0.1,
-            "train_freq": (2, "step"),
-            "gradient_steps": 1,
-            "net_arch": [256, 256, 128]
-        }
-    
-    training_system.logger.info(f"Hyperparameters: {hyperparams}")
-    
-    def make_env(rank):
-        """Create a single environment - this runs in separate process"""
-        def _init():
-            env = SoccerEnv(
-                difficulty="easy", 
-                config_path=training_system.config_path,
-                render_mode=None  # IMPORTANT: No rendering in parallel envs
-            )
-            env = Monitor(env)
-            return env
-        return _init
-    
-    try:
-        # Create environments
-        # Create parallel training environments
-        train_env = SubprocVecEnv([make_env(i) for i in range(n_envs)])
-        
-        # Single evaluation environment (non-parallel for consistency)
-        eval_env = Monitor(SoccerEnv(
-            difficulty="easy", 
-            config_path=training_system.config_path,
-            render_mode=None
-        ))  
-
-        # Action noise for exploration
-        n_actions = train_env.action_space.shape[-1]
-        action_noise = NormalActionNoise(
-            mean=np.zeros(n_actions),
-            sigma=hyperparams["noise_sigma"] * np.ones(n_actions)
-        )
-        
-        # Create brand new DDPG model
-        model = DDPG(
-            policy="MlpPolicy",
-            env=train_env,
-            learning_rate=hyperparams["learning_rate"],
-            buffer_size=hyperparams["buffer_size"],
-            learning_starts=hyperparams["learning_starts"],
-            batch_size=hyperparams["batch_size"],
-            tau=hyperparams["tau"],
-            gamma=hyperparams["gamma"],
-            action_noise=action_noise,
-            train_freq=hyperparams["train_freq"],
-            gradient_steps=hyperparams["gradient_steps"],
-            policy_kwargs=dict(
-                net_arch=hyperparams["net_arch"],
-                activation_fn=torch.nn.ReLU
-            ),
-            verbose=1,
-            device="cpu",
-            tensorboard_log=f"{training_system.output_dir}/tensorboard_logs"
-        )
-        
-        training_system.logger.info("New DDPG model created successfully!")
-        
-        # Setup callbacks
-        model_tracker = ModelTracker("DDPG_Parallel", training_system, run_name, verbose=1)
-        model_tracker.set_model(model)
-        
-        eval_callback = EvalCallback(
-            eval_env,
-            best_model_save_path=f"{training_system.output_dir}/models/ddpg/",
-            log_path=f"{training_system.output_dir}/logs/",
-            eval_freq=15000,  # Evaluate every 15k steps
-            deterministic=True,
-            render=False,
-            n_eval_episodes=5,
-            verbose=1
-        )
-        
-        # Train model from scratch
-        training_system.logger.info(f"Training new {run_name} for {total_timesteps:,} timesteps...")
-        start_time = time.time()
-        
-        model.learn(
-            total_timesteps=total_timesteps,
-            callback=[model_tracker, eval_callback],
-            tb_log_name=run_name,  # Custom tensorboard log name
-            progress_bar=True,
-            reset_num_timesteps=True  # Start from timestep 0
-        )
-        
-        training_time = time.time() - start_time
-        training_system.logger.info(f"{run_name} training completed in {training_time/3600:.2f} hours")
-        
-        # Final evaluation and save
-        final_score = model_tracker._comprehensive_evaluation()
-        final_model_path = f"{training_system.output_dir}/models/ddpg/new_{run_name}_{training_system.timestamp}"
-        model.save(final_model_path)
-        
-        # Save training information
-        new_model_info = {
-            'run_name': run_name,
-            'hyperparameters': hyperparams,
-            'total_timesteps': total_timesteps,
-            'training_time_hours': training_time/3600,
-            'final_score': final_score,
-            'model_path': final_model_path,
-            'timestamp': training_system.timestamp,
-            'training_type': 'parallel',
-            'device': "cpu"
-        }
-        
-        info_file = f"{training_system.output_dir}/summaries/new_{run_name}_info.json"
-        with open(info_file, 'w') as f:
-            json.dump(new_model_info, f, indent=2)
-        
-        # Save hyperparameters separately for easy access
-        hyperparam_file = f"{training_system.output_dir}/hyperparameters/new_{run_name}_hyperparams.json"
-        with open(hyperparam_file, 'w') as f:
-            json.dump({k: (v if not isinstance(v, np.ndarray) else v.tolist()) 
-                      for k, v in hyperparams.items()}, f, indent=2)
-        
-        training_system.logger.info(f"New model saved: {final_model_path}")
-        training_system.logger.info(f"Final score: {final_score:.2f}")
-        
-        return final_model_path, final_score, run_name
-        
-    except Exception as e:
-        training_system.logger.error(f"New model training {run_name} failed: {e}")
-        return None, -np.inf, run_name
-        
-    finally:
-        train_env.close()
-        eval_env.close()
 
 def comprehensive_final_evaluation(training_system, ppo_results, ddpg_results):
     """Comprehensive evaluation of all best models"""
@@ -1096,11 +573,12 @@ def create_comprehensive_comparison_plots(training_system, ppo_results, ddpg_res
     training_system.logger.info("Creating comprehensive comparison plots...")
     
     try:
-        # Create a large figure with multiple subplots
-        fig = plt.figure(figsize=(20, 16))
-        gs = fig.add_gridspec(4, 3, hspace=0.3, wspace=0.3)
+        # Create a large figure with multiple subplots - increased spacing for clarity
+        fig = plt.figure(figsize=(24, 20))
+        gs = fig.add_gridspec(4, 3, hspace=0.5, wspace=0.4, top=0.88, bottom=0.08, left=0.08, right=0.95)
         
-        fig.suptitle(f'Multi-Model Training Results - {training_system.timestamp}', fontsize=16, fontweight='bold')
+        fig.suptitle(f'Multi-Model Training Results - {training_system.timestamp}', 
+                    fontsize=18, fontweight='bold', y=0.98)
         
         # Plot 1: PPO Variants Performance Comparison
         ax1 = fig.add_subplot(gs[0, 0])
@@ -1108,9 +586,10 @@ def create_comprehensive_comparison_plots(training_system, ppo_results, ddpg_res
         ppo_scores = [result[1] for result in ppo_results]
         
         bars1 = ax1.bar(ppo_names, ppo_scores, color='skyblue', alpha=0.8)
-        ax1.set_title('PPO Variants Performance', fontweight='bold')
-        ax1.set_ylabel('Evaluation Score')
-        ax1.tick_params(axis='x', rotation=45)
+        ax1.set_title('PPO Variants Performance', fontweight='bold', fontsize=12)
+        ax1.set_ylabel('Evaluation Score', fontsize=10)
+        ax1.tick_params(axis='x', rotation=45, labelsize=8)
+        ax1.tick_params(axis='y', labelsize=8)
         ax1.grid(True, alpha=0.3)
         
         # Highlight best PPO
@@ -1126,9 +605,10 @@ def create_comprehensive_comparison_plots(training_system, ppo_results, ddpg_res
         ddpg_scores = [result[1] for result in ddpg_results]
         
         bars2 = ax2.bar(ddpg_names, ddpg_scores, color='lightcoral', alpha=0.8)
-        ax2.set_title('DDPG Variants Performance', fontweight='bold')
-        ax2.set_ylabel('Evaluation Score')
-        ax2.tick_params(axis='x', rotation=45)
+        ax2.set_title('DDPG Variants Performance', fontweight='bold', fontsize=12)
+        ax2.set_ylabel('Evaluation Score', fontsize=10)
+        ax2.tick_params(axis='x', rotation=45, labelsize=8)
+        ax2.tick_params(axis='y', labelsize=8)
         ax2.grid(True, alpha=0.3)
         
         # Highlight best DDPG
@@ -1150,12 +630,13 @@ def create_comprehensive_comparison_plots(training_system, ppo_results, ddpg_res
             
             ax3.bar(x_pos - width/2, ppo_rewards, width, label='Best PPO', color='skyblue', alpha=0.8)
             ax3.bar(x_pos + width/2, ddpg_rewards, width, label='Best DDPG', color='lightcoral', alpha=0.8)
-            ax3.set_xlabel('Difficulty Level')
-            ax3.set_ylabel('Average Reward')
-            ax3.set_title('Best Models: Difficulty Performance')
+            ax3.set_xlabel('Difficulty Level', fontsize=10)
+            ax3.set_ylabel('Average Reward', fontsize=10)
+            ax3.set_title('Best Models: Difficulty Performance', fontweight='bold', fontsize=12)
             ax3.set_xticks(x_pos)
-            ax3.set_xticklabels(difficulties)
-            ax3.legend()
+            ax3.set_xticklabels(difficulties, fontsize=8)
+            ax3.tick_params(axis='y', labelsize=8)
+            ax3.legend(fontsize=9)
             ax3.grid(True, alpha=0.3)
         
         # Plot 4: Success Rates by Difficulty
@@ -1166,12 +647,13 @@ def create_comprehensive_comparison_plots(training_system, ppo_results, ddpg_res
             
             ax4.bar(x_pos - width/2, ppo_success, width, label='Best PPO', color='skyblue', alpha=0.8)
             ax4.bar(x_pos + width/2, ddpg_success, width, label='Best DDPG', color='lightcoral', alpha=0.8)
-            ax4.set_xlabel('Difficulty Level')
-            ax4.set_ylabel('Success Rate (%)')
-            ax4.set_title('Goal Scoring Success Rate')
+            ax4.set_xlabel('Difficulty Level', fontsize=10)
+            ax4.set_ylabel('Success Rate (%)', fontsize=10)
+            ax4.set_title('Goal Scoring Success Rate', fontweight='bold', fontsize=12)
             ax4.set_xticks(x_pos)
-            ax4.set_xticklabels(difficulties)
-            ax4.legend()
+            ax4.set_xticklabels(difficulties, fontsize=8)
+            ax4.tick_params(axis='y', labelsize=8)
+            ax4.legend(fontsize=9)
             ax4.grid(True, alpha=0.3)
         
         # Plot 5: Training Summary Text
@@ -1191,9 +673,9 @@ def create_comprehensive_comparison_plots(training_system, ppo_results, ddpg_res
         else:
             summary_text += f"\n TIE!\n"
         
-        ax5.text(0.05, 0.95, summary_text, transform=ax5.transAxes, fontsize=12,
+        ax5.text(0.05, 0.95, summary_text, transform=ax5.transAxes, fontsize=10,
                 verticalalignment='top', fontfamily='monospace',
-                bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.8))
+                bbox=dict(boxstyle='round,pad=0.5', facecolor='lightgreen', alpha=0.8))
         
         # Plot 6: Best Models Details
         ax6 = fig.add_subplot(gs[1, 2])
@@ -1215,9 +697,9 @@ def create_comprehensive_comparison_plots(training_system, ppo_results, ddpg_res
             models_text += f"  Score: {best_ddpg[1]:.2f}\n"
             models_text += f"  Path: {os.path.basename(best_ddpg[0]) if best_ddpg[0] else 'None'}\n"
         
-        ax6.text(0.05, 0.95, models_text, transform=ax6.transAxes, fontsize=10,
+        ax6.text(0.05, 0.95, models_text, transform=ax6.transAxes, fontsize=9,
                 verticalalignment='top', fontfamily='monospace',
-                bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8))
+                bbox=dict(boxstyle='round,pad=0.5', facecolor='lightblue', alpha=0.8))
         
         # Plot 7-9: Individual variant performance distributions
         if len(ppo_results) > 1:
@@ -1239,8 +721,9 @@ def create_comprehensive_comparison_plots(training_system, ppo_results, ddpg_res
             colors = ['skyblue' if 'PPO' in name else 'lightcoral' for name in names]
             
             bars = ax7.barh(names, scores, color=colors, alpha=0.8)
-            ax7.set_xlabel('Evaluation Score')
-            ax7.set_title('All Model Variants Performance Ranking', fontweight='bold')
+            ax7.set_xlabel('Evaluation Score', fontsize=10)
+            ax7.set_title('All Model Variants Performance Ranking', fontweight='bold', fontsize=12)
+            ax7.tick_params(axis='both', labelsize=8)
             ax7.grid(True, alpha=0.3)
             
             # Highlight top performer
@@ -1273,9 +756,9 @@ def create_comprehensive_comparison_plots(training_system, ppo_results, ddpg_res
             insights_text += f"  Worst variant: {worst_ddpg[2]} (Score: {worst_ddpg[1]:.2f})\n"
             insights_text += f"  Performance range: {best_ddpg[1] - worst_ddpg[1]:.2f}\n"
         
-        ax8.text(0.05, 0.95, insights_text, transform=ax8.transAxes, fontsize=11,
+        ax8.text(0.05, 0.95, insights_text, transform=ax8.transAxes, fontsize=9,
                 verticalalignment='top', fontfamily='monospace',
-                bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.8))
+                bbox=dict(boxstyle='round,pad=0.5', facecolor='lightyellow', alpha=0.8))
         
         # Plot 11: Resource usage summary
         ax9 = fig.add_subplot(gs[3, 2])
@@ -1289,287 +772,1183 @@ def create_comprehensive_comparison_plots(training_system, ppo_results, ddpg_res
         resource_text += f"Device used: {'GPU' if torch.cuda.is_available() else 'CPU'}\n"
         resource_text += f"Total models saved: {len([r for r in ppo_results + ddpg_results if r[0]])}\n"
         
-        ax9.text(0.05, 0.95, resource_text, transform=ax9.transAxes, fontsize=11,
+        ax9.text(0.05, 0.95, resource_text, transform=ax9.transAxes, fontsize=9,
                 verticalalignment='top', fontfamily='monospace',
-                bbox=dict(boxstyle='round', facecolor='lightcyan', alpha=0.8))
+                bbox=dict(boxstyle='round,pad=0.5', facecolor='lightcyan', alpha=0.8))
         
-        plt.tight_layout()
+        # Use constrained layout instead of tight_layout for better spacing
+        plt.subplots_adjust(hspace=0.5, wspace=0.4)
         plot_path = f"{training_system.output_dir}/plots/comprehensive_comparison.png"
-        plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+        plt.savefig(plot_path, dpi=300, bbox_inches='tight', facecolor='white')
         plt.show()
         
         training_system.logger.info(f"Comprehensive comparison plots saved to {plot_path}")
-        
+
     except Exception as e:
         training_system.logger.error(f"Error creating plots: {e}")
 
 
-def run_multi_model_training_pipeline(num_ppo_variants=None, num_ddpg_variants=None, timesteps_per_model=1500000):
-    """Run the complete multi-model training pipeline"""
-    # Initialize training system
+def create_academic_training_curves(training_system, algorithm_name, model_path, evaluation_data=None):
+    """
+    Create publication-quality training curve plots for academic reports.
+
+    This function generates comprehensive training analysis plots following
+    academic standards for reinforcement learning research.
+
+    References:
+    - "Deep Reinforcement Learning: An Overview" (Li, 2017)
+    - "Empirical Methodology for RL" (Henderson et al., 2018)
+    """
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    from scipy import stats
+    import pandas as pd
+
+    # Set academic plotting style
+    plt.style.use('seaborn-v0_8-paper')
+    sns.set_palette("husl")
+    plt.rcParams['figure.dpi'] = 300
+    plt.rcParams['savefig.dpi'] = 300
+    plt.rcParams['font.size'] = 12
+    plt.rcParams['axes.labelsize'] = 14
+    plt.rcParams['axes.titlesize'] = 16
+    plt.rcParams['legend.fontsize'] = 12
+
+    try:
+        # Load training data from TensorBoard logs or evaluations.npz
+        training_data = load_training_data(model_path)
+
+        if not training_data:
+            training_system.logger.warning(f"No training data found for {algorithm_name}")
+            return None
+
+        # Create figure with academic layout - improved spacing
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(18, 14))
+        fig.suptitle(f'{algorithm_name} Training Analysis - Soccer RL Environment',
+                     fontsize=18, fontweight='bold', y=0.98)
+        
+        # Adjust subplot spacing with more space for suptitle
+        plt.subplots_adjust(hspace=0.35, wspace=0.3, top=0.88, bottom=0.08)
+
+        # Plot 1: Reward Learning Curve with Confidence Intervals
+        timesteps = training_data.get('timesteps', [])
+        rewards = training_data.get('rewards', [])
+
+        if timesteps and rewards:
+            # Calculate moving average and confidence intervals
+            window_size = len(rewards) // 50  # Smooth over 2% of data
+            if window_size < 10:
+                window_size = 10
+
+            # Calculate the moving average and standard deviation of the rewards
+            # to create a smoothed learning curve with confidence intervals
+            rewards_smooth = pd.Series(rewards).rolling(window=window_size, center=True).mean()
+            rewards_std = pd.Series(rewards).rolling(window=window_size, center=True).std()
+
+            # Convert timesteps to millions for readability
+            timesteps_m = [t / 1e6 for t in timesteps]
+
+            # Plot smoothed learning curve with confidence intervals
+            ax1.plot(timesteps_m, rewards_smooth, linewidth=2.5, alpha=0.9,
+                    label=f'{algorithm_name} Mean Reward', color='navy')
+            ax1.fill_between(timesteps_m,
+                           rewards_smooth - rewards_std,
+                           rewards_smooth + rewards_std,
+                           alpha=0.3, color='navy', label='±1 Standard Deviation')
+
+            # Add raw data as scatter for transparency
+            sample_indices = np.linspace(0, len(rewards)-1, min(1000, len(rewards)), dtype=int)
+            ax1.scatter([timesteps_m[i] for i in sample_indices],
+                       [rewards[i] for i in sample_indices],
+                       alpha=0.1, s=1, color='darkblue')
+
+            ax1.set_xlabel('Training Steps (Millions)', fontsize=14)
+            ax1.set_ylabel('Episode Reward', fontsize=14)
+            ax1.set_title('Learning Curve with Confidence Intervals', fontsize=16, fontweight='bold')
+            ax1.legend(loc='lower right')
+            ax1.grid(True, alpha=0.3)
+
+            # Add convergence analysis
+            final_performance = np.mean(rewards[-min(100, len(rewards)//10):])
+            ax1.axhline(y=final_performance, color='red', linestyle='--', alpha=0.7,
+                       label=f'Final Performance: {final_performance:.2f}')
+
+        # Plot 2: Training Stability Analysis
+        if 'episode_lengths' in training_data:
+            ep_lengths = training_data['episode_lengths']
+            ax2.hist(ep_lengths, bins=50, alpha=0.7, color='darkgreen', edgecolor='black')
+            ax2.set_xlabel('Episode Length (Steps)', fontsize=14)
+            ax2.set_ylabel('Frequency', fontsize=14)
+            ax2.set_title('Episode Length Distribution', fontsize=16, fontweight='bold')
+            ax2.axvline(np.mean(ep_lengths), color='red', linestyle='--', linewidth=2,
+                       label=f'Mean: {np.mean(ep_lengths):.1f}')
+            ax2.legend()
+            ax2.grid(True, alpha=0.3)
+
+        # Plot 3: Reward Components Timeline (if available)
+        if 'reward_components' in training_data:
+            components = training_data['reward_components']
+            component_names = list(components.keys())
+            
+            # Create a timeline plot showing how reward components evolve
+            colors = plt.cm.Set3(np.linspace(0, 1, len(component_names)))
+            
+            for i, (comp_name, comp_values) in enumerate(components.items()):
+                # Smooth the component values over time
+                if len(comp_values) > 20:
+                    window = max(10, len(comp_values) // 50)
+                    smoothed = pd.Series(comp_values).rolling(window=window, center=True).mean()
+                    episodes = range(len(comp_values))
+                    
+                    ax3.plot(episodes, smoothed, linewidth=2.5, alpha=0.8,
+                           color=colors[i], label=f'{comp_name.replace("_", " ").title()}')
+            
+            ax3.set_xlabel('Episode Number', fontsize=14)
+            ax3.set_ylabel('Reward Component Value', fontsize=14)
+            ax3.set_title('Reward Components Evolution', fontsize=16, fontweight='bold')
+            ax3.legend(fontsize=10, bbox_to_anchor=(1.05, 1), loc='upper left')
+            ax3.grid(True, alpha=0.3)
+            
+        else:
+            # If no reward components, show episode length over time
+            if 'episode_lengths' in training_data:
+                ep_lengths = training_data['episode_lengths']
+                episodes = range(len(ep_lengths))
+                
+                # Smooth episode lengths
+                window = max(10, len(ep_lengths) // 50)
+                ep_smooth = pd.Series(ep_lengths).rolling(window=window, center=True).mean()
+                
+                ax3.plot(episodes, ep_smooth, linewidth=2.5, color='darkgreen', alpha=0.8)
+                ax3.axhline(np.mean(ep_lengths), color='red', linestyle='--', alpha=0.7,
+                          label=f'Mean: {np.mean(ep_lengths):.1f}')
+                
+                ax3.set_xlabel('Episode Number', fontsize=14)
+                ax3.set_ylabel('Episode Length (Steps)', fontsize=14)
+                ax3.set_title('Episode Length Progression', fontsize=16, fontweight='bold')
+                ax3.legend(fontsize=10)
+                ax3.grid(True, alpha=0.3)
+
+        # Plot 4: Performance Metrics Summary
+        ax4.axis('off')
+
+        # Calculate key statistics
+        if rewards:
+            stats_text = "PERFORMANCE STATISTICS\n" + "="*30 + "\n\n"
+            stats_text += f"Algorithm: {algorithm_name}\n"
+            stats_text += f"Total Training Steps: {max(timesteps):,}\n"
+            stats_text += f"Total Episodes: {len(rewards):,}\n\n"
+
+            # Performance metrics
+            stats_text += "REWARD ANALYSIS:\n"
+            stats_text += f"Final Mean Reward: {final_performance:.3f}\n"
+            stats_text += f"Best Episode Reward: {max(rewards):.3f}\n"
+            stats_text += f"Worst Episode Reward: {min(rewards):.3f}\n"
+            stats_text += f"Reward Standard Deviation: {np.std(rewards):.3f}\n\n"
+
+            # Convergence analysis
+            early_mean = np.mean(rewards[:len(rewards)//4])
+            late_mean = np.mean(rewards[-len(rewards)//4:])
+            improvement = ((late_mean - early_mean) / abs(early_mean)) * 100 if early_mean != 0 else 0
+
+            stats_text += "LEARNING PROGRESS:\n"
+            stats_text += f"Early Performance: {early_mean:.3f}\n"
+            stats_text += f"Late Performance: {late_mean:.3f}\n"
+            stats_text += f"Improvement: {improvement:+.1f}%\n\n"
+
+            # Statistical significance test
+            early_rewards = rewards[:len(rewards)//4]
+            late_rewards = rewards[-len(rewards)//4:]
+            t_stat, p_value = stats.ttest_ind(late_rewards, early_rewards)
+
+            stats_text += "STATISTICAL ANALYSIS:\n"
+            stats_text += f"t-statistic: {t_stat:.3f}\n"
+            stats_text += f"p-value: {p_value:.6f}\n"
+            if p_value < 0.05:
+                stats_text += "✓ Significant Learning (p < 0.05)\n"
+            else:
+                stats_text += "⚠ No Significant Learning\n"
+
+        ax4.text(0.15, 0.98, stats_text, transform=ax4.transAxes, fontsize=9,
+                verticalalignment='top', fontfamily='monospace',
+                bbox=dict(boxstyle='round,pad=0.8', facecolor='lightgray', alpha=0.8))
+
+        # Save with academic naming convention
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        plot_path = f"{training_system.output_dir}/plots/{algorithm_name}_training_analysis_{timestamp}.png"
+        plt.savefig(plot_path, dpi=300, bbox_inches='tight', facecolor='white')
+        plt.show()
+
+        training_system.logger.info(f"Academic training curves saved to {plot_path}")
+        return plot_path
+
+    except Exception as e:
+        training_system.logger.error(f"Error creating academic training curves: {e}")
+        return None
+
+def create_algorithm_comparison_plot(training_system, ppo_data, ddpg_data, title="Algorithm Comparison"):
+    """
+    Create publication-quality comparison plot between PPO and DDPG.
+
+    This generates a comprehensive academic-style comparison with:
+    - Reward progression scatter plots
+    - Statistical confidence intervals
+    - Convergence analysis
+    - Performance benchmarking
+    """
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import pandas as pd
+    from scipy import stats
+
+    # Academic styling
+    plt.style.use('seaborn-v0_8-paper')
+    plt.rcParams['figure.dpi'] = 300
+    plt.rcParams['font.size'] = 12
+
+    try:
+        fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, figsize=(24, 14))
+        fig.suptitle(title, fontsize=18, fontweight='bold', y=0.98)
+        
+        # Improve subplot spacing for 2x3 layout with more space for suptitle
+        plt.subplots_adjust(hspace=0.35, wspace=0.25, top=0.88, bottom=0.08)
+
+        # Plot 1: Training Curves Comparison
+        if ppo_data and 'timesteps' in ppo_data and 'rewards' in ppo_data:
+            ppo_timesteps = [t/1e6 for t in ppo_data['timesteps']]  # Convert to millions
+            ppo_rewards = ppo_data['rewards']
+
+            # Smooth PPO curve
+            window = len(ppo_rewards) // 50
+            if window < 10:
+                window = 10
+            ppo_smooth = pd.Series(ppo_rewards).rolling(window=window, center=True).mean()
+            ppo_std = pd.Series(ppo_rewards).rolling(window=window, center=True).std()
+
+            ax1.plot(ppo_timesteps, ppo_smooth, linewidth=3, color='#2E86C1',
+                    label='PPO', alpha=0.9)
+            ax1.fill_between(ppo_timesteps, ppo_smooth - ppo_std, ppo_smooth + ppo_std,
+                           alpha=0.3, color='#2E86C1')
+
+        if ddpg_data and 'timesteps' in ddpg_data and 'rewards' in ddpg_data:
+            ddpg_timesteps = [t/1e6 for t in ddpg_data['timesteps']]  # Convert to millions
+            ddpg_rewards = ddpg_data['rewards']
+
+            # Smooth DDPG curve
+            window = len(ddpg_rewards) // 50
+            if window < 10:
+                window = 10
+            ddpg_smooth = pd.Series(ddpg_rewards).rolling(window=window, center=True).mean()
+            ddpg_std = pd.Series(ddpg_rewards).rolling(window=window, center=True).std()
+
+            ax1.plot(ddpg_timesteps, ddpg_smooth, linewidth=3, color='#E74C3C',
+                    label='DDPG', alpha=0.9)
+            ax1.fill_between(ddpg_timesteps, ddpg_smooth - ddpg_std, ddpg_smooth + ddpg_std,
+                           alpha=0.3, color='#E74C3C')
+
+        ax1.set_xlabel('Training Steps (Millions)', fontsize=14)
+        ax1.set_ylabel('Episode Reward', fontsize=14)
+        ax1.set_title('Learning Curves Comparison', fontsize=16, fontweight='bold')
+        ax1.legend(loc='lower right', fontsize=12)
+        ax1.grid(True, alpha=0.3)
+
+        # Plot 2: Episode Length Comparison
+        if ppo_data and ddpg_data and 'episode_lengths' in ppo_data and 'episode_lengths' in ddpg_data:
+            ppo_episode_lengths = ppo_data['episode_lengths']
+            ddpg_episode_lengths = ddpg_data['episode_lengths']
+            
+            # Calculate rolling averages for episode lengths
+            window = len(ppo_episode_lengths) // 50
+            if window < 10:
+                window = 10
+            
+            ppo_ep_smooth = pd.Series(ppo_episode_lengths).rolling(window=window, center=True).mean()
+            ddpg_ep_smooth = pd.Series(ddpg_episode_lengths).rolling(window=window, center=True).mean()
+            
+            ppo_timesteps_ep = [t/1e6 for t in ppo_data['timesteps'][:len(ppo_episode_lengths)]]
+            ddpg_timesteps_ep = [t/1e6 for t in ddpg_data['timesteps'][:len(ddpg_episode_lengths)]]
+            
+            ax2.plot(ppo_timesteps_ep, ppo_ep_smooth, linewidth=3, color='#2E86C1',
+                    label='PPO', alpha=0.9)
+            ax2.plot(ddpg_timesteps_ep, ddpg_ep_smooth, linewidth=3, color='#E74C3C',
+                    label='DDPG', alpha=0.9)
+            
+            ax2.set_xlabel('Training Steps (Millions)', fontsize=14)
+            ax2.set_ylabel('Episode Length (Steps)', fontsize=14)
+            ax2.set_title('Episode Length Comparison', fontsize=16, fontweight='bold')
+            ax2.legend(loc='upper right', fontsize=12)
+            ax2.grid(True, alpha=0.3)
+
+        # Plot 3: Reward Distribution Comparison
+        if ppo_data and ddpg_data:
+            # Final 25% of training for comparison
+            ppo_final = ppo_rewards[-len(ppo_rewards)//4:] if ppo_rewards else []
+            ddpg_final = ddpg_rewards[-len(ddpg_rewards)//4:] if ddpg_rewards else []
+
+            if ppo_final and ddpg_final:
+                ax3.hist(ppo_final, bins=30, alpha=0.7, color='#2E86C1',
+                        label=f'PPO (μ={np.mean(ppo_final):.2f})', density=True)
+                ax3.hist(ddpg_final, bins=30, alpha=0.7, color='#E74C3C',
+                        label=f'DDPG (μ={np.mean(ddpg_final):.2f})', density=True)
+
+                ax3.axvline(np.mean(ppo_final), color='#1B4F72', linestyle='--', linewidth=2)
+                ax3.axvline(np.mean(ddpg_final), color='#922B21', linestyle='--', linewidth=2)
+
+                ax3.set_xlabel('Episode Reward', fontsize=14)
+                ax3.set_ylabel('Density', fontsize=14)
+                ax3.set_title('Final Performance Distribution', fontsize=16, fontweight='bold')
+                ax3.legend(fontsize=12)
+                ax3.grid(True, alpha=0.3)
+
+        # Plot 4: Convergence Analysis
+        if ppo_data and ddpg_data and ppo_rewards and ddpg_rewards:
+            # Sample efficiency comparison
+            reward_thresholds = np.linspace(min(min(ppo_rewards), min(ddpg_rewards)),
+                                          max(max(ppo_rewards), max(ddpg_rewards)), 20)
+
+            ppo_convergence = []
+            ddpg_convergence = []
+
+            for threshold in reward_thresholds:
+                # Find first time each algorithm reaches threshold
+                ppo_idx = next((i for i, r in enumerate(ppo_rewards) if r >= threshold), len(ppo_rewards))
+                ddpg_idx = next((i for i, r in enumerate(ddpg_rewards) if r >= threshold), len(ddpg_rewards))
+
+                ppo_convergence.append(ppo_timesteps[min(ppo_idx, len(ppo_timesteps)-1)] if ppo_idx < len(ppo_timesteps) else float('inf'))
+                ddpg_convergence.append(ddpg_timesteps[min(ddpg_idx, len(ddpg_timesteps)-1)] if ddpg_idx < len(ddpg_timesteps) else float('inf'))
+
+            ax4.plot(reward_thresholds, ppo_convergence, 'o-', color='#2E86C1',
+                    label='PPO', linewidth=2, markersize=6)
+            ax4.plot(reward_thresholds, ddpg_convergence, 's-', color='#E74C3C',
+                    label='DDPG', linewidth=2, markersize=6)
+
+            ax4.set_xlabel('Reward Threshold', fontsize=14)
+            ax4.set_ylabel('Steps to Convergence (Millions)', fontsize=14)
+            ax4.set_title('Sample Efficiency Comparison', fontsize=16, fontweight='bold')
+            ax4.legend(fontsize=12)
+            ax4.grid(True, alpha=0.3)
+
+        # Plot 5: Statistical Summary
+        ax5.axis('off')
+
+        if ppo_data and ddpg_data and ppo_rewards and ddpg_rewards:
+            ppo_final = ppo_rewards[-len(ppo_rewards)//4:]
+            ddpg_final = ddpg_rewards[-len(ddpg_rewards)//4:]
+
+            # Perform statistical tests
+            t_stat, p_value = stats.ttest_ind(ppo_final, ddpg_final)
+            effect_size = (np.mean(ppo_final) - np.mean(ddpg_final)) / np.sqrt((np.var(ppo_final) + np.var(ddpg_final))/2)
+
+            summary_text = "STATISTICAL COMPARISON\n" + "="*30 + "\n\n"
+            summary_text += f"PPO Performance:\n"
+            summary_text += f"  Final Mean: {np.mean(ppo_final):.3f} ± {np.std(ppo_final):.3f}\n"
+            summary_text += f"  Best Episode: {max(ppo_rewards):.3f}\n"
+            summary_text += f"  Episodes: {len(ppo_rewards):,}\n\n"
+
+            summary_text += f"DDPG Performance:\n"
+            summary_text += f"  Final Mean: {np.mean(ddpg_final):.3f} ± {np.std(ddpg_final):.3f}\n"
+            summary_text += f"  Best Episode: {max(ddpg_rewards):.3f}\n"
+            summary_text += f"  Episodes: {len(ddpg_rewards):,}\n\n"
+
+            summary_text += f"STATISTICAL TESTS:\n"
+            summary_text += f"  t-statistic: {t_stat:.3f}\n"
+            summary_text += f"  p-value: {p_value:.6f}\n"
+            summary_text += f"  Effect size (Cohen's d): {effect_size:.3f}\n\n"
+
+            # Determine winner
+            if p_value < 0.05:
+                if np.mean(ppo_final) > np.mean(ddpg_final):
+                    summary_text += "🏆 PPO significantly outperforms DDPG\n"
+                else:
+                    summary_text += "🏆 DDPG significantly outperforms PPO\n"
+            else:
+                summary_text += "⚖️ No significant difference between algorithms\n"
+
+            # Effect size interpretation
+            if abs(effect_size) < 0.2:
+                summary_text += "Effect size: Small\n"
+            elif abs(effect_size) < 0.8:
+                summary_text += "Effect size: Medium\n"
+            else:
+                summary_text += "Effect size: Large\n"
+
+        ax5.text(0.02, 0.98, summary_text, transform=ax5.transAxes, fontsize=9,
+                verticalalignment='top', fontfamily='monospace',
+                bbox=dict(boxstyle='round,pad=0.8', facecolor='lightblue', alpha=0.8))
+
+        # Plot 6: Enhanced Metrics Visualization
+        if ppo_data and ddpg_data and 'enhanced_metrics' in ppo_data and 'enhanced_metrics' in ddpg_data:
+            ppo_metrics = ppo_data['enhanced_metrics']
+            ddpg_metrics = ddpg_data['enhanced_metrics']
+            
+            # Create radar chart for various metrics
+            metrics_names = ['Goals\nScored', 'Ball\nPossession', 'Collision\nAvoidance', 
+                           'Boundary\nKeeping', 'Action\nEfficiency']
+            
+            # Normalize metrics to 0-1 scale for radar chart
+            ppo_values = [
+                np.mean(ppo_metrics['goals_scored']) / 10,  # Goals per 10 episodes
+                np.mean(ppo_metrics['possession_time']) / 100,  # Possession as fraction
+                1 - np.mean(ppo_metrics['collision_frequency']) / 50,  # Invert collisions
+                1 - np.mean(ppo_metrics['out_of_bounds']) / 20,  # Invert out of bounds
+                np.mean(ppo_metrics['action_efficiency'])  # Already 0-1
+            ]
+            
+            ddpg_values = [
+                np.mean(ddpg_metrics['goals_scored']) / 10,
+                np.mean(ddpg_metrics['possession_time']) / 100,
+                1 - np.mean(ddpg_metrics['collision_frequency']) / 50,
+                1 - np.mean(ddpg_metrics['out_of_bounds']) / 20,
+                np.mean(ddpg_metrics['action_efficiency'])
+            ]
+            
+            # Create polar plot
+            angles = np.linspace(0, 2*np.pi, len(metrics_names), endpoint=False).tolist()
+            angles += angles[:1]  # Complete the circle
+            
+            ppo_values += ppo_values[:1]  # Complete the circle
+            ddpg_values += ddpg_values[:1]  # Complete the circle
+            
+            # Convert ax6 to polar
+            ax6.remove()
+            ax6 = fig.add_subplot(2, 3, 6, projection='polar')
+            
+            ax6.plot(angles, ppo_values, 'o-', linewidth=2, label='PPO', color='#2E86C1')
+            ax6.fill(angles, ppo_values, alpha=0.25, color='#2E86C1')
+            ax6.plot(angles, ddpg_values, 's-', linewidth=2, label='DDPG', color='#E74C3C')
+            ax6.fill(angles, ddpg_values, alpha=0.25, color='#E74C3C')
+            
+            ax6.set_xticks(angles[:-1])
+            ax6.set_xticklabels(metrics_names, fontsize=10)
+            ax6.set_ylim(0, 1)
+            ax6.set_yticks([0.2, 0.4, 0.6, 0.8, 1.0])
+            ax6.set_yticklabels(['20%', '40%', '60%', '80%', '100%'], fontsize=8)
+            ax6.set_title('Performance Metrics\nComparison', fontsize=12, fontweight='bold', pad=20)
+            ax6.legend(loc='upper right', bbox_to_anchor=(1.3, 1.0), fontsize=10)
+            ax6.grid(True, alpha=0.3)
+        else:
+            # If no enhanced metrics, show episode length distribution
+            ax6.axis('off')
+            info_text = "EPISODE LENGTH ANALYSIS\n" + "="*25 + "\n\n"
+            
+            if ppo_data and ddpg_data and 'episode_lengths' in ppo_data and 'episode_lengths' in ddpg_data:
+                ppo_ep_lens = ppo_data['episode_lengths']
+                ddpg_ep_lens = ddpg_data['episode_lengths']
+                
+                info_text += f"PPO Episode Lengths:\n"
+                info_text += f"  Mean: {np.mean(ppo_ep_lens):.1f} steps\n"
+                info_text += f"  Std: {np.std(ppo_ep_lens):.1f} steps\n"
+                info_text += f"  Range: {np.min(ppo_ep_lens):.0f}-{np.max(ppo_ep_lens):.0f}\n\n"
+                
+                info_text += f"DDPG Episode Lengths:\n"
+                info_text += f"  Mean: {np.mean(ddpg_ep_lens):.1f} steps\n"
+                info_text += f"  Std: {np.std(ddpg_ep_lens):.1f} steps\n"
+                info_text += f"  Range: {np.min(ddpg_ep_lens):.0f}-{np.max(ddpg_ep_lens):.0f}\n\n"
+                
+                # Statistical comparison
+                from scipy import stats
+                t_stat, p_val = stats.ttest_ind(ppo_ep_lens, ddpg_ep_lens)
+                info_text += f"Statistical Test:\n"
+                info_text += f"  t-statistic: {t_stat:.3f}\n"
+                info_text += f"  p-value: {p_val:.4f}\n"
+                if p_val < 0.05:
+                    winner = "PPO" if np.mean(ppo_ep_lens) > np.mean(ddpg_ep_lens) else "DDPG"
+                    info_text += f"  Winner: {winner}\n"
+            
+            ax6.text(0.05, 0.95, info_text, transform=ax6.transAxes, fontsize=9,
+                    verticalalignment='top', fontfamily='monospace',
+                    bbox=dict(boxstyle='round,pad=0.8', facecolor='lightcyan', alpha=0.8))
+
+        # Save plot
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        plot_path = f"{training_system.output_dir}/plots/algorithm_comparison_{timestamp}.png"
+        plt.savefig(plot_path, dpi=300, bbox_inches='tight', facecolor='white')
+        plt.show()
+
+        training_system.logger.info(f"Algorithm comparison plot saved to {plot_path}")
+        return plot_path
+
+    except Exception as e:
+        training_system.logger.error(f"Error creating comparison plot: {e}")
+        return None
+
+
+def create_enhanced_metrics_comparison(training_system, ppo_data, ddpg_data, title="Enhanced Metrics Comparison"):
+    """
+    Create advanced metrics comparison plot with soccer-specific metrics.
+    
+    This function visualizes key performance indicators beyond just rewards:
+    - Goals scored progression
+    - Ball possession time trends
+    - Collision frequency analysis
+    - Out-of-bounds incidents
+    - Ball contact efficiency
+    - Final goal distance trends
+    """
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import pandas as pd
+    from scipy import stats
+
+    # Academic styling
+    plt.style.use('seaborn-v0_8-paper')
+    plt.rcParams['figure.dpi'] = 300
+    plt.rcParams['font.size'] = 11
+
+    try:
+        # Create a comprehensive figure with 6 subplots (2x3)
+        fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, figsize=(20, 12))
+        fig.suptitle(title, fontsize=18, fontweight='bold', y=0.98)
+        
+        # Improve subplot spacing with more space for suptitle
+        plt.subplots_adjust(hspace=0.4, wspace=0.3, top=0.88, bottom=0.08)
+
+        # Check if enhanced metrics are available
+        ppo_metrics = ppo_data.get('enhanced_metrics', {})
+        ddpg_metrics = ddpg_data.get('enhanced_metrics', {})
+        
+        if not ppo_metrics or not ddpg_metrics:
+            training_system.logger.warning("Enhanced metrics not available, using basic metrics")
+            return None
+
+        # Plot 1: Goals Scored Over Time (Cumulative Success Rate)
+        if 'goals_scored' in ppo_metrics and 'goals_scored' in ddpg_metrics:
+            ppo_goals_cum = np.cumsum(ppo_metrics['goals_scored'])
+            ddpg_goals_cum = np.cumsum(ddpg_metrics['goals_scored'])
+            
+            ppo_episodes = range(len(ppo_goals_cum))
+            ddpg_episodes = range(len(ddpg_goals_cum))
+            
+            ax1.plot(ppo_episodes, ppo_goals_cum, linewidth=2.5, color='#2E86C1', 
+                    label='PPO', alpha=0.9)
+            ax1.plot(ddpg_episodes, ddpg_goals_cum, linewidth=2.5, color='#E74C3C', 
+                    label='DDPG', alpha=0.9)
+            
+            ax1.set_xlabel('Episode Number', fontsize=12)
+            ax1.set_ylabel('Cumulative Goals Scored', fontsize=12)
+            ax1.set_title('Goal Scoring Progress', fontsize=14, fontweight='bold')
+            ax1.legend(fontsize=11)
+            ax1.grid(True, alpha=0.3)
+
+        # Plot 2: Ball Possession Time Trends
+        if 'possession_time_pct' in ppo_metrics and 'possession_time_pct' in ddpg_metrics:
+            # Smooth possession data
+            window_ppo = max(10, len(ppo_metrics['possession_time_pct']) // 50)
+            window_ddpg = max(10, len(ddpg_metrics['possession_time_pct']) // 50)
+            
+            ppo_poss_smooth = pd.Series(ppo_metrics['possession_time_pct']).rolling(window=window_ppo, center=True).mean()
+            ddpg_poss_smooth = pd.Series(ddpg_metrics['possession_time_pct']).rolling(window=window_ddpg, center=True).mean()
+            
+            ax2.plot(range(len(ppo_poss_smooth)), ppo_poss_smooth, linewidth=2.5, 
+                    color='#2E86C1', label='PPO', alpha=0.9)
+            ax2.plot(range(len(ddpg_poss_smooth)), ddpg_poss_smooth, linewidth=2.5, 
+                    color='#E74C3C', label='DDPG', alpha=0.9)
+            
+            # Add target line at 60% (good possession)
+            ax2.axhline(60, color='green', linestyle='--', alpha=0.7, label='Target: 60%')
+            
+            ax2.set_xlabel('Episode Number', fontsize=12)
+            ax2.set_ylabel('Ball Possession (%)', fontsize=12)
+            ax2.set_title('Ball Possession Efficiency', fontsize=14, fontweight='bold')
+            ax2.legend(fontsize=10)
+            ax2.grid(True, alpha=0.3)
+
+        # Plot 3: Collision Frequency Trends (Learning Efficiency)
+        if 'collision_count' in ppo_metrics and 'collision_count' in ddpg_metrics:
+            # Smooth collision data
+            window_ppo = max(10, len(ppo_metrics['collision_count']) // 50)
+            window_ddpg = max(10, len(ddpg_metrics['collision_count']) // 50)
+            
+            ppo_coll_smooth = pd.Series(ppo_metrics['collision_count']).rolling(window=window_ppo, center=True).mean()
+            ddpg_coll_smooth = pd.Series(ddpg_metrics['collision_count']).rolling(window=window_ddpg, center=True).mean()
+            
+            ax3.plot(range(len(ppo_coll_smooth)), ppo_coll_smooth, linewidth=2.5, 
+                    color='#2E86C1', label='PPO', alpha=0.9)
+            ax3.plot(range(len(ddpg_coll_smooth)), ddpg_coll_smooth, linewidth=2.5, 
+                    color='#E74C3C', label='DDPG', alpha=0.9)
+            
+            ax3.set_xlabel('Episode Number', fontsize=12)
+            ax3.set_ylabel('Collisions per Episode', fontsize=12)
+            ax3.set_title('Collision Frequency (Lower is Better)', fontsize=14, fontweight='bold')
+            ax3.legend(fontsize=11)
+            ax3.grid(True, alpha=0.3)
+
+        # Plot 4: Out of Bounds Analysis
+        if 'out_of_bounds_count' in ppo_metrics and 'out_of_bounds_count' in ddpg_metrics:
+            # Create violin plots for out of bounds distribution
+            oob_data = [ppo_metrics['out_of_bounds_count'], ddpg_metrics['out_of_bounds_count']]
+            oob_labels = ['PPO', 'DDPG']
+            
+            parts = ax4.violinplot(oob_data, positions=[1, 2], showmeans=True, showmedians=True)
+            parts['bodies'][0].set_facecolor('#2E86C1')
+            parts['bodies'][1].set_facecolor('#E74C3C')
+            
+            ax4.set_xticks([1, 2])
+            ax4.set_xticklabels(oob_labels, fontsize=12)
+            ax4.set_ylabel('Out of Bounds Count per Episode', fontsize=12)
+            ax4.set_title('Ball Control Quality Distribution', fontsize=14, fontweight='bold')
+            ax4.grid(True, alpha=0.3, axis='y')
+
+        # Plot 5: Ball Contact Efficiency Heatmap
+        if 'ball_contact_time_pct' in ppo_metrics and 'ball_contact_time_pct' in ddpg_metrics:
+            # Create a comparison heatmap showing efficiency over time
+            # Bin episodes into segments for heatmap
+            n_segments = 20
+            ppo_segments = np.array_split(ppo_metrics['ball_contact_time_pct'], n_segments)
+            ddpg_segments = np.array_split(ddpg_metrics['ball_contact_time_pct'], n_segments)
+            
+            # Calculate statistics for each segment
+            ppo_means = [np.mean(seg) for seg in ppo_segments]
+            ddpg_means = [np.mean(seg) for seg in ddpg_segments]
+            
+            # Create heatmap data
+            heatmap_data = np.array([ppo_means, ddpg_means])
+            
+            im = ax5.imshow(heatmap_data, cmap='RdYlGn', aspect='auto', vmin=0, vmax=100)
+            ax5.set_yticks([0, 1])
+            ax5.set_yticklabels(['PPO', 'DDPG'], fontsize=12)
+            ax5.set_xlabel('Training Progress (Segments)', fontsize=12)
+            ax5.set_title('Ball Contact Efficiency Heatmap (%)', fontsize=14, fontweight='bold')
+            
+            # Add colorbar
+            cbar = plt.colorbar(im, ax=ax5, shrink=0.8)
+            cbar.set_label('Contact Time %', fontsize=10)
+
+        # Plot 6: Performance Summary Statistics
+        ax6.axis('off')
+        
+        # Calculate summary statistics
+        summary_text = "ENHANCED METRICS SUMMARY\n" + "="*35 + "\n\n"
+        
+        if ppo_metrics and ddpg_metrics:
+            # Goals comparison
+            ppo_total_goals = sum(ppo_metrics.get('goals_scored', [0]))
+            ddpg_total_goals = sum(ddpg_metrics.get('goals_scored', [0]))
+            
+            summary_text += f"GOAL SCORING:\n"
+            summary_text += f"  PPO Total Goals: {ppo_total_goals}\n"
+            summary_text += f"  DDPG Total Goals: {ddpg_total_goals}\n"
+            summary_text += f"  PPO Success Rate: {(ppo_total_goals/len(ppo_metrics.get('goals_scored', [1])))*100:.1f}%\n"
+            summary_text += f"  DDPG Success Rate: {(ddpg_total_goals/len(ddpg_metrics.get('goals_scored', [1])))*100:.1f}%\n\n"
+            
+            # Possession comparison
+            ppo_avg_poss = np.mean(ppo_metrics.get('possession_time_pct', [0]))
+            ddpg_avg_poss = np.mean(ddpg_metrics.get('possession_time_pct', [0]))
+            
+            summary_text += f"BALL POSSESSION:\n"
+            summary_text += f"  PPO Average: {ppo_avg_poss:.1f}%\n"
+            summary_text += f"  DDPG Average: {ddpg_avg_poss:.1f}%\n\n"
+            
+            # Collision analysis
+            ppo_avg_coll = np.mean(ppo_metrics.get('collision_count', [0]))
+            ddpg_avg_coll = np.mean(ddpg_metrics.get('collision_count', [0]))
+            
+            summary_text += f"COLLISION ANALYSIS:\n"
+            summary_text += f"  PPO Avg/Episode: {ppo_avg_coll:.1f}\n"
+            summary_text += f"  DDPG Avg/Episode: {ddpg_avg_coll:.1f}\n\n"
+            
+            # Ball control
+            ppo_avg_contact = np.mean(ppo_metrics.get('ball_contact_time_pct', [0]))
+            ddpg_avg_contact = np.mean(ddpg_metrics.get('ball_contact_time_pct', [0]))
+            
+            summary_text += f"BALL CONTROL:\n"
+            summary_text += f"  PPO Contact Time: {ppo_avg_contact:.1f}%\n"
+            summary_text += f"  DDPG Contact Time: {ddpg_avg_contact:.1f}%\n\n"
+            
+            # Determine better algorithm
+            ppo_score = (ppo_total_goals * 2) + (ppo_avg_poss / 10) - (ppo_avg_coll * 0.5)
+            ddpg_score = (ddpg_total_goals * 2) + (ddpg_avg_poss / 10) - (ddpg_avg_coll * 0.5)
+            
+            if ppo_score > ddpg_score:
+                summary_text += "🏆 PPO shows better overall performance\n"
+            elif ddpg_score > ppo_score:
+                summary_text += "🏆 DDPG shows better overall performance\n"
+            else:
+                summary_text += "⚖️ Comparable performance between algorithms\n"
+
+        ax6.text(0.02, 0.98, summary_text, transform=ax6.transAxes, fontsize=10,
+                verticalalignment='top', fontfamily='monospace',
+                bbox=dict(boxstyle='round,pad=0.8', facecolor='lightcyan', alpha=0.8))
+
+        # Save plot
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        plot_path = f"{training_system.output_dir}/plots/enhanced_metrics_comparison_{timestamp}.png"
+        plt.savefig(plot_path, dpi=300, bbox_inches='tight', facecolor='white')
+        plt.show()
+
+        training_system.logger.info(f"Enhanced metrics comparison plot saved to {plot_path}")
+        return plot_path
+
+    except Exception as e:
+        training_system.logger.error(f"Error creating enhanced metrics comparison: {e}")
+        return None
+
+
+def load_training_data(model_path):
+    """Load training data from various sources (TensorBoard, evaluations.npz, etc.)"""
+    training_data = {}
+
+    try:
+        # Try to load from evaluations.npz first
+        eval_path = os.path.join(os.path.dirname(model_path), "evaluations.npz")
+        if os.path.exists(eval_path):
+            data = np.load(eval_path)
+            training_data['timesteps'] = data.get('timesteps', [])
+            training_data['rewards'] = data.get('results', [])
+            training_data['episode_lengths'] = data.get('ep_lengths', [])
+
+        # Try to load TensorBoard data if available
+        tb_log_dir = os.path.join(os.path.dirname(model_path), "tb_logs")
+        if os.path.exists(tb_log_dir):
+            # This would require tensorboard parsing - simplified for now
+            pass
+
+        return training_data if training_data else None
+
+    except Exception as e:
+        print(f"Error loading training data: {e}")
+        return None
+
+# Function to load hyperparameters into a Dict[Str: Str]:
+def load_hyperparameters_from_config(file_path) -> dict:
+    """Load hyperparameters from a JSON or YAML file into a dictionary."""
+    import json
+    import yaml
+
+    try:
+        with open(file_path, 'r') as f:
+            if file_path.endswith('.json'):
+                return json.load(f)
+            elif file_path.endswith(('.yml', '.yaml')):
+                return yaml.safe_load(f)
+            else:
+                raise ValueError("Unsupported file format. Use .json or .yml/.yaml")
+    except Exception as e:
+        print(f"Error loading hyperparameters: {e}")
+        return {}
+
+def run_academic_training_pipeline(total_timesteps=2500000, reward_type="smooth"):
+    """
+    Run academic-quality training pipeline for single PPO and DDPG models.
+
+    This function trains one PPO and one DDPG model with detailed logging,
+    comprehensive evaluation, and publication-quality plots suitable for
+    academic reports and presentations.
+
+    Args:
+        total_timesteps: Total training steps (recommended 2.5M for final models)
+        reward_type: Reward function type ("smooth", "hybrid", or "original")
+
+    Returns:
+        Dictionary containing training results and analysis
+    """
+    # Initialize enhanced training system
     training_system = MultiModelTrainingSystem()
     training_system.training_start_time = time.time()
-    
+
     training_system.logger.info("="*80)
-    training_system.logger.info("STARTING MULTI-MODEL TRAINING PIPELINE")
+    training_system.logger.info("STARTING ACADEMIC TRAINING PIPELINE")
     training_system.logger.info("="*80)
+    training_system.logger.info(f"Target timesteps: {total_timesteps:,}")
+    training_system.logger.info(f"Reward type: {reward_type}")
     training_system.logger.info(f"Output directory: {training_system.output_dir}")
     training_system.logger.info(f"Device: {'GPU' if torch.cuda.is_available() else 'CPU'}")
-    
-    # Validate environment setup
+
+    results = {
+        'ppo_model_path': None,
+        'ddpg_model_path': None,
+        'ppo_training_data': None,
+        'ddpg_training_data': None,
+        'comparison_plot_path': None,
+        'ppo_analysis_path': None,
+        'ddpg_analysis_path': None,
+        'final_evaluation': None,
+        'training_summary': None
+    }
+
     try:
-        test_env = SoccerEnv(config_path=training_system.config_path)
+        # Test environment setup
+        test_env = SoccerEnv(config_path=training_system.config_path, reward_type=reward_type)
         test_env.close()
-        training_system.logger.info("Environment validation successful")
-    except Exception as e:
-        training_system.logger.error(f"Environment validation failed: {e}")
-        return
-    
-    # Get hyperparameter variants
-    ppo_variants = get_ppo_hyperparameter_variants()
-    ddpg_variants = get_ddpg_hyperparameter_variants()
-    
-    # Limit variants if specified
-    if num_ppo_variants:
-        ppo_variants = dict(list(ppo_variants.items())[:num_ppo_variants])
-    if num_ddpg_variants:
-        ddpg_variants = dict(list(ddpg_variants.items())[:num_ddpg_variants])
-    
-    training_system.logger.info(f"Training configuration:")
-    training_system.logger.info(f"  PPO variants to train: {len(ppo_variants)}")
-    training_system.logger.info(f"  DDPG variants to train: {len(ddpg_variants)}")
-    training_system.logger.info(f"  Timesteps per model: {timesteps_per_model:,}")
-    training_system.logger.info(f"  Estimated total time: {(len(ppo_variants) + len(ddpg_variants)) * (timesteps_per_model/1000000) * 3:.1f}-{(len(ppo_variants) + len(ddpg_variants)) * (timesteps_per_model/1000000) * 5:.1f} hours")
-    
-    try:
-        # Train all PPO variants
-        training_system.logger.info(f"\n PHASE 1: Training {len(ppo_variants)} PPO variants...")
-        ppo_results = train_all_ppo_variants(training_system, timesteps_per_model)
+        training_system.logger.info(f"Environment validation successful with {reward_type} reward")
+
+        # ==================== PPO TRAINING ====================
+        training_system.logger.info("="*60)
+        training_system.logger.info("TRAINING PPO MODEL")
+        training_system.logger.info("="*60)
+
+        # Enhanced logging setup
+        ppo_log_dir = f"{training_system.output_dir}/ppo_logs"
+        os.makedirs(ppo_log_dir, exist_ok=True)
+
+        # Create SEPARATE training and evaluation environments
+        ppo_train_env = SoccerEnv(config_path=training_system.config_path, reward_type=reward_type)
+        ppo_train_env = Monitor(ppo_train_env, ppo_log_dir, allow_early_resets=True)
         
-        # Train all DDPG variants
-        training_system.logger.info(f"\n PHASE 2: Training {len(ddpg_variants)} DDPG variants...")
-        ddpg_results = train_all_ddpg_variants(training_system, timesteps_per_model)
+        # Separate evaluation environment (no monitoring to avoid interference)
+        ppo_eval_env = SoccerEnv(config_path=training_system.config_path, reward_type=reward_type)
         
-        # Comprehensive final evaluation of best models
-        training_system.logger.info(f"\n PHASE 3: Final evaluation of best models...")
-        final_results = comprehensive_final_evaluation(training_system, ppo_results, ddpg_results)
+        ppo_config = load_hyperparameters_from_config("configs/hyperparams_config.yaml")['algorithm']['PPO']['params']
+
+        # Create PPO model using training environment
+        ppo_model = create_ppo_model(ppo_train_env, ppo_config, ppo_log_dir)
+
+        training_system.logger.info("Starting PPO training...")
+
+        # Create callbacks using separate environments
+        model_tracker, eval_callback = create_callbacks_and_tracker(
+            algorithm_name='PPO',
+            training_system=training_system,
+            variant_name='PPO_academic',
+            eval_env=ppo_eval_env,
+            train_env=ppo_train_env,
+            eval_freq=10000,
+            n_eval_episodes=20,
+            verbose=1
+        )
+        model_tracker.set_model(ppo_model)
+
+        # Train PPO model
+        ppo_model.learn(
+            total_timesteps=total_timesteps,
+            callback=[model_tracker, eval_callback],
+            progress_bar=True
+        )
+
+        # Save final PPO model
+        ppo_model_path = f"{ppo_log_dir}/final_ppo_model"
+        ppo_model.save(ppo_model_path)
+        results['ppo_model_path'] = ppo_model_path
+
+        training_system.logger.info(f"PPO training completed. Model saved to {ppo_model_path}")
+
+        # ==================== DDPG TRAINING ====================
+        training_system.logger.info("="*60)
+        training_system.logger.info("TRAINING DDPG MODEL")
+        training_system.logger.info("="*60)
+
+        # Enhanced logging setup
+        ddpg_log_dir = f"{training_system.output_dir}/ddpg_logs"
+        os.makedirs(ddpg_log_dir, exist_ok=True)
+
+        # Create SEPARATE training and evaluation environments
+        ddpg_train_env = SoccerEnv(config_path=training_system.config_path, reward_type=reward_type)
+        ddpg_train_env = Monitor(ddpg_train_env, ddpg_log_dir, allow_early_resets=True)
         
-        # Create comprehensive plots
-        create_comprehensive_comparison_plots(training_system, ppo_results, ddpg_results, final_results)
+        # Separate evaluation environment
+        ddpg_eval_env = SoccerEnv(config_path=training_system.config_path, reward_type=reward_type)
         
-        # Print final summary
-        total_time = (time.time() - training_system.training_start_time) / 3600
-        training_system.logger.info("\n" + "="*80)
-        training_system.logger.info("🎉 MULTI-MODEL TRAINING COMPLETE!")
-        training_system.logger.info("="*80)
-        training_system.logger.info(f"Total training time: {total_time:.2f} hours")
-        training_system.logger.info(f"Models successfully trained: {len([r for r in ppo_results + ddpg_results if r[0]])}")
-        training_system.logger.info(f"Output saved to: {training_system.output_dir}")
-        
-        training_system.logger.info("\n🏆 CHAMPIONS:")
-        if training_system.best_ppo_path:
-            best_ppo_variant = next(r[2] for r in ppo_results if r[0] == training_system.best_ppo_path)
-            training_system.logger.info(f"  PPO Champion: {best_ppo_variant} (Score: {training_system.best_ppo_score:.2f})")
-            training_system.logger.info(f"    Path: {training_system.best_ppo_path}")
-        
-        if training_system.best_ddpg_path:
-            best_ddpg_variant = next(r[2] for r in ddpg_results if r[0] == training_system.best_ddpg_path)
-            training_system.logger.info(f"  DDPG Champion: {best_ddpg_variant} (Score: {training_system.best_ddpg_score:.2f})")
-            training_system.logger.info(f"    Path: {training_system.best_ddpg_path}")
-        
-        # Save final summary
-        summary = {
-            'training_duration_hours': total_time,
-            'ppo_variants_trained': len(ppo_results),
-            'ddpg_variants_trained': len(ddpg_results),
-            'best_ppo_model': training_system.best_ppo_path,
-            'best_ppo_score': training_system.best_ppo_score,
-            'best_ddpg_model': training_system.best_ddpg_path,
-            'best_ddpg_score': training_system.best_ddpg_score,
-            'ppo_results': [(path, float(score), variant) for path, score, variant, _ in ppo_results],
-            'ddpg_results': [(path, float(score), variant) for path, score, variant, _ in ddpg_results],
-            'final_evaluation': final_results,
-            'timestamp': training_system.timestamp
+        ddpg_config = load_hyperparameters_from_config("configs/hyperparams_config.yaml")['algorithm']['DDPG']['params']
+
+        # Create DDPG model using training environment
+        ddpg_model = create_ddpg_model(ddpg_train_env, ddpg_config, ddpg_log_dir)
+
+        training_system.logger.info("Starting DDPG training...")
+
+        # Create callbacks using separate environments
+        model_tracker_ddpg, eval_callback_ddpg = create_callbacks_and_tracker(
+            algorithm_name='DDPG',
+            training_system=training_system,
+            variant_name='DDPG_academic',
+            eval_env=ddpg_eval_env,
+            train_env=ddpg_train_env,
+            eval_freq=10000,
+            n_eval_episodes=20,
+            verbose=1
+        )
+        model_tracker_ddpg.set_model(ddpg_model)
+
+        # Train DDPG model
+        ddpg_model.learn(
+            total_timesteps=total_timesteps,
+            callback=[model_tracker_ddpg, eval_callback_ddpg],
+            progress_bar=True
+        )
+
+        # Save final DDPG model
+        ddpg_model_path = f"{ddpg_log_dir}/final_ddpg_model"
+        ddpg_model.save(ddpg_model_path)
+        results['ddpg_model_path'] = ddpg_model_path
+
+        training_system.logger.info(f"DDPG training completed. Model saved to {ddpg_model_path}")
+
+        # ==================== ANALYSIS AND PLOTTING ====================
+        training_system.logger.info("="*60)
+        training_system.logger.info("GENERATING ACADEMIC ANALYSIS")
+        training_system.logger.info("="*60)
+
+        # Load training data for analysis
+        ppo_training_data = load_training_data(ppo_model_path)
+        ddpg_training_data = load_training_data(ddpg_model_path)
+
+        results['ppo_training_data'] = ppo_training_data
+        results['ddpg_training_data'] = ddpg_training_data
+
+        # Create individual algorithm analysis plots
+        if ppo_training_data:
+            ppo_analysis_path = create_academic_training_curves(
+                training_system, "PPO", ppo_model_path, ppo_training_data
+            )
+            results['ppo_analysis_path'] = ppo_analysis_path
+
+        if ddpg_training_data:
+            ddpg_analysis_path = create_academic_training_curves(
+                training_system, "DDPG", ddpg_model_path, ddpg_training_data
+            )
+            results['ddpg_analysis_path'] = ddpg_analysis_path
+
+        # Create comparative analysis plot
+        if ppo_training_data and ddpg_training_data:
+            comparison_plot_path = create_algorithm_comparison_plot(
+                training_system, ppo_training_data, ddpg_training_data,
+                f"PPO vs DDPG: Soccer RL ({reward_type.title()} Reward)"
+            )
+            results['comparison_plot_path'] = comparison_plot_path
+
+        # ==================== FINAL EVALUATION ====================
+        training_system.logger.info("="*60)
+        training_system.logger.info("COMPREHENSIVE MODEL EVALUATION")
+        training_system.logger.info("="*60)
+
+        # Load best models for evaluation
+        best_ppo = PPO.load(f"{ppo_log_dir}/best_model/best_model")
+        best_ddpg = DDPG.load(f"{ddpg_log_dir}/best_model/best_model")
+
+        # Comprehensive evaluation on multiple difficulties
+        difficulties = ["easy", "medium", "hard"]
+        evaluation_results = {"PPO": {}, "DDPG": {}}
+
+        for difficulty in difficulties:
+            training_system.logger.info(f"Evaluating on {difficulty} difficulty...")
+
+            # PPO evaluation
+            ppo_eval_env = SoccerEnv(
+                config_path=training_system.config_path,
+                difficulty=difficulty,
+                reward_type=reward_type
+            )
+            ppo_results = evaluate_model_comprehensive(
+                best_ppo, ppo_eval_env, n_episodes=50, algorithm="PPO"
+            )
+            evaluation_results["PPO"][difficulty] = ppo_results
+            ppo_eval_env.close()
+
+            # DDPG evaluation
+            ddpg_eval_env = SoccerEnv(
+                config_path=training_system.config_path,
+                difficulty=difficulty,
+                reward_type=reward_type
+            )
+            ddpg_results = evaluate_model_comprehensive(
+                best_ddpg, ddpg_eval_env, n_episodes=50, algorithm="DDPG"
+            )
+            evaluation_results["DDPG"][difficulty] = ddpg_results
+            ddpg_eval_env.close()
+
+        results['final_evaluation'] = evaluation_results
+
+        # ==================== ACADEMIC SUMMARY ====================
+        total_training_time = time.time() - training_system.training_start_time
+
+        # Create comprehensive training summary
+        training_summary = {
+            'experiment_details': {
+                'total_timesteps': total_timesteps,
+                'reward_function': reward_type,
+                'training_duration_hours': total_training_time / 3600,
+                'device_used': 'GPU' if torch.cuda.is_available() else 'CPU',
+                'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
+                'environment': 'Soccer RL 2D Simulation'
+            },
+            'algorithm_configurations': {
+                'PPO': ppo_config,
+                'DDPG': ddpg_config
+            },
+            'performance_summary': {},
+            'statistical_analysis': {},
+            'model_paths': {
+                'ppo_final': ppo_model_path,
+                'ppo_best': f"{ppo_log_dir}/best_model/best_model",
+                'ddpg_final': ddpg_model_path,
+                'ddpg_best': f"{ddpg_log_dir}/best_model/best_model"
+            },
+            'analysis_artifacts': {
+                'ppo_training_curves': results.get('ppo_analysis_path'),
+                'ddpg_training_curves': results.get('ddpg_analysis_path'),
+                'algorithm_comparison': results.get('comparison_plot_path')
+            }
         }
-        
-        summary_file = f"{training_system.output_dir}/multi_model_training_summary.json"
-        with open(summary_file, 'w') as f:
-            # Handle numpy types for JSON serialization
-            def convert_numpy(obj):
-                if isinstance(obj, np.ndarray):
-                    return obj.tolist()
-                elif isinstance(obj, (np.int64, np.int32)):
+
+        # Add performance statistics
+        for algo in ['PPO', 'DDPG']:
+            algo_summary = {}
+            for difficulty in difficulties:
+                if algo in evaluation_results and difficulty in evaluation_results[algo]:
+                    eval_data = evaluation_results[algo][difficulty]
+                    algo_summary[difficulty] = {
+                        'mean_reward': eval_data['mean_reward'],
+                        'std_reward': eval_data['std_reward'],
+                        'success_rate': eval_data['success_rate'],
+                        'mean_episode_length': eval_data['mean_episode_length']
+                    }
+            training_summary['performance_summary'][algo] = algo_summary
+
+        # Statistical comparison
+        if 'PPO' in evaluation_results and 'DDPG' in evaluation_results:
+            from scipy import stats
+
+            for difficulty in difficulties:
+                if (difficulty in evaluation_results['PPO'] and
+                    difficulty in evaluation_results['DDPG']):
+
+                    ppo_rewards = evaluation_results['PPO'][difficulty]['episode_rewards']
+                    ddpg_rewards = evaluation_results['DDPG'][difficulty]['episode_rewards']
+
+                    t_stat, p_value = stats.ttest_ind(ppo_rewards, ddpg_rewards)
+
+                    training_summary['statistical_analysis'][difficulty] = {
+                        't_statistic': float(t_stat),
+                        'p_value': float(p_value),
+                        'significant_difference': p_value < 0.05,
+                        'better_algorithm': 'PPO' if np.mean(ppo_rewards) > np.mean(ddpg_rewards) else 'DDPG'
+                    }
+
+        results['training_summary'] = training_summary
+
+        # Save comprehensive results
+        results_file = f"{training_system.output_dir}/academic_training_results.json"
+        with open(results_file, 'w') as f:
+            # Convert numpy types for JSON serialization
+            def json_serializable(obj):
+                if isinstance(obj, (np.int64, np.int32, np.integer)):
                     return int(obj)
-                elif isinstance(obj, (np.float64, np.float32)):
+                elif isinstance(obj, (np.float64, np.float32, np.floating)):
                     return float(obj)
+                elif isinstance(obj, np.ndarray):
+                    return obj.tolist()
+                elif hasattr(obj, '__dict__'):
+                    return str(obj)
                 return obj
-            
-            # Clean summary for JSON
-            clean_summary = {}
-            for key, value in summary.items():
+
+            # Clean results for JSON
+            clean_results = {}
+            for key, value in results.items():
                 if isinstance(value, dict):
-                    clean_summary[key] = {k: convert_numpy(v) for k, v in value.items()}
-                elif isinstance(value, list):
-                    clean_summary[key] = [convert_numpy(v) for v in value]
+                    clean_results[key] = {k: json_serializable(v) for k, v in value.items() if v is not None}
+                elif isinstance(value, (list, tuple)):
+                    clean_results[key] = [json_serializable(v) for v in value]
                 else:
-                    clean_summary[key] = convert_numpy(value)
-            
-            json.dump(clean_summary, f, indent=2)
-        
-        training_system.logger.info(f"Training summary saved to {summary_file}")
-        
+                    clean_results[key] = json_serializable(value)
+
+            json.dump(clean_results, f, indent=2, default=json_serializable)
+
+        # ==================== FINAL REPORT ====================
+        training_system.logger.info("="*80)
+        training_system.logger.info("ACADEMIC TRAINING PIPELINE COMPLETED")
+        training_system.logger.info("="*80)
+        training_system.logger.info(f"Total training time: {total_training_time/3600:.2f} hours")
+        training_system.logger.info(f"Results saved to: {results_file}")
+
+        # Performance summary
+        for algo in ['PPO', 'DDPG']:
+            if algo in evaluation_results:
+                training_system.logger.info(f"\n{algo} FINAL PERFORMANCE:")
+                for difficulty in difficulties:
+                    if difficulty in evaluation_results[algo]:
+                        perf = evaluation_results[algo][difficulty]
+                        training_system.logger.info(
+                            f"  {difficulty.capitalize()}: "
+                            f"{perf['mean_reward']:.2f}±{perf['std_reward']:.2f} reward, "
+                            f"{perf['success_rate']:.1f}% success rate"
+                        )
+
+        # Artifact summary
+        training_system.logger.info(f"\nGENERATED ARTIFACTS:")
+        training_system.logger.info(f"  PPO model: {ppo_model_path}")
+        training_system.logger.info(f"  DDPG model: {ddpg_model_path}")
+        if results.get('comparison_plot_path'):
+            training_system.logger.info(f"  Comparison plot: {results['comparison_plot_path']}")
+        if results.get('ppo_analysis_path'):
+            training_system.logger.info(f"  PPO analysis: {results['ppo_analysis_path']}")
+        if results.get('ddpg_analysis_path'):
+            training_system.logger.info(f"  DDPG analysis: {results['ddpg_analysis_path']}")
+
+        training_system.logger.info("\n🎉 Academic training pipeline completed successfully!")
+        training_system.logger.info("All artifacts are ready for your academic report and presentation.")
+
+        return results
+
     except Exception as e:
-        training_system.logger.error(f"Multi-model training pipeline failed: {e}")
-        
+        training_system.logger.error(f"Academic training pipeline failed: {e}")
+        import traceback
+        training_system.logger.error(f"Traceback: {traceback.format_exc()}")
+        return results
+
     finally:
-        training_system.logger.info("Multi-model training pipeline finished")
+        # Cleanup all environments
+        if 'ppo_train_env' in locals():
+            ppo_train_env.close()
+        if 'ppo_eval_env' in locals():
+            ppo_eval_env.close()
+        if 'ddpg_train_env' in locals():
+            ddpg_train_env.close()
+        if 'ddpg_eval_env' in locals():
+            ddpg_eval_env.close()
 
 
 def main():
     """Main function with user options"""
-    print("Multi-Model Soccer RL Training System")
-    print("=" * 60)
-    print("\nThis system will:")
-    print("1. Train MULTIPLE PPO variants with different hyperparameters")
-    print("2. Train MULTIPLE DDPG variants with different hyperparameters") 
-    print("3. Each variant trains for LONG periods (1.5M timesteps default)")
-    print("4. Automatically track and save the BEST model from each algorithm")
-    print("5. Provide comprehensive comparison of ALL variants")
-    print("6. Save all results with timestamps for organization")
-    
-    print(f"\nBy default, this trains:")
-    print(f"  - {len(get_ppo_hyperparameter_variants())} PPO variants")
-    print(f"  - {len(get_ddpg_hyperparameter_variants())} DDPG variants") 
-    print(f"  - {len(get_ppo_hyperparameter_variants()) + len(get_ddpg_hyperparameter_variants())} models total")
-    
-    print(f"\nEstimated time: {(len(get_ppo_hyperparameter_variants()) + len(get_ddpg_hyperparameter_variants())) * 4:.0f}-{(len(get_ppo_hyperparameter_variants()) + len(get_ddpg_hyperparameter_variants())) * 6:.0f} hours")
-    print("WARNING: This is a VERY long-running process!")
-    
-    print("\nTraining Options:")
-    print("1. Full multi-model training (all variants)")
-    print("2. Limited training (specify number of variants)")
-    print("3. Quick test (100k timesteps per variant)")
-    print("4. Custom timesteps")
-    print("5. Fine-tune an existing model")
-    print("6. Train a brand new DDPG model from scratch")
-    print("0. Exit")
-    
-    choice = input("\nEnter your choice (1-5): ").strip()
-    
-    if choice == "1":
-        print(f"\n Starting FULL multi-model training...")
-        print(f"This will train {len(get_ppo_hyperparameter_variants()) + len(get_ddpg_hyperparameter_variants())} models!")
-        print("You can monitor progress in the terminal and log files.")
-        confirm = input("Type 'YES' to confirm and start: ").strip().upper()
-        if confirm == "YES":
-            run_multi_model_training_pipeline()
-        else:
-            print("Training cancelled.")
-            
-    elif choice == "2":
-        print("\n Limited training mode:")
-        try:
-            num_ppo = int(input(f"Number of PPO variants to train (max {len(get_ppo_hyperparameter_variants())}): "))
-            num_ddpg = int(input(f"Number of DDPG variants to train (max {len(get_ddpg_hyperparameter_variants())}): "))
-            
-            print(f"\nThis will train {num_ppo + num_ddpg} models total")
-            print(f"Estimated time: {(num_ppo + num_ddpg) * 4:.0f}-{(num_ppo + num_ddpg) * 6:.0f} hours")
-            
-            confirm = input("Type 'YES' to confirm: ").strip().upper()
-            if confirm == "YES":
-                run_multi_model_training_pipeline(num_ppo, num_ddpg)
-            else:
-                print("Training cancelled.")
-        except ValueError:
-            print("Invalid input. Please enter numbers.")
-        
-    elif choice == "3":
-        print("\n⚡ Quick test mode (100k timesteps per variant)...")
-        confirm = input("Type 'YES' to confirm: ").strip().upper()
-        if confirm == "YES":
-            run_multi_model_training_pipeline(timesteps_per_model=100000)
-        else:
-            print("Training cancelled.")
-            
-    elif choice == "4":
-        print("\n  Custom timesteps mode:")
-        try:
-            timesteps = int(input("Timesteps per model (e.g., 500000): "))
-            num_ppo = int(input(f"Number of PPO variants (max {len(get_ppo_hyperparameter_variants())}): "))
-            num_ddpg = int(input(f"Number of DDPG variants (max {len(get_ddpg_hyperparameter_variants())}): "))
-            
-            estimated_hours = (num_ppo + num_ddpg) * (timesteps/1000000) * 3.5
-            print(f"\nThis will train {num_ppo + num_ddpg} models for {timesteps:,} timesteps each")
-            print(f"Estimated time: {estimated_hours:.1f} hours")
-            
-            confirm = input("Type 'YES' to confirm: ").strip().upper()
-            if confirm == "YES":
-                run_multi_model_training_pipeline(num_ppo, num_ddpg, timesteps)
-            else:
-                print("Training cancelled.")
-        except ValueError:
-            print("Invalid input. Please enter numbers.")
-    elif choice == "5":
-        print(f"\n This will continue training an existing model...")
-        print("You can monitor progress in the terminal and log files.")
-        
-        # model_path = input("Enter the path to the existing model (.zip file): ").strip()
-        #TODO: Fix the GUI  pls
-        app = TrainGUI()
-    
-        model_path = app.open_file_dialog()
-        if model_path:
-            app.close_window()
+    import argparse
 
-        #TODO: MAybe change this to have multiple models to continue training?
-        run_name = f"retrained_ddpg_model"
-        timesteps = int(input("Enter the number of additional timesteps to train (e.g., 500000): ").strip())
-        
-        if not os.path.exists(model_path):
-                print(f"Model file not found: {model_path}")
-                return
-            
-        model_info_list = [(model_path, run_name)]
-        # Run continued training
-        results, output_dir = continue_multiple_ddpg_models(model_info_list, timesteps)
-        print(f"\n🎉 Continued training completed!")
-        print(f"📁 Results saved to: {output_dir}")
-    elif choice == "6":
-        print(f"\n🆕 This will train a brand new DDPG model from scratch...")
-        print("You can monitor progress in the terminal and log files.")
-        
-        run_name = f"new_ddpg_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
-        timesteps = input("Enter timesteps to train (default 1500000): ").strip()
-        timesteps = int(timesteps) if timesteps else 1500000
-        
-        # Initialize training system
-        training_system = MultiModelTrainingSystem()
-        training_system.training_start_time = time.time()
-        
-        print(f"\n🚀 Starting training of new model: {run_name}")
-        print(f"📊 Timesteps: {timesteps:,}")
-        print(f"📁 Output directory: {training_system.output_dir}")
-        
-        # Train the new model
-        final_model_path, final_score, name = train_new_ddpg_model(
-            training_system, 
-            run_name, 
-            hyperparams=None,  # Use defaults from your function
-            total_timesteps=timesteps
+    parser = argparse.ArgumentParser(description='Soccer RL Training Pipeline')
+    parser.add_argument('--mode', choices=['multi', 'academic'], default='academic',
+                      help='Training mode: multi for multiple variants, academic for single models with analysis')
+    parser.add_argument('--timesteps', type=int, default=2500000,
+                      help='Total training timesteps (default: 2.5M)')
+    parser.add_argument('--reward', choices=['original', 'smooth', 'hybrid'], default='smooth',
+                      help='Reward function type (default: smooth)')
+    # parser.add_argument('--ppo-variants', type=int, default=3,
+    #                   help='Number of PPO variants for multi mode')
+    # parser.add_argument('--ddpg-variants', type=int, default=3,
+    #                   help='Number of DDPG variants for multi mode')
+
+    args = parser.parse_args()
+
+    if args.mode == 'academic':
+        print("="*80)
+        print("STARTING ACADEMIC TRAINING PIPELINE")
+        print("="*80)
+        print(f"Training timesteps: {args.timesteps:,}")
+        print(f"Reward function: {args.reward}")
+        print(f"Expected duration: ~{args.timesteps/1000000 * 2:.1f} hours")
+        print("="*80)
+
+        results = run_academic_training_pipeline(
+            total_timesteps=args.timesteps,
+            reward_type=args.reward
         )
-        
-        if final_model_path:
-            print(f"\n🎉 New model training completed!")
-            print(f"📈 Final score: {final_score:.2f}")
-            print(f"💾 Model saved: {final_model_path}")
-            print(f"📁 All files saved to: {training_system.output_dir}")
-        else:
-            print(f"\n❌ Training failed for {name}")
 
-    else:
-        print("Exiting...")
+        if results and results.get('training_summary'):
+            print("\n🎉 ACADEMIC TRAINING COMPLETED!")
+            print("\nGenerated artifacts for your report:")
+            for key, path in results.items():
+                if path and isinstance(path, str) and ('plot' in key or 'analysis' in key):
+                    print(f"  {key}: {path}")
 
+    # elif args.mode == 'multi':
+    #     print("="*80)
+    #     print("STARTING MULTI-MODEL TRAINING PIPELINE")
+    #     print("="*80)
+    #     print(f"PPO variants: {args.ppo_variants}")
+    #     print(f"DDPG variants: {args.ddpg_variants}")
+    #     print(f"Timesteps per model: {args.timesteps:,}")
+    #     print("="*80)
+
+    #     run_multi_model_training_pipeline(
+    #         num_ppo_variants=args.ppo_variants,
+    #         num_ddpg_variants=args.ddpg_variants,
+    #         timesteps_per_model=args.timesteps
+    #     )
 
 if __name__ == "__main__":
     main()

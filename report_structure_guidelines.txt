@@ -1,0 +1,68 @@
+Report Structure Guidelines (40% of the course grade)
+
+1) Title (1 page): A concise and descriptive title of the thesis.
+    Author: Full name of the student.
+    Degree: Submitted in partial fulfilment of the requirements for the degree of Bachelor of Software Engineering (Honours).
+    Affiliation: School of Information and Physical Sciences, The University of Newcastle, Callaghan, NSW 2308, Australia
+    Date: Month and year of submission.
+    You will generally also want to include the name and (brief) affiliation of your supervisor on the title page.
+
+2) Abstract (1 page)
+    Length: 250-300 words.
+    A brief summary of the research problem, methodology, key findings, and significance of the study.
+
+3) Table of Contents
+    List of chapters, sections, and subsections with page numbers.
+
+4) List of Figures, Tables and/or Algorithms (Optional)
+    Titles and page numbers of all figures, tables, and or algorithms included in the report. Each of these lists, if included, should be separate.
+
+5) Introduction (~ 5-7 pages)
+    Background: Introduction to the topic and its importance in the field of software engineering.
+    Problem Statement: Clear statement of the research problem or question.
+    Objectives: Specific aims and objectives of the research.
+    Scope: Discussion of the research scope, including any specific inclusions or exclusions.
+    Significance: Importance and potential impact of the research, including its context within the state of the field.
+    Outline: Briefly describe the structure of the report.
+
+6) Background and Literature Review (~ 5-10 pages)
+    Literature Review: Comprehensive and critical analysis of existing literature relevant to the topic.
+    Scope: Cover the theoretical foundations and related work.
+    Current Solutions: Discuss existing methodologies, technologies, and solutions.
+    Critical Analysis: Evaluate the strengths, weaknesses, and gaps in the literature.
+    Summary: Synthesise the findings to highlight the research gap your report will address.
+
+7) Methodology and Design (~10-20 pages)
+    You can consider splitting this into two sections, research methodology and software engineering methodology, if you find it flows better.
+    Research Design: Description of the research approach (qualitative, quantitative, or mixed methods).
+    Data Collection: Methods used for data collection (e.g., surveys, experiments, simulations).
+    Data Analysis: Techniques and tools used for data analysis. Include details of any statistical hypothesis tests that will be conducted.
+    Validation and Verification: Outline the methods for ensuring the validity and reliability of the research and methodology.
+    Design Specifications: Provide detailed design specifications for the software solution, including architectural diagrams, UML diagrams, and/or system models, as appropriate.
+    Software Development Methodology: Outline and contextualise the adopted software development methodology, particularly why it was selected and how it was adapted (if applicable) to the project at hand.
+    Ethical Considerations: Ethical issues and how they were addressed, if applicable.
+
+8) Implementation and Evaluation (~10-20 pages)
+    Development Process: Describe the software development process, including technologies used, development environment, and coding practices.
+    Implementation Details: Provide detailed descriptions of key modules, algorithms, and workflows.
+    Challenges and Solutions: Discuss any challenges faced during implementation and how they were addressed.
+    Evaluation Methods and Criteria: Outline the methods, criteria, and metrics used to evaluate the software solution, including testing strategies, user feedback, and performance metrics.
+    Testing: Describe the testing methodology and results.
+
+9) Results and Discussion (~10-15 pages)
+    Presentation of Data: Detailed presentation of the research findings, including tables, graphs, and figures.
+    Analysis and Interpretation: In-depth analysis and interpretation of the results and their implications in relation to the research objectives.
+    Contributions: Highlight the contributions of the research to the field of software engineering.
+    Comparison with Literature: Comparison of findings with existing literature.
+    Limitations: Discussion of the limitations of the study.
+
+10) Conclusions (~3 pages)
+    Summary: Summary of the main findings.
+    Implications: Practical and theoretical implications of the research.
+    Recommendations: Suggestions for future research or practice.
+
+11) References
+    Comprehensive list of all sources cited in the report, formatted according to a standard citation style (e.g., IEEE).
+
+12) Appendices (Optional)
+    Supplementary materials such as raw data, detailed calculations, questionnaires, or additional figures and tables.
