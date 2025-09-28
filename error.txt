@@ -1,0 +1,56 @@
+home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  from pkg_resources import resource_stream, resource_exists
+================================================================================
+STARTING ACADEMIC TRAINING PIPELINE
+================================================================================
+Training timesteps: 1,500,000
+Reward function: smooth
+Expected duration: ~3.0 hours
+================================================================================
+Created experiment directory: experiments/runs/multi_model_training_20250928_151850
+2025-09-28 15:18:50,995 - INFO - ================================================================================
+2025-09-28 15:18:50,995 - INFO - STARTING ACADEMIC TRAINING PIPELINE
+2025-09-28 15:18:50,996 - INFO - ================================================================================
+2025-09-28 15:18:50,996 - INFO - Target timesteps: 1,500,000
+2025-09-28 15:18:50,996 - INFO - Reward type: smooth
+2025-09-28 15:18:50,996 - INFO - Output directory: experiments/runs/multi_model_training_20250928_151850
+2025-09-28 15:18:51,158 - INFO - Device: GPU
+Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+2025-09-28 15:18:51,282 - INFO - Environment validation successful with smooth reward
+2025-09-28 15:18:51,283 - INFO - ============================================================
+2025-09-28 15:18:51,283 - INFO - TRAINING PPO MODEL
+2025-09-28 15:18:51,283 - INFO - ============================================================
+Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+Using cuda device
+Wrapping the env in a DummyVecEnv.
+/home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/stable_baselines3/common/on_policy_algorithm.py:150: UserWarning: You are trying to run PPO on the GPU, but it is primarily intended to run on the CPU when not using a CNN policy (you are using ActorCriticPolicy which should be a MlpPolicy). See https://github.com/DLR-RM/stable-baselines3/issues/1245 for more info. You can pass `device='cpu'` or `export CUDA_VISIBLE_DEVICES=` to force using the CPU.Note: The model will train, but the GPU utilization will be poor and the training might take longer than on CPU.
+  warnings.warn(
+2025-09-28 15:18:54,450 - INFO - Starting PPO training...
+🔍 TEST: Current timesteps = 0
+Logging to experiments/runs/multi_model_training_20250928_151850/ppo_logs/PPO_1
+2025-09-28 15:18:54,454 - ERROR - Academic training pipeline failed: You must install tqdm and rich in order to use the progress bar callback. It is included if you install stable-baselines with the extra packages: `pip install stable-baselines3[extra]`
+2025-09-28 15:18:54,457 - ERROR - Traceback: Traceback (most recent call last):
+  File "/home/aliriyazr1/NUbots_RL_FYP/src/training/extended_train_script.py", line 1612, in run_academic_training_pipeline
+    ppo_model.learn(
+  File "/home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/stable_baselines3/ppo/ppo.py", line 311, in learn
+    return super().learn(
+           ^^^^^^^^^^^^^^
+  File "/home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/stable_baselines3/common/on_policy_algorithm.py", line 311, in learn
+    total_timesteps, callback = self._setup_learn(
+                                ^^^^^^^^^^^^^^^^^^
+  File "/home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/stable_baselines3/common/base_class.py", line 434, in _setup_learn
+    callback = self._init_callback(callback, progress_bar)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/stable_baselines3/common/base_class.py", line 378, in _init_callback
+    callback = CallbackList([callback, ProgressBarCallback()])
+                                       ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/stable_baselines3/common/callbacks.py", line 709, in __init__
+    raise ImportError(
+ImportError: You must install tqdm and rich in order to use the progress bar callback. It is included if you install stable-baselines with the extra packages: `pip install stable-baselines3[extra]`
