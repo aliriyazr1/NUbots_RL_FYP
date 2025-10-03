@@ -91,7 +91,7 @@ Using a script to map the robot's actions to keyboard keys, the movements of the
 (theta -> TODO: Is this correct:  : :: : angular velocity in the counter-clockwise direction relative to the world coordinate system)
 
 After validation of the robot's movements, new models were trained and it was observed that .....
-
+The rewards for the goal progress component of the movements were contributing to approx ~ 85-98% of the total rewards. This illustrates that the agent learnt to optimise the goal distance but ignores ball control, positioning which were expected to be learnt. 
 
 
 

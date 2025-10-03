@@ -1,7 +1,16 @@
 # File: tests/unit/test_environment.py
 import pytest
 import numpy as np
-from SoccerEnv.soccerenv import SoccerEnv
+import sys
+import os
+from pathlib import Path
+
+# Add src to path for imports
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root / "src"))
+os.chdir(project_root)
+
+from environments.soccerenv import SoccerEnv
 
 class TestSoccerEnvironment:
     """Unit tests for SoccerEnv following your test plan requirements"""
@@ -45,6 +54,7 @@ class TestSoccerEnvironment:
         assert not np.isnan(obs).any(), "Observation should not contain NaN"
         assert np.isfinite(reward), "Reward should be finite"
     
+    # NOTE: Probbaly fails because the positions are randomised and it takes more than 50 timesteps to get the ball
     def test_ball_physics_consistency(self):
         """Test ball physics behave consistently"""
         obs, _ = self.env.reset()

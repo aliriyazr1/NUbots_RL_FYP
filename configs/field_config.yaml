@@ -46,8 +46,8 @@ robot_parameters:
   robot_speed_minimum: 0.1           # For movement rewards
   prediction_steps: 5                # Steps ahead for ball prediction
   base_robot_speed_mps: 2.5          # Robot speed in m/s
-  base_rotation_speed_rps: 4.0       # Robot rotation in radians/sec
-  base_opponent_speed_mps: 2.5       # Opponent speed in m/s
+  base_rotation_speed_rps: 0.67       # Robot rotation in radians/sec
+  base_opponent_speed_mps: 1.4       # Opponent speed in m/s
 
 # Physics parameters
 physics:

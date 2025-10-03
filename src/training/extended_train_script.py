@@ -1711,8 +1711,8 @@ def run_academic_training_pipeline(total_timesteps=2500000, reward_type="smooth"
         training_system.logger.info("="*60)
 
         # Load best models for evaluation
-        best_ppo = PPO.load(f"{ppo_log_dir}/best_model/best_model")
-        best_ddpg = DDPG.load(f"{ddpg_log_dir}/best_model/best_model")
+        best_ppo = PPO.load(f"{ppo_log_dir}/final_ppo_model")
+        best_ddpg = DDPG.load(f"{ddpg_log_dir}/final_ddpg_model")
 
         # Comprehensive evaluation on multiple difficulties
         difficulties = ["easy", "medium", "hard"]

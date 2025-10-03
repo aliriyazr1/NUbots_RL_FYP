@@ -1,7 +1,16 @@
 # File: tests/environment/test_physics.py
 import pytest
 import numpy as np
-from SoccerEnv.soccerenv import SoccerEnv
+import sys
+import os
+from pathlib import Path
+
+# Add src to path for imports
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root / "src"))
+os.chdir(project_root)
+
+from environments.soccerenv import SoccerEnv
 
 class TestPhysicsConsistency:
     """Test physics calculations match expected behavior"""

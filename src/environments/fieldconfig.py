@@ -47,7 +47,14 @@ class FieldConfig:
                 }
             },
             'display_dimensions': {'width': 900, 'height': 600, 'scale_factor': 100},
-            'robot_parameters': {'robot_radius': 0.15, 'ball_radius': 0.08, 'possession_threshold': 0.25},
+            'robot_parameters': {
+                'robot_radius': 0.15,
+                'ball_radius': 0.08,
+                'possession_threshold': 0.25,
+                'base_robot_speed_mps': 2.5,  # metres per second
+                'base_rotation_speed_rps': 0.67,  # rotations per second (1 full rotation per 1.5 sec)
+                'base_opponent_speed_mps': 1.4  # opponent speed in metres per second
+            },
             'physics': {'ball_mass': 0.5, 'ball_friction': 0.8, 'ball_bounce': 0.2, 
                        'ball_max_speed': 3.0, 'push_force_multiplier': 1.2},
             'difficulty_settings': {

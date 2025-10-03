@@ -1513,13 +1513,13 @@ class SoccerEnv(gym.Env):
             return True
         
         #TODO: REmoved this for now # Failure: collision with opponent
-        # if np.linalg.norm(self.robot_pos - self.opponent_pos) < self.collision_distance:
-        #     return True
+        if np.linalg.norm(self.robot_pos - self.opponent_pos) < self.collision_distance:
+            return True
 
-        # # Failure: opponent dominates (based on difficulty)
-        # max_opponent_time = 50 if self.difficulty == "easy" else 30
-        # if self.opponent_possession_time > max_opponent_time:
-        #     return True
+        # Failure: opponent dominates (based on difficulty)
+        max_opponent_time = 50 if self.difficulty == "easy" else 30
+        if self.opponent_possession_time > max_opponent_time:
+            return True
         
         return False
     
