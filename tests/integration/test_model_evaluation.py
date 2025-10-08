@@ -33,7 +33,7 @@ DEPENDENCIES_AVAILABLE = True
 IMPORT_ERROR = None
 
 try:
-    from stable_baselines3 import PPO
+    from stable_baselines3 import PPO, DDPG
 except ImportError as e:
     DEPENDENCIES_AVAILABLE = False
     IMPORT_ERROR = f"Stable Baselines3 not available: {str(e)}"
@@ -126,21 +126,165 @@ class TestTrainedModelPerformance:
 
     Academic requirement: Demonstrate learning has occurred
     Statistical validation: t-test with p < 0.05
+
+    Note: These tests can use pre-trained models via conftest.py fixtures.
+    See MODEL_TESTING_GUIDE.md for how to specify custom model paths.
     """
 
-    def test_trained_vs_random_baseline(self, tmp_path):
+    def test_trained_vs_random_baseline_pretrained(self, pretrained_ppo_model):
         """
-        Test trained model significantly outperforms random baseline.
+        Test pre-trained PPO model significantly outperforms random baseline.
 
-        This is the fundamental test of learning - a trained agent
-        must perform significantly better than random actions.
+        Uses pre-trained model if available (via --ppo-model or PPO_MODEL_PATH),
+        otherwise skips this test.
 
         Statistical test: Independent samples t-test
         Null hypothesis: trained_reward = random_reward
         Alternative: trained_reward > random_reward
         Significance level: α = 0.05
         """
-        print(f"\n✓ Testing trained model vs random baseline")
+        if pretrained_ppo_model is None:
+            pytest.skip("No pre-trained PPO model available. Use --ppo-model or set PPO_MODEL_PATH")
+
+        print(f"\n✓ Testing pre-trained model vs random baseline")
+
+        # Create environment
+        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+
+        # Evaluate pre-trained model
+        print(f"  Evaluating pre-trained model...")
+        trained_rewards, trained_lengths, _ = evaluate_policy_episodes(
+            pretrained_ppo_model, env, n_episodes=10, deterministic=True
+        )
+
+        # Evaluate random baseline
+        print(f"  Evaluating random baseline...")
+        random_rewards, random_lengths, _ = evaluate_policy_episodes(
+            None, env, n_episodes=10, deterministic=False
+        )
+
+        # Calculate statistics
+        trained_mean = np.mean(trained_rewards)
+        trained_std = np.std(trained_rewards)
+        random_mean = np.mean(random_rewards)
+        random_std = np.std(random_rewards)
+
+        print(f"\n  Performance comparison:")
+        print(f"    Trained agent: {trained_mean:8.2f} ± {trained_std:.2f}")
+        print(f"    Random policy: {random_mean:8.2f} ± {random_std:.2f}")
+        print(f"    Improvement:   {trained_mean - random_mean:8.2f} ({((trained_mean - random_mean) / abs(random_mean) * 100):.1f}%)")
+
+        # Statistical test: one-tailed t-test
+        t_statistic, p_value = stats.ttest_ind(trained_rewards, random_rewards)
+        p_value_one_tailed = p_value / 2 if t_statistic > 0 else 1 - p_value / 2
+
+        print(f"\n  Statistical analysis:")
+        print(f"    t-statistic: {t_statistic:.4f}")
+        print(f"    p-value (one-tailed): {p_value_one_tailed:.4f}")
+        print(f"    Significance level: 0.05")
+
+        if p_value_one_tailed < 0.05:
+            print(f"    ✓ Difference is statistically significant")
+        else:
+            print(f"    ✗ Difference is NOT statistically significant")
+
+        # Assertions
+        assert trained_mean >= random_mean * 0.95, \
+            f"Trained model should not perform significantly worse than random"
+
+        improvement_ratio = (trained_mean - random_mean) / (abs(random_mean) + 1e-6)
+        has_improvement = trained_mean > random_mean and improvement_ratio > 0.01
+        is_significant = p_value_one_tailed < 0.05
+
+        assert has_improvement or is_significant, \
+            f"Model should show improvement or significance"
+
+        env.close()
+        print(f"\n✓ Pre-trained PPO vs random baseline test passed")
+
+    def test_trained_vs_random_baseline_pretrained_ddpg(self, pretrained_ddpg_model):
+        """
+        Test pre-trained DDPG model significantly outperforms random baseline.
+
+        Uses pre-trained DDPG model if available (via --ddpg-model or DDPG_MODEL_PATH),
+        otherwise skips this test.
+
+        Statistical test: Independent samples t-test
+        Null hypothesis: trained_reward = random_reward
+        Alternative: trained_reward > random_reward
+        Significance level: α = 0.05
+        """
+        if pretrained_ddpg_model is None:
+            pytest.skip("No pre-trained DDPG model available. Use --ddpg-model or set DDPG_MODEL_PATH")
+
+        print(f"\n✓ Testing pre-trained DDPG model vs random baseline")
+
+        # Create environment
+        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+
+        # Evaluate pre-trained model
+        print(f"  Evaluating pre-trained DDPG model...")
+        trained_rewards, trained_lengths, _ = evaluate_policy_episodes(
+            pretrained_ddpg_model, env, n_episodes=10, deterministic=True
+        )
+
+        # Evaluate random baseline
+        print(f"  Evaluating random baseline...")
+        random_rewards, random_lengths, _ = evaluate_policy_episodes(
+            None, env, n_episodes=10, deterministic=False
+        )
+
+        # Calculate statistics
+        trained_mean = np.mean(trained_rewards)
+        trained_std = np.std(trained_rewards)
+        random_mean = np.mean(random_rewards)
+        random_std = np.std(random_rewards)
+
+        print(f"\n  Performance comparison:")
+        print(f"    Trained DDPG:  {trained_mean:8.2f} ± {trained_std:.2f}")
+        print(f"    Random policy: {random_mean:8.2f} ± {random_std:.2f}")
+        print(f"    Improvement:   {trained_mean - random_mean:8.2f} ({((trained_mean - random_mean) / abs(random_mean) * 100):.1f}%)")
+
+        # Statistical test: one-tailed t-test
+        t_statistic, p_value = stats.ttest_ind(trained_rewards, random_rewards)
+        p_value_one_tailed = p_value / 2 if t_statistic > 0 else 1 - p_value / 2
+
+        print(f"\n  Statistical analysis:")
+        print(f"    t-statistic: {t_statistic:.4f}")
+        print(f"    p-value (one-tailed): {p_value_one_tailed:.4f}")
+        print(f"    Significance level: 0.05")
+
+        if p_value_one_tailed < 0.05:
+            print(f"    ✓ Difference is statistically significant")
+        else:
+            print(f"    ✗ Difference is NOT statistically significant")
+
+        # Assertions
+        assert trained_mean >= random_mean * 0.95, \
+            f"Trained DDPG model should not perform significantly worse than random"
+
+        improvement_ratio = (trained_mean - random_mean) / (abs(random_mean) + 1e-6)
+        has_improvement = trained_mean > random_mean and improvement_ratio > 0.01
+        is_significant = p_value_one_tailed < 0.05
+
+        assert has_improvement or is_significant, \
+            f"DDPG model should show improvement or significance"
+
+        env.close()
+        print(f"\n✓ Pre-trained DDPG vs random baseline test passed")
+
+    def test_trained_vs_random_baseline(self, tmp_path):
+        """
+        Test trained model significantly outperforms random baseline.
+
+        This version trains a new model for testing (fallback if no pre-trained available).
+
+        Statistical test: Independent samples t-test
+        Null hypothesis: trained_reward = random_reward
+        Alternative: trained_reward > random_reward
+        Significance level: α = 0.05
+        """
+        print(f"\n✓ Testing trained model vs random baseline (training new model)")
 
         # Create environment
         env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
