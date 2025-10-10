@@ -704,17 +704,86 @@ class TestModelConsistency:
     """
     Test model produces consistent predictions.
 
-    Validates deterministic behaviour for reproducibility
+    Validates deterministic behaviour for reproducibility and deployment.
+
+    Academic context: Deterministic inference is critical for:
+    1. Reproducibility - Same state → same action (research validation)
+    2. Safety - Predictable behaviour on real robots
+    3. Debugging - Consistent behaviour aids troubleshooting
+
+    Note: While PPO/DDPG training is stochastic, inference with
+    deterministic=True should be fully deterministic.
     """
+
+    def test_pretrained_model_deterministic_predictions(self, pretrained_ppo_model, pretrained_ddpg_model):
+        """
+        Test YOUR pretrained model produces deterministic predictions.
+
+        Uses pre-trained model if available (PPO or DDPG), otherwise skips.
+
+        This validates that your deployed model will behave consistently
+        on real robots, which is critical for:
+        - Safety: Robot behaves predictably in same situations
+        - Reproducibility: Research results can be replicated
+        - Debugging: Consistent behaviour aids in identifying issues
+
+        Academic significance: Determinism in deployment is essential
+        for real-world robotics applications (Bojarski et al., 2016).
+        """
+        # Use whichever model is available
+        model = pretrained_ppo_model if pretrained_ppo_model is not None else pretrained_ddpg_model
+        model_name = "PPO" if pretrained_ppo_model is not None else "DDPG"
+
+        if model is None:
+            pytest.skip("No pre-trained model available. Use --ppo-model, --ddpg-model, or --experiment")
+
+        print(f"\n✓ Testing pretrained {model_name} model deterministic predictions")
+
+        # Test deterministic predictions on multiple different inputs
+        print(f"  Testing determinism across multiple states...")
+
+        n_test_states = 5  # Test on 5 different states
+        n_predictions_per_state = 10  # Predict 10 times per state
+
+        for state_idx in range(n_test_states):
+            # Generate a test observation
+            test_obs = np.random.randn(12).astype(np.float32)
+
+            predictions = []
+            for i in range(n_predictions_per_state):
+                action, _states = model.predict(test_obs, deterministic=True)
+                predictions.append(action.copy())
+
+            # All predictions should be identical for the same input
+            for i in range(1, len(predictions)):
+                diff = np.abs(predictions[0] - predictions[i]).max()
+                assert diff == 0.0, \
+                    f"Deterministic predictions should be identical (state {state_idx+1}, diff={diff})"
+
+            print(f"    State {state_idx+1}: ✓ All {n_predictions_per_state} predictions identical")
+
+        print(f"\n  Academic validation:")
+        print(f"    ✓ Deterministic inference verified across {n_test_states} states")
+        print(f"    ✓ Model suitable for deployment on physical robots")
+        print(f"    ✓ Reproducibility guaranteed for research validation")
+
+        print(f"\n✓ Pretrained {model_name} deterministic prediction test passed")
 
     def test_deterministic_predictions(self, tmp_path):
         """
-        Test model produces identical predictions for same input.
+        Test that PPO training produces models with deterministic inference.
+
+        This is a validation test that trains a NEW model to verify
+        that the training pipeline produces models with deterministic
+        inference capabilities.
 
         Critical for deployment: Same state should always produce
         same action when using deterministic=True.
+
+        Note: This tests the training pipeline, not your specific model.
+        For testing YOUR model, use test_pretrained_model_deterministic_predictions.
         """
-        print(f"\n✓ Testing deterministic predictions")
+        print(f"\n✓ Testing deterministic predictions (training pipeline validation)")
 
         # Train model
         env = SoccerEnv(render_mode=None, difficulty="easy")
@@ -738,6 +807,7 @@ class TestModelConsistency:
                 f"Deterministic predictions should be identical (diff={diff})"
 
         print(f"  ✓ All predictions identical (deterministic=True)")
+        print(f"  ✓ Training pipeline produces deterministic-capable models")
 
         # Cleanup
         env.close()

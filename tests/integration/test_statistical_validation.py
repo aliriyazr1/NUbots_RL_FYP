@@ -179,10 +179,11 @@ class TestAlgorithmComparison:
     Reporting: t-statistic, p-value, effect size (Cohen's d)
     """
 
-    def test_ppo_vs_ddpg_statistical_comparison(self, tmp_path):
+    def test_ppo_vs_ddpg_statistical_comparison(self, pretrained_ppo_model, pretrained_ddpg_model):
         """
-        Statistically compare PPO vs DDPG performance.
+        Statistically compare PPO vs DDPG performance using pretrained models.
 
+        Uses pre-trained PPO and DDPG models if available, otherwise skips.
         This test provides rigorous academic comparison between algorithms
         following statistical best practices (Demšar, 2006).
 
@@ -193,71 +194,11 @@ class TestAlgorithmComparison:
         Academic context: Algorithm comparison is essential for validating
         methodological choices in RL research (Henderson et al., 2018).
         """
-        print(f"\n✓ Testing PPO vs DDPG statistical comparison")
+        # Check if both models are available
+        if pretrained_ppo_model is None or pretrained_ddpg_model is None:
+            pytest.skip("Both PPO and DDPG models required. Use --ppo-model and --ddpg-model, or --experiment with both models")
 
-        # Create environment
-        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
-
-        # ============================================================
-        # TRAIN PPO
-        # ============================================================
-        print(f"\n  Training PPO...")
-        ppo_log_dir = tmp_path / "ppo_logs"
-        ppo_log_dir.mkdir(exist_ok=True)
-
-        ppo_env = Monitor(env, str(ppo_log_dir))
-
-        ppo_model = PPO(
-            "MlpPolicy",
-            ppo_env,
-            n_steps=512,
-            batch_size=128,
-            n_epochs=5,
-            learning_rate=3e-4,
-            verbose=0,
-            device="cpu",
-            seed=42  # Fixed seed for reproducibility
-        )
-
-        ppo_model.learn(total_timesteps=50000, progress_bar=False)
-        print(f"  PPO training completed")
-        ppo_env.close()
-
-        # ============================================================
-        # TRAIN DDPG
-        # ============================================================
-        print(f"\n  Training DDPG...")
-        ddpg_log_dir = tmp_path / "ddpg_logs"
-        ddpg_log_dir.mkdir(exist_ok=True)
-
-        ddpg_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
-        ddpg_env = Monitor(ddpg_env, str(ddpg_log_dir))
-
-        # DDPG requires action noise for exploration
-        n_actions = ddpg_env.action_space.shape[0]
-        action_noise = NormalActionNoise(
-            mean=np.zeros(n_actions),
-            sigma=0.1 * np.ones(n_actions)
-        )
-
-        ddpg_model = DDPG(
-            "MlpPolicy",
-            ddpg_env,
-            learning_rate=1e-3,
-            buffer_size=100000,
-            learning_starts=1000,
-            batch_size=128,
-            tau=0.005,
-            gamma=0.99,
-            action_noise=action_noise,
-            verbose=0,
-            device="cpu",
-            seed=42  # Fixed seed for reproducibility
-        )
-
-        ddpg_model.learn(total_timesteps=50000, progress_bar=False)
-        print(f"  DDPG training completed")
-        ddpg_env.close()
+        print(f"\n✓ Testing PPO vs DDPG statistical comparison (using pretrained models)")
 
         # ============================================================
         # EVALUATE BOTH ALGORITHMS
@@ -267,14 +208,14 @@ class TestAlgorithmComparison:
         print(f"\n  Evaluating PPO ({n_eval_episodes} episodes)...")
         eval_env_ppo = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
         ppo_rewards, ppo_stats = evaluate_algorithm_performance(
-            ppo_model, eval_env_ppo, n_episodes=n_eval_episodes
+            pretrained_ppo_model, eval_env_ppo, n_episodes=n_eval_episodes
         )
         eval_env_ppo.close()
 
         print(f"  Evaluating DDPG ({n_eval_episodes} episodes)...")
         eval_env_ddpg = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
         ddpg_rewards, ddpg_stats = evaluate_algorithm_performance(
-            ddpg_model, eval_env_ddpg, n_episodes=n_eval_episodes
+            pretrained_ddpg_model, eval_env_ddpg, n_episodes=n_eval_episodes
         )
         eval_env_ddpg.close()
 

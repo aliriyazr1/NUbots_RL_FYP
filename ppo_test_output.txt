@@ -1,0 +1,127 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.4.2, pluggy-1.6.0 -- /home/aliriyazr1/NUbots_RL_FYP/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/aliriyazr1/NUbots_RL_FYP
+collecting ... collected 1 item
+
+tests/integration/test_model_evaluation.py::TestTrainedModelPerformance::test_trained_vs_random_baseline_pretrained 
+[PPO Model] Using command-line path: experiments/archives/multi_model_training_20250831_172815/models/ppo/best_model.zip
+[PPO Model] Successfully loaded from experiments/archives/multi_model_training_20250831_172815/models/ppo/best_model.zip
+
+✓ Testing pre-trained model vs random baseline
+Warning: Config file /home/aliriyazr1/NUbots_RL_FYP/src/environments/field_config.yaml not found. Using default kidsize configuration.
+🔍 TEST: Current timesteps = 0
+  Evaluating pre-trained model...
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+  Evaluating random baseline...
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+  Performance comparison:
+    Trained agent:    79.10 ± 1850.35
+    Random policy:  1986.13 ± 2476.41
+    Improvement:   -1907.04 (-96.0%)
+
+  Statistical analysis:
+    t-statistic: -1.8507
+    p-value (one-tailed): 0.9597
+    Significance level: 0.05
+    ✗ Difference is NOT statistically significant
+FAILED
+
+=================================== FAILURES ===================================
+____ TestTrainedModelPerformance.test_trained_vs_random_baseline_pretrained ____
+
+self = <integration.test_model_evaluation.TestTrainedModelPerformance object at 0x702f4a0da180>
+pretrained_ppo_model = <stable_baselines3.ppo.ppo.PPO object at 0x702f785069f0>
+
+    def test_trained_vs_random_baseline_pretrained(self, pretrained_ppo_model):
+        """
+        Test pre-trained PPO model significantly outperforms random baseline.
+    
+        Uses pre-trained model if available (via --ppo-model or PPO_MODEL_PATH),
+        otherwise skips this test.
+    
+        Statistical test: Independent samples t-test
+        Null hypothesis: trained_reward = random_reward
+        Alternative: trained_reward > random_reward
+        Significance level: α = 0.05
+        """
+        if pretrained_ppo_model is None:
+            pytest.skip("No pre-trained PPO model available. Use --ppo-model or set PPO_MODEL_PATH")
+    
+        print(f"\n✓ Testing pre-trained model vs random baseline")
+    
+        # Create environment
+        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+    
+        # Evaluate pre-trained model
+        print(f"  Evaluating pre-trained model...")
+        trained_rewards, trained_lengths, _ = evaluate_policy_episodes(
+            pretrained_ppo_model, env, n_episodes=10, deterministic=True
+        )
+    
+        # Evaluate random baseline
+        print(f"  Evaluating random baseline...")
+        random_rewards, random_lengths, _ = evaluate_policy_episodes(
+            None, env, n_episodes=10, deterministic=False
+        )
+    
+        # Calculate statistics
+        trained_mean = np.mean(trained_rewards)
+        trained_std = np.std(trained_rewards)
+        random_mean = np.mean(random_rewards)
+        random_std = np.std(random_rewards)
+    
+        print(f"\n  Performance comparison:")
+        print(f"    Trained agent: {trained_mean:8.2f} ± {trained_std:.2f}")
+        print(f"    Random policy: {random_mean:8.2f} ± {random_std:.2f}")
+        print(f"    Improvement:   {trained_mean - random_mean:8.2f} ({((trained_mean - random_mean) / abs(random_mean) * 100):.1f}%)")
+    
+        # Statistical test: one-tailed t-test
+        t_statistic, p_value = stats.ttest_ind(trained_rewards, random_rewards)
+        p_value_one_tailed = p_value / 2 if t_statistic > 0 else 1 - p_value / 2
+    
+        print(f"\n  Statistical analysis:")
+        print(f"    t-statistic: {t_statistic:.4f}")
+        print(f"    p-value (one-tailed): {p_value_one_tailed:.4f}")
+        print(f"    Significance level: 0.05")
+    
+        if p_value_one_tailed < 0.05:
+            print(f"    ✓ Difference is statistically significant")
+        else:
+            print(f"    ✗ Difference is NOT statistically significant")
+    
+        # Assertions
+>       assert trained_mean >= random_mean * 0.95, \
+            f"Trained model should not perform significantly worse than random"
+E       AssertionError: Trained model should not perform significantly worse than random
+E       assert np.float64(79.09767198333171) >= (np.float64(1986.1342618524081) * 0.95)
+
+tests/integration/test_model_evaluation.py:192: AssertionError
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25
+  /home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+    from pkg_resources import resource_stream, resource_exists
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/integration/test_model_evaluation.py::TestTrainedModelPerformance::test_trained_vs_random_baseline_pretrained
+======================== 1 failed, 1 warning in 22.16s =========================

@@ -33,7 +33,7 @@ DEPENDENCIES_AVAILABLE = True
 IMPORT_ERROR = None
 
 try:
-    from stable_baselines3 import PPO
+    from stable_baselines3 import PPO, DDPG
 except ImportError as e:
     DEPENDENCIES_AVAILABLE = False
     IMPORT_ERROR = f"Stable Baselines3 not available: {str(e)}"
@@ -332,9 +332,11 @@ class TestBallPossessionBenchmark:
     Method: 100 episodes for statistical significance
     """
 
-    def test_ball_possession_improvement(self, tmp_path):
+    def test_ball_possession_improvement(self, pretrained_ppo_model, pretrained_ddpg_model):
         """
         Test trained model achieves ≥15% improvement in ball possession rate.
+
+        Uses pre-trained model if available (PPO or DDPG), otherwise skips.
 
         Ball possession rate = (steps with ball / total steps)
         Requirement from testing plan: ≥15% improvement
@@ -342,35 +344,22 @@ class TestBallPossessionBenchmark:
         Academic context: Ball possession correlates with offensive
         effectiveness and match outcomes (Lago-Peñas & Dellal, 2010).
         """
-        print(f"\n✓ Testing ball possession rate improvement")
+        # Use whichever model is available
+        model = pretrained_ppo_model if pretrained_ppo_model is not None else pretrained_ddpg_model
+        model_name = "PPO" if pretrained_ppo_model is not None else "DDPG"
 
-        # Create environment
-        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        if model is None:
+            pytest.skip("No pre-trained model available. Use --ppo-model, --ddpg-model, or --experiment")
 
-        # Train model
-        print(f"  Training model...")
-        env_train = Monitor(env, str(tmp_path))
+        print(f"\n✓ Testing ball possession rate improvement ({model_name} model)")
 
-        model = PPO(
-            "MlpPolicy",
-            env_train,
-            n_steps=512,
-            batch_size=128,
-            n_epochs=5,
-            verbose=0,
-            device="cpu"
-        )
-
-        model.learn(total_timesteps=50000, progress_bar=False)
-        env_train.close()
-
-        print(f"  Training completed")
+        # Create environment for evaluation
+        eval_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
 
         # Measure ball possession - use reduced episodes for testing speed
         n_eval_episodes = 20  # Reduced from 100 for faster testing
 
-        print(f"  Measuring trained model ball possession ({n_eval_episodes} episodes)...")
-        eval_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        print(f"  Measuring trained {model_name} model ball possession ({n_eval_episodes} episodes)...")
         trained_metrics = measure_ball_possession_rate(model, eval_env, n_episodes=n_eval_episodes)
 
         print(f"  Measuring random baseline ball possession ({n_eval_episodes} episodes)...")
@@ -432,9 +421,11 @@ class TestCollisionAvoidanceBenchmark:
     Method: 100 episodes for statistical significance
     """
 
-    def test_collision_frequency_reduction(self, tmp_path):
+    def test_collision_frequency_reduction(self, pretrained_ppo_model, pretrained_ddpg_model):
         """
         Test trained model achieves ≥25% reduction in collision frequency.
+
+        Uses pre-trained model if available (PPO or DDPG), otherwise skips.
 
         Collision frequency = (collision events / total steps)
         Requirement: ≥25% reduction (lower is better)
@@ -442,31 +433,22 @@ class TestCollisionAvoidanceBenchmark:
         Academic context: Collision avoidance is essential for safe
         multi-agent coordination (Fox et al., 1997).
         """
-        print(f"\n✓ Testing collision frequency reduction")
+        # Use whichever model is available
+        model = pretrained_ppo_model if pretrained_ppo_model is not None else pretrained_ddpg_model
+        model_name = "PPO" if pretrained_ppo_model is not None else "DDPG"
 
-        # Create and train model
-        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
-        env_train = Monitor(env, str(tmp_path))
+        if model is None:
+            pytest.skip("No pre-trained model available. Use --ppo-model, --ddpg-model, or --experiment")
 
-        print(f"  Training model...")
-        model = PPO(
-            "MlpPolicy",
-            env_train,
-            n_steps=512,
-            batch_size=128,
-            n_epochs=5,
-            verbose=0,
-            device="cpu"
-        )
+        print(f"\n✓ Testing collision frequency reduction ({model_name} model)")
 
-        model.learn(total_timesteps=50000, progress_bar=False)
-        env_train.close()
+        # Create environment for evaluation
+        eval_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
 
         # Measure collision frequency
         n_eval_episodes = 20
 
-        print(f"  Measuring trained model collisions ({n_eval_episodes} episodes)...")
-        eval_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        print(f"  Measuring trained {model_name} model collisions ({n_eval_episodes} episodes)...")
         trained_metrics = measure_collision_frequency(model, eval_env, n_episodes=n_eval_episodes)
 
         print(f"  Measuring random baseline collisions ({n_eval_episodes} episodes)...")
@@ -514,9 +496,11 @@ class TestGoalApproachBenchmark:
     Method: 100 episodes for statistical significance
     """
 
-    def test_goal_approach_success_improvement(self, tmp_path):
+    def test_goal_approach_success_improvement(self, pretrained_ppo_model, pretrained_ddpg_model):
         """
         Test trained model achieves ≥10% improvement in goal approach success.
+
+        Uses pre-trained model if available (PPO or DDPG), otherwise skips.
 
         Goal approach success = achieving possession, moving ball toward goal,
                                and reaching attacking third
@@ -525,31 +509,22 @@ class TestGoalApproachBenchmark:
         Academic context: Goal-directed behaviour is the primary tactical
         objective in soccer (Bangsbo & Peitersen, 2000).
         """
-        print(f"\n✓ Testing goal approach success improvement")
+        # Use whichever model is available
+        model = pretrained_ppo_model if pretrained_ppo_model is not None else pretrained_ddpg_model
+        model_name = "PPO" if pretrained_ppo_model is not None else "DDPG"
 
-        # Train model
-        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
-        env_train = Monitor(env, str(tmp_path))
+        if model is None:
+            pytest.skip("No pre-trained model available. Use --ppo-model, --ddpg-model, or --experiment")
 
-        print(f"  Training model...")
-        model = PPO(
-            "MlpPolicy",
-            env_train,
-            n_steps=512,
-            batch_size=128,
-            n_epochs=5,
-            verbose=0,
-            device="cpu"
-        )
+        print(f"\n✓ Testing goal approach success improvement ({model_name} model)")
 
-        model.learn(total_timesteps=50000, progress_bar=False)
-        env_train.close()
+        # Create environment for evaluation
+        eval_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
 
         # Measure goal approach success
         n_eval_episodes = 20
 
-        print(f"  Measuring trained model goal approaches ({n_eval_episodes} episodes)...")
-        eval_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        print(f"  Measuring trained {model_name} model goal approaches ({n_eval_episodes} episodes)...")
         trained_metrics = measure_goal_approach_success(model, eval_env, n_episodes=n_eval_episodes)
 
         print(f"  Measuring random baseline goal approaches ({n_eval_episodes} episodes)...")
