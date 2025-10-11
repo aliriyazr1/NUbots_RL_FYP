@@ -1,0 +1,117 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.4.2, pluggy-1.6.0 -- /home/aliriyazr1/NUbots_RL_FYP/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/aliriyazr1/NUbots_RL_FYP
+collecting ... collected 1 item
+
+tests/integration/test_performance_benchmarks.py::TestBallPossessionBenchmark::test_ball_possession_improvement 
+[PPO Model] Using default path: models/ppo/soccer_rl_ppo_final.zip
+[PPO Model] Successfully loaded from models/ppo/soccer_rl_ppo_final.zip
+
+[DDPG Model] Using command-line path: experiments/archives/multi_model_training_20250910_213419/models/ddpg/retrained_ddpg_model_20250910_213419.zip
+[DDPG Model] Successfully loaded from experiments/archives/multi_model_training_20250910_213419/models/ddpg/retrained_ddpg_model_20250910_213419.zip
+
+✓ Testing ball possession rate improvement (DDPG model)
+  [VERIFICATION] Model type: DDPG
+  [VERIFICATION] Model class: stable_baselines3.ddpg.ddpg.DDPG
+  [VERIFICATION] PPO model IS loaded (will be used)
+  [VERIFICATION] DDPG model IS loaded (will NOT be used)
+Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+  Measuring trained DDPG model ball possession (20 episodes)...
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+  Measuring random baseline ball possession (20 episodes)...
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+  Ball Possession Rate Results:
+    Trained model:  0.8501 ± 0.0917
+    Random baseline: 0.0178 ± 0.0201
+    Improvement:     +4686.22%
+    Target:          ≥15.00%
+    ✓ Target achieved!
+
+✓ Ball possession benchmark test completed
+PASSED
+
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25
+  /home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+    from pkg_resources import resource_stream, resource_exists
+
+tests/integration/test_performance_benchmarks.py:326
+  /home/aliriyazr1/NUbots_RL_FYP/tests/integration/test_performance_benchmarks.py:326: PytestUnknownMarkWarning: Unknown pytest.mark.slow - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.slow  # These tests take significant time
+
+tests/integration/test_performance_benchmarks.py:435
+  /home/aliriyazr1/NUbots_RL_FYP/tests/integration/test_performance_benchmarks.py:435: PytestUnknownMarkWarning: Unknown pytest.mark.slow - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.slow
+
+tests/integration/test_performance_benchmarks.py:519
+  /home/aliriyazr1/NUbots_RL_FYP/tests/integration/test_performance_benchmarks.py:519: PytestUnknownMarkWarning: Unknown pytest.mark.slow - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.slow
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 1 passed, 4 warnings in 16.10s ========================

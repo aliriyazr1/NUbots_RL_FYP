@@ -1,0 +1,150 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.4.2, pluggy-1.6.0 -- /home/aliriyazr1/NUbots_RL_FYP/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/aliriyazr1/NUbots_RL_FYP
+collecting ... collected 1 item
+
+tests/integration/test_statistical_validation.py::TestReproducibility::test_reproducibility_with_fixed_seed 
+✓ Testing reproducibility with fixed seed
+
+  Training run 1 (seed=42)...
+Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+  Training run 2 (seed=42)...
+Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+  Evaluating both models (5 episodes)...
+Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+
+  Reproducibility Analysis:
+    Run 1 mean reward:       -494.77
+    Run 2 mean reward:       -494.77
+    Mean reward difference: 0.000000
+
+    Per-episode differences:
+      Max difference:       0.000000
+      Mean difference:      0.000000
+      Tolerance:            1.0e-06
+
+    Episode-by-episode comparison:
+      Episode 1:  -859.81 vs  -859.81 (diff: 0.000000)
+      Episode 2:   -90.18 vs   -90.18 (diff: 0.000000)
+      Episode 3:  -389.79 vs  -389.79 (diff: 0.000000)
+      Episode 4:  -557.13 vs  -557.13 (diff: 0.000000)
+      Episode 5:  -576.94 vs  -576.94 (diff: 0.000000)
+
+    ✓ Perfect reproducibility (within floating point precision)
+
+✓ Reproducibility test completed
+  Academic note: Results demonstrate reasonable reproducibility for research validation
+PASSED
+
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25
+  /home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+    from pkg_resources import resource_stream, resource_exists
+
+tests/integration/test_statistical_validation.py:172
+  /home/aliriyazr1/NUbots_RL_FYP/tests/integration/test_statistical_validation.py:172: PytestUnknownMarkWarning: Unknown pytest.mark.slow - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.slow  # Algorithm comparison is time-intensive
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=================== 1 passed, 2 warnings in 78.37s (0:01:18) ===================

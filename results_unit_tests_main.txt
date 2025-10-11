@@ -1,0 +1,439 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.4.2, pluggy-1.6.0 -- /home/aliriyazr1/NUbots_RL_FYP/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/aliriyazr1/NUbots_RL_FYP
+collecting ... collected 35 items
+
+tests/unit/test_environment.py::TestSoccerEnvironment::test_environment_initialization Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+PASSED
+tests/unit/test_environment.py::TestSoccerEnvironment::test_coordinate_system_consistency Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+PASSED
+tests/unit/test_environment.py::TestSoccerEnvironment::test_action_space_bounds Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+PASSED
+tests/unit/test_environment.py::TestSoccerEnvironment::test_ball_physics_consistency Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+FAILED
+tests/unit/test_environment.py::TestSoccerEnvironment::test_reward_function_range Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+PASSED
+tests/unit/test_physics.py::TestBallTrajectoryPhysics::test_ball_trajectory_straight_line Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Ball trajectory test:
+  dt = 0.016666666666666666
+  Expected final position: [302.49, 300.00]
+  Actual final position: [302.49, 300.01]
+  Expected displacement: 2.49 pixels
+  Actual displacement: 2.49 pixels
+  Percentage error: 0.15%
+  Direction alignment: 1.0000
+PASSED
+tests/unit/test_physics.py::TestBallTrajectoryPhysics::test_ball_deceleration_from_friction Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Ball deceleration test:
+  Initial velocity: 15.00 pixels/frame
+  After 25 steps - Expected: 4.16, Actual: 4.16, Error: 0.00%
+  After 50 steps - Expected: 1.15, Actual: 1.15, Error: 0.00%
+  Friction coefficient: 0.95
+PASSED
+tests/unit/test_physics.py::TestBallTrajectoryPhysics::test_ball_eventually_stops Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Ball stopping test:
+  Initial speed: 11.18 pixels/frame
+  Final speed after 200 steps: 0.00 pixels/frame
+PASSED
+tests/unit/test_physics.py::TestCollisionDetection::test_robot_ball_collision_detection Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Collision detection test:
+  Total scenarios: 100
+  Correct detections: 92
+  Accuracy: 92.0%
+  Contact threshold: 23.00 pixels
+PASSED
+tests/unit/test_physics.py::TestCollisionDetection::test_collision_distance_threshold Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Collision distance threshold test:
+  Contact threshold: 23.00 pixels
+  ✓ well outside: distance=46.00, expected=False, detected=False
+  ✓ far outside: distance=69.00, expected=False, detected=False
+PASSED
+tests/unit/test_physics.py::TestCollisionDetection::test_robot_robot_collision_detection Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Robot-robot collision detection test:
+  Collision distance threshold: 20.00 pixels
+  Robot radius: 15.00 pixels
+  ✓ well inside collision distance: distance=10.00, collision_detected=True, expected=True
+  ✓ just inside collision distance: distance=18.00, collision_detected=True, expected=True
+  ✓ outside collision distance: distance=30.00, collision_detected=False, expected=False
+  ✓ well outside collision distance: distance=60.00, collision_detected=False, expected=False
+  Detection accuracy: 100%
+PASSED
+tests/unit/test_physics.py::TestGoalpostCollisions::test_goalpost_bounce_dampening Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+SKIPPED
+tests/unit/test_physics.py::TestGoalpostCollisions::test_goalpost_bounce_direction Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+SKIPPED
+tests/unit/test_physics.py::TestRobotMovementConstraints::test_robot_speed_limit Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Robot speed limit test:
+  Maximum configured speed: 12.50 pixels/frame
+  Maximum observed speed: 12.50 pixels/frame
+  Average speed: 12.50 pixels/frame
+PASSED
+tests/unit/test_physics.py::TestRobotMovementConstraints::test_robot_angular_speed_limit Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Robot angular speed limit test:
+  Maximum configured: 0.0335 rad/frame
+  Maximum observed: 0.0335 rad/frame
+  Average: 0.0335 rad/frame
+PASSED
+tests/unit/test_physics.py::TestRobotMovementConstraints::test_robot_boundary_constraints Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Robot boundary constraints test:
+  Field dimensions: 900 x 600
+  Positions tested: 100
+  Boundary violations: 0
+PASSED
+tests/unit/test_physics.py::TestPhysicsConsistency::test_deterministic_physics Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Deterministic physics test:
+  Trajectory length: 20
+  Maximum position difference: 0.000000 pixels
+PASSED
+tests/unit/test_simulation_physics.py::TestPhysicsConsistency::test_robot_movement_directions Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+PASSED
+tests/unit/test_simulation_physics.py::TestPhysicsConsistency::test_ball_robot_interaction Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+PASSED
+tests/unit/test_soccerenv_state.py::TestObservationSpace::test_observation_vector_length Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Observation vector structure test:
+  Expected length: 12
+  Actual length: 12
+  Data type: float32
+  Observation space shape: (12,)
+PASSED
+tests/unit/test_soccerenv_state.py::TestObservationSpace::test_observation_element_semantics Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Observation element semantics test:
+  Field size: 900x600
+  [0] robot_x: 0.333 (robot at 600px)
+  [1] robot_y: 0.000 (robot at 300px)
+  [2] robot_angle: 0.250 (angle 45°)
+  [3] ball_x: 0.444 (ball at 650px)
+  [4] ball_y: 0.000 (ball at 300px)
+  [5] opponent_x: -0.556 (expected: 0.0 - disabled)
+  [6] opponent_y: 0.000 (expected: 0.0 - disabled)
+  [7] robot_vx: 0.080 (velocity: 2.0)
+  [8] robot_vy: 0.040 (velocity: 1.0)
+  [9] ball_distance: 0.046
+  [10] goal_distance: 0.277
+  [11] has_ball: 1.000 (expected: 1.0)
+FAILED
+tests/unit/test_soccerenv_state.py::TestObservationSpace::test_observation_bounds_over_time Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Observation bounds test over 200 steps:
+  Element 0: min=-0.839, max=-0.646 (expected: [-1,1])
+  Element 1: min=-0.076, max=0.299 (expected: [-1,1])
+  Element 2: min=0.000, max=1.000 (expected: [-1,1])
+  Element 3: min=-0.865, max=-0.858 (expected: [-1,1])
+  Element 4: min=0.080, max=0.086 (expected: [-1,1])
+  Element 5: min=-0.103, max=0.217 (expected: [-1,1])
+  Element 6: min=0.295, max=0.683 (expected: [-1,1])
+  Element 7: min=-0.543, max=0.526 (expected: [-1,1])
+  Element 8: min=-0.496, max=0.511 (expected: [-1,1])
+  Element 9: min=0.017, max=0.093 (expected: [0,1])
+  Element 10: min=0.685, max=0.767 (expected: [0,1])
+  Element 11 (has_ball): unique values = [0. 1.] (expected: {0, 1})
+PASSED
+tests/unit/test_soccerenv_state.py::TestObservationSpace::test_observation_no_nan_or_inf Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ NaN/Inf test: 100 steps, all values finite
+PASSED
+tests/unit/test_soccerenv_state.py::TestCoordinateTransformation::test_coordinate_frame_consistency Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Coordinate frame consistency test:
+  Actual robot pos: [600.0, 400.0]
+  Denorm robot pos: [600.0, 400.0]
+  Actual ball pos: [700.0, 450.0]
+  Denorm ball pos: [700.0, 450.0]
+PASSED
+tests/unit/test_soccerenv_state.py::TestCoordinateTransformation::test_robot_orientation_edge_cases[0-0.0-0.0-facing right (0\xb0)] Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Robot orientation test - facing right (0°):
+  Set angle: 0° (0.0000 rad)
+  Expected normalized: 0.0000
+  Observed normalized: 0.0000
+  De-normalized: 0.0000 rad (0.0°)
+PASSED
+tests/unit/test_soccerenv_state.py::TestCoordinateTransformation::test_robot_orientation_edge_cases[90-1.5707963267948966-0.5-facing down (90\xb0)] Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Robot orientation test - facing down (90°):
+  Set angle: 90° (1.5708 rad)
+  Expected normalized: 0.5000
+  Observed normalized: 0.5000
+  De-normalized: 1.5708 rad (90.0°)
+PASSED
+tests/unit/test_soccerenv_state.py::TestCoordinateTransformation::test_robot_orientation_edge_cases[180-3.141592653589793-1.0-facing left (180\xb0)] Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Robot orientation test - facing left (180°):
+  Set angle: 180° (3.1416 rad)
+  Expected normalized: 1.0000
+  Observed normalized: 1.0000
+  De-normalized: 3.1416 rad (180.0°)
+PASSED
+tests/unit/test_soccerenv_state.py::TestCoordinateTransformation::test_robot_orientation_edge_cases[-90--1.5707963267948966--0.5-facing up (-90\xb0)] Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Robot orientation test - facing up (-90°):
+  Set angle: -90° (-1.5708 rad)
+  Expected normalized: -0.5000
+  Observed normalized: -0.5000
+  De-normalized: -1.5708 rad (-90.0°)
+PASSED
+tests/unit/test_soccerenv_state.py::TestCoordinateTransformation::test_robot_orientation_edge_cases[45-0.7853981633974483-0.25-facing down-right (45\xb0)] Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Robot orientation test - facing down-right (45°):
+  Set angle: 45° (0.7854 rad)
+  Expected normalized: 0.2500
+  Observed normalized: 0.2500
+  De-normalized: 0.7854 rad (45.0°)
+PASSED
+tests/unit/test_soccerenv_state.py::TestCoordinateTransformation::test_relative_position_calculation Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Relative position calculation test:
+  Max distance: 1081.7 pixels
+  Ball distance: 141.4 pixels → normalized: 0.131
+  Observed ball distance: 0.131
+  Goal distance: 600.0 pixels → normalized: 0.555
+  Observed goal distance: 0.555
+PASSED
+tests/unit/test_soccerenv_state.py::TestCoordinateTransformation::test_velocity_normalization Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Velocity normalization test:
+  Robot speed: 12.50 pixels/frame
+  Max velocity: 25.00 pixels/frame
+  Actual velocity: [3.00, 2.00]
+  Expected normalized: [0.120, 0.080]
+  Observed normalized: [0.120, 0.080]
+PASSED
+tests/unit/test_soccerenv_state.py::TestStateTransitionsConsistency::test_state_determinism Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ State determinism test:
+  Steps tested: 10
+  Maximum observation difference: 0.00000000
+  Deterministic: Yes
+PASSED
+tests/unit/test_soccerenv_state.py::TestStateTransitionsConsistency::test_observation_changes_with_action Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Observation responsiveness test:
+  Initial observation: [-0.48166907  0.5886443   0.09163176]
+  After action: [-0.45503435  0.5768148   0.09163176]
+  Observation difference (L2 norm): 0.5011
+PASSED
+tests/unit/test_soccerenv_state.py::TestObservationSpaceCompatibility::test_observation_space_contains_sample Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Observation space compatibility test:
+  Observation space: Box(-2.0, 2.0, shape=(12,))
+  Sample observation shape: (12,)
+  Sample observation dtype: float32
+  In observation space: True
+PASSED
+tests/unit/test_soccerenv_state.py::TestObservationSpaceCompatibility::test_observation_space_sample Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+
+✓ Observation space sampling test:
+  Sample shape: (12,)
+  Sample dtype: float32
+  Sample range: [-1.70, 1.16]
+PASSED
+
+=================================== FAILURES ===================================
+_____________ TestSoccerEnvironment.test_ball_physics_consistency ______________
+
+self = <test_environment.TestSoccerEnvironment object at 0x7a1d6937f5f0>
+
+    def test_ball_physics_consistency(self):
+        """Test ball physics behave consistently"""
+        obs, _ = self.env.reset()
+        initial_ball_pos = self.env.ball_pos.copy()
+    
+        # Move robot toward ball
+        for _ in range(50):
+            action = [1.0, 0.0, 0.0]  # Move forward
+            obs, reward, terminated, truncated, info = self.env.step(action)
+            if terminated or truncated:
+                break
+    
+        # Ball should move when robot contacts it
+        ball_moved = np.linalg.norm(self.env.ball_pos - initial_ball_pos) > 5.0
+>       assert ball_moved, "Ball should move when robot contacts it"
+E       AssertionError: Ball should move when robot contacts it
+E       assert np.False_
+
+tests/unit/test_environment.py:72: AssertionError
+___________ TestObservationSpace.test_observation_element_semantics ____________
+
+self = <test_soccerenv_state.TestObservationSpace object at 0x7a1d3ed14770>
+
+    def test_observation_element_semantics(self):
+        """
+        Test each observation element has correct semantics and valid values.
+        """
+        # Set known state
+        self.env.robot_pos = np.array([600.0, 300.0])  # Right side of field (field_width=900)
+        self.env.robot_angle = np.pi / 4  # 45 degrees
+        self.env.ball_pos = np.array([650.0, 300.0])  # Slightly ahead
+        self.env.opponent_pos = np.array([200.0, 300.0])  # Far left
+        self.env.robot_vel = np.array([2.0, 1.0])
+        self.env.has_ball = True
+    
+        obs = self.env._get_obs()
+    
+        print(f"\n✓ Observation element semantics test:")
+        print(f"  Field size: {self.env.field_width}x{self.env.field_height}")
+        print(f"  [0] robot_x: {obs[0]:.3f} (robot at {self.env.robot_pos[0]:.0f}px)")
+        print(f"  [1] robot_y: {obs[1]:.3f} (robot at {self.env.robot_pos[1]:.0f}px)")
+        print(f"  [2] robot_angle: {obs[2]:.3f} (angle {np.degrees(self.env.robot_angle):.0f}°)")
+        print(f"  [3] ball_x: {obs[3]:.3f} (ball at {self.env.ball_pos[0]:.0f}px)")
+        print(f"  [4] ball_y: {obs[4]:.3f} (ball at {self.env.ball_pos[1]:.0f}px)")
+        print(f"  [5] opponent_x: {obs[5]:.3f} (expected: 0.0 - disabled)")
+        print(f"  [6] opponent_y: {obs[6]:.3f} (expected: 0.0 - disabled)")
+        print(f"  [7] robot_vx: {obs[7]:.3f} (velocity: {self.env.robot_vel[0]:.1f})")
+        print(f"  [8] robot_vy: {obs[8]:.3f} (velocity: {self.env.robot_vel[1]:.1f})")
+        print(f"  [9] ball_distance: {obs[9]:.3f}")
+        print(f"  [10] goal_distance: {obs[10]:.3f}")
+        print(f"  [11] has_ball: {obs[11]:.3f} (expected: 1.0)")
+    
+        # Check robot position is in right side of field (positive normalized x)
+        assert obs[0] > 0, f"Robot at {self.env.robot_pos[0]}px should be in right half (positive x), got {obs[0]}"
+    
+        # Check robot angle is in valid range
+        assert -1 <= obs[2] <= 1, "Robot angle should be normalized to [-1,1]"
+    
+        # Check ball is ahead of robot (higher normalized x)
+        assert obs[3] >= obs[0], "Ball should be ahead or at robot position"
+    
+        # Check opponent is disabled (set to 0)
+>       assert obs[5] == 0.0, "Opponent x should be 0.0 (disabled)"
+E       AssertionError: Opponent x should be 0.0 (disabled)
+E       assert np.float32(-0.5555556) == 0.0
+
+tests/unit/test_soccerenv_state.py:117: AssertionError
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25
+  /home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+    from pkg_resources import resource_stream, resource_exists
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_environment.py::TestSoccerEnvironment::test_ball_physics_consistency
+FAILED tests/unit/test_soccerenv_state.py::TestObservationSpace::test_observation_element_semantics
+============== 2 failed, 31 passed, 2 skipped, 1 warning in 6.88s ==============

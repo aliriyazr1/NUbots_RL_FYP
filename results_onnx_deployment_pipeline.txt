@@ -1,0 +1,111 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.4.2, pluggy-1.6.0 -- /home/aliriyazr1/NUbots_RL_FYP/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/aliriyazr1/NUbots_RL_FYP
+collecting ... collected 1 item
+
+tests/integration/test_model_evaluation.py::TestONNXDeploymentPipeline::test_pytorch_to_onnx_deployment 
+✓ Testing PyTorch → ONNX deployment pipeline
+
+  Stage 1: Training PyTorch model...
+Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+    ✓ PyTorch model trained
+
+  Stage 2: Exporting to ONNX...
+    ✓ Model exported to ONNX
+      Path: /tmp/pytest-of-aliriyazr1/pytest-3/test_pytorch_to_onnx_deploymen0/model.onnx
+      Size: 22.00 KB
+
+  Stage 3: Loading ONNX model...
+    ✓ ONNX model loaded in ONNX Runtime
+
+  Stage 4: Verifying PyTorch ↔ ONNX consistency...
+    Max difference: 1.19e-07
+    Mean difference: 5.07e-08
+    Tolerance: 1e-4
+    ✓ PyTorch and ONNX predictions match
+
+  Stage 5: Evaluating ONNX model performance...
+Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+    ONNX model performance:
+      Mean reward: -340.19 ± 685.60
+      Episodes: 5
+    ✓ ONNX model performs successfully
+
+✓ Deployment pipeline test passed
+PASSED
+
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25
+  /home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+    from pkg_resources import resource_stream, resource_exists
+
+tests/integration/test_model_evaluation.py::TestONNXDeploymentPipeline::test_pytorch_to_onnx_deployment
+  /home/aliriyazr1/NUbots_RL_FYP/tests/integration/test_model_evaluation.py:606: DeprecationWarning: You are using the legacy TorchScript-based ONNX export. Starting in PyTorch 2.9, the new torch.export-based ONNX exporter will be the default. To switch now, set dynamo=True in torch.onnx.export. This new exporter supports features like exporting LLMs with DynamicCache. We encourage you to try it and share feedback to help improve the experience. Learn more about the new export logic: https://pytorch.org/docs/stable/onnx_dynamo.html. For exporting control flow: https://pytorch.org/tutorials/beginner/onnx/export_control_flow_model_to_onnx_tutorial.html.
+    torch.onnx.export(
+
+tests/integration/test_model_evaluation.py::TestONNXDeploymentPipeline::test_pytorch_to_onnx_deployment
+  /home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/torch/onnx/utils.py:179: DeprecationWarning: The feature will be removed. Please remove usage of this function
+    setup_onnx_logging(verbose) as log_ctx,
+
+tests/integration/test_model_evaluation.py::TestONNXDeploymentPipeline::test_pytorch_to_onnx_deployment
+  /home/aliriyazr1/NUbots_RL_FYP/tests/integration/test_model_evaluation.py:593: TracerWarning: torch.tensor results are registered as constants in the trace. You can safely ignore this warning if you use this function to create tensors out of constant variables that would be the same every time you call this function. In any other case, this might cause the trace to be incorrect.
+    low = torch.tensor(self.action_space.low, dtype=mean_actions.dtype, device=mean_actions.device)
+
+tests/integration/test_model_evaluation.py::TestONNXDeploymentPipeline::test_pytorch_to_onnx_deployment
+  /home/aliriyazr1/NUbots_RL_FYP/tests/integration/test_model_evaluation.py:594: TracerWarning: torch.tensor results are registered as constants in the trace. You can safely ignore this warning if you use this function to create tensors out of constant variables that would be the same every time you call this function. In any other case, this might cause the trace to be incorrect.
+    high = torch.tensor(self.action_space.high, dtype=mean_actions.dtype, device=mean_actions.device)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 1 passed, 5 warnings in 54.08s ========================

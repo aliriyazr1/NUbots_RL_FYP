@@ -1,0 +1,204 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.4.2, pluggy-1.6.0 -- /home/aliriyazr1/NUbots_RL_FYP/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/aliriyazr1/NUbots_RL_FYP
+collecting ... collected 13 items
+
+tests/unit/test_reward_function.py::TestRewardFunctionBounds::test_reward_bounds_random_actions Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+FAILED
+tests/unit/test_reward_function.py::TestRewardFunctionBounds::test_reward_no_nan_or_inf Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+PASSED
+tests/unit/test_reward_function.py::TestRewardTerminalConditions::test_goal_scoring_maximum_reward Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🎉 ROBOT SCORED - EPISODE WON!
+
+✓ Goal reward: 150.00
+PASSED
+tests/unit/test_reward_function.py::TestRewardTerminalConditions::test_ball_out_of_bounds_penalty Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+PASSED
+tests/unit/test_reward_function.py::TestAntiExploitationMeasures::test_stationary_ball_holding_penalty Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Stationary holding penalty working:
+  Early average (steps 5-15): 27.80
+  Late average (steps 35-45): 10.41
+  Penalty increase: 17.39
+PASSED
+tests/unit/test_reward_function.py::TestAntiExploitationMeasures::test_wall_hugging_penalty Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Wall hugging test:
+  Average near wall: 16.88
+  Average at centre: 18.88
+PASSED
+tests/unit/test_reward_function.py::TestRewardComponents::test_ball_possession_reward Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Ball possession rewards by distance:
+  10 pixels: 12.99
+  30 pixels: -0.05
+  50 pixels: -0.08
+  100 pixels: -0.65
+PASSED
+tests/unit/test_reward_function.py::TestRewardComponents::test_goal_progress_reward Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+  Average reward moving toward goal: 4.36
+PASSED
+tests/unit/test_reward_function.py::TestRewardComponents::test_reward_scenarios[Close to ball-robot_pos0-ball_pos0-positive_or_neutral] Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Scenario 'Close to ball':
+  Reward: 4.99
+PASSED
+tests/unit/test_reward_function.py::TestRewardComponents::test_reward_scenarios[Far from ball-robot_pos1-ball_pos1-any] Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Scenario 'Far from ball':
+  Reward: -0.96
+PASSED
+tests/unit/test_reward_function.py::TestRewardComponents::test_reward_scenarios[Near goal with ball-robot_pos2-ball_pos2-positive] Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Scenario 'Near goal with ball':
+  Reward: 7.99
+PASSED
+tests/unit/test_reward_function.py::TestRewardScaling::test_reward_component_balance Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+✓ Overall reward distribution:
+  Mean: 3.54
+  Std: 11.77
+  Min: -0.39
+  Max: 94.21
+PASSED
+tests/unit/test_reward_function.py::TestRewardScaling::test_reward_continuity Loaded configuration from /home/aliriyazr1/NUbots_RL_FYP/configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+FAILED
+
+=================================== FAILURES ===================================
+__________ TestRewardFunctionBounds.test_reward_bounds_random_actions __________
+
+self = <test_reward_function.TestRewardFunctionBounds object at 0x751f42d80f80>
+
+    def test_reward_bounds_random_actions(self):
+        """
+        Test that rewards stay within reasonable bounds over 1000 random steps.
+    
+        Expected: Non-terminal rewards should be roughly in [-10, +10] range. (when tests ran got -20 to +20 rewards)
+        Terminal rewards (goal, out of bounds) can exceed this.
+    
+        Reference: Testing plan requirement 4.1.2
+        """
+        self.env.reset()
+        rewards = []
+        non_terminal_rewards = []
+    
+        for step in range(1000):
+            action = self.env.action_space.sample()
+            obs, reward, terminated, truncated, info = self.env.step(action)
+            rewards.append(reward)
+    
+            # Track non-terminal rewards separately
+            if not (terminated or truncated):
+                non_terminal_rewards.append(reward)
+    
+            if terminated or truncated:
+                self.env.reset()
+    
+        # All rewards should be finite
+        assert all(np.isfinite(r) for r in rewards), "All rewards must be finite"
+    
+        # Non-terminal rewards should be in reasonable range
+        if len(non_terminal_rewards) > 0:
+            min_reward = min(non_terminal_rewards)
+            max_reward = max(non_terminal_rewards)
+    
+            # Allow some buffer beyond [-10, 10] for edge cases
+            assert min_reward >= -50, f"Non-terminal rewards too negative: {min_reward}"
+>           assert max_reward <= 50, f"Non-terminal rewards too positive: {max_reward}"
+E           AssertionError: Non-terminal rewards too positive: 150.0
+E           assert 150.0 <= 50
+
+tests/unit/test_reward_function.py:79: AssertionError
+___________________ TestRewardScaling.test_reward_continuity ___________________
+
+self = <test_reward_function.TestRewardScaling object at 0x751f42d80ef0>
+
+    def test_reward_continuity(self):
+        """
+        Test that reward changes smoothly (no large discontinuous jumps).
+    
+        Mathematical basis: Continuous reward functions aid gradient-based
+        optimisation in policy gradient methods (Schulman et al., 2017)
+        """
+        self.env.reset()
+    
+        rewards = []
+    
+        # Take consistent action to measure smoothness
+        action = [0.5, 0.0, 0.0]
+    
+        for _ in range(100):
+            obs, reward, terminated, truncated, info = self.env.step(action)
+    
+            if not (terminated or truncated):
+                rewards.append(reward)
+            else:
+                break
+    
+        # Check for large jumps in consecutive rewards
+        if len(rewards) >= 10:
+            reward_diffs = np.diff(rewards)
+            max_jump = np.max(np.abs(reward_diffs))
+    
+            # Large jumps (>50) might indicate discontinuity
+            # (excluding terminal conditions)
+>           assert max_jump < 50.0, \
+                f"Reward function has discontinuous jump of {max_jump:.2f}"
+E           AssertionError: Reward function has discontinuous jump of 59.42
+E           assert np.float64(59.41963318017107) < 50.0
+
+tests/unit/test_reward_function.py:615: AssertionError
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25
+  /home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+    from pkg_resources import resource_stream, resource_exists
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_reward_function.py::TestRewardFunctionBounds::test_reward_bounds_random_actions
+FAILED tests/unit/test_reward_function.py::TestRewardScaling::test_reward_continuity
+=================== 2 failed, 11 passed, 1 warning in 4.31s ====================

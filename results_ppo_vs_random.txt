@@ -1,0 +1,57 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.4.2, pluggy-1.6.0 -- /home/aliriyazr1/NUbots_RL_FYP/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/aliriyazr1/NUbots_RL_FYP
+collecting ... collected 1 item
+
+tests/integration/test_model_evaluation.py::TestTrainedModelPerformance::test_trained_vs_random_baseline_pretrained 
+[PPO Model] Using command-line path: experiments/archives/ppo_model_20251010/soccer_rl_ppo_20251010_202630.zip
+[PPO Model] Successfully loaded from experiments/archives/ppo_model_20251010/soccer_rl_ppo_20251010_202630.zip
+
+✓ Testing pre-trained model vs random baseline
+Warning: Config file /home/aliriyazr1/NUbots_RL_FYP/src/environments/field_config.yaml not found. Using default kidsize configuration.
+🔍 TEST: Current timesteps = 0
+  Evaluating pre-trained model...
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+  Evaluating random baseline...
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+  Performance comparison:
+    Trained agent:  1891.95 ± 3673.45
+    Random policy:   997.88 ± 694.07
+    Improvement:     894.07 (89.6%)
+
+  Statistical analysis:
+    t-statistic: 0.7175
+    p-value (one-tailed): 0.2411
+    Significance level: 0.05
+    ✗ Difference is NOT statistically significant
+
+✓ Pre-trained PPO vs random baseline test passed
+PASSED
+
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25
+  /home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+    from pkg_resources import resource_stream, resource_exists
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 1 passed, 1 warning in 20.88s =========================

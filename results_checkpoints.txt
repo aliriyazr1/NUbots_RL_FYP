@@ -1,0 +1,122 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.4.2, pluggy-1.6.0 -- /home/aliriyazr1/NUbots_RL_FYP/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/aliriyazr1/NUbots_RL_FYP
+collecting ... collected 2 items
+
+tests/integration/test_training_integration.py::TestCheckpointCreation::test_model_checkpoint_created 
+✓ Testing checkpoint creation
+Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+  Checkpoint path: /tmp/pytest-of-aliriyazr1/pytest-10/test_model_checkpoint_created0/checkpoint_ppo.zip
+  Exists: True
+  Size: 148.46 KB
+  Model reloaded successfully
+✓ Checkpoint creation test passed
+PASSED
+tests/integration/test_training_integration.py::TestCheckpointCreation::test_evaluations_npz_created 
+✓ Testing evaluations.npz creation
+Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+  Evaluation file: /tmp/pytest-of-aliriyazr1/pytest-10/test_evaluations_npz_created0/evaluations/evaluations.npz
+  Exists: True
+  Keys in evaluations.npz: ['timesteps', 'results', 'ep_lengths']
+    timesteps: shape (4,)
+    results: shape (4, 3)
+    ep_lengths: shape (4, 3)
+  Evaluation data validated
+✓ Evaluations.npz test passed
+PASSED
+
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25
+  /home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+    from pkg_resources import resource_stream, resource_exists
+
+tests/integration/test_training_integration.py:372
+  /home/aliriyazr1/NUbots_RL_FYP/tests/integration/test_training_integration.py:372: PytestUnknownMarkWarning: Unknown pytest.mark.slow - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.slow  # Mark as slow test (optional, can skip with pytest -m "not slow")
+
+tests/integration/test_training_integration.py::TestCheckpointCreation::test_evaluations_npz_created
+  /home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/stable_baselines3/common/evaluation.py:70: UserWarning: Evaluation environment is not wrapped with a ``Monitor`` wrapper. This may result in reporting modified episode lengths and rewards, if other wrappers happen to modify these. Consider wrapping environment first with ``Monitor`` wrapper.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=================== 2 passed, 3 warnings in 78.45s (0:01:18) ===================

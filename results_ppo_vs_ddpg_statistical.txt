@@ -1,0 +1,130 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.4.2, pluggy-1.6.0 -- /home/aliriyazr1/NUbots_RL_FYP/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/aliriyazr1/NUbots_RL_FYP
+collecting ... collected 1 item
+
+tests/integration/test_statistical_validation.py::TestAlgorithmComparison::test_ppo_vs_ddpg_statistical_comparison 
+[PPO Model] Using command-line path: experiments/archives/ppo_model_20251010/soccer_rl_ppo_20251010_202630.zip
+[PPO Model] Successfully loaded from experiments/archives/ppo_model_20251010/soccer_rl_ppo_20251010_202630.zip
+
+[DDPG Model] Using command-line path: experiments/archives/multi_model_training_20250910_213419/models/ddpg/retrained_ddpg_model_20250910_213419.zip
+[DDPG Model] Successfully loaded from experiments/archives/multi_model_training_20250910_213419/models/ddpg/retrained_ddpg_model_20250910_213419.zip
+
+✓ Testing PPO vs DDPG statistical comparison (using pretrained models)
+
+  Evaluating PPO (20 episodes)...
+Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+  Evaluating DDPG (20 episodes)...
+Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+
+  Statistical Analysis:
+
+  PPO Performance:
+    Mean:      -476.18 ± 493.12
+    Median:    -498.52
+    Range:    [-1525.53, 373.61]
+    CV:       -1.0356
+
+  DDPG Performance:
+    Mean:      8199.06 ± 14540.79
+    Median:    4943.33
+    Range:    [1450.09, 70391.09]
+    CV:       1.7735
+
+  Statistical Comparison:
+    t-statistic:     -2.5991
+    p-value:          0.0132
+    Significance:   Yes (p < 0.05)
+    Cohen's d:       -0.8219
+    Effect size:    large
+
+  Mean Difference:
+    PPO - DDPG:     -8675.24
+    95% CI:         [-15261.18, -2089.30]
+
+✓ Algorithm comparison test completed
+  Academic note: Results suitable for publication with full statistical reporting
+PASSED
+
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25
+  /home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+    from pkg_resources import resource_stream, resource_exists
+
+tests/integration/test_statistical_validation.py:172
+  /home/aliriyazr1/NUbots_RL_FYP/tests/integration/test_statistical_validation.py:172: PytestUnknownMarkWarning: Unknown pytest.mark.slow - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.slow  # Algorithm comparison is time-intensive
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 1 passed, 2 warnings in 34.10s ========================

@@ -1,0 +1,280 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.4.2, pluggy-1.6.0 -- /home/aliriyazr1/NUbots_RL_FYP/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/aliriyazr1/NUbots_RL_FYP
+collecting ... collected 1 item
+
+tests/integration/test_model_evaluation.py::TestCrossDifficultyPerformance::test_easy_trained_model_on_all_difficulties 
+✓ Testing cross-difficulty performance
+  Training model on EASY difficulty...
+Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+
+  Evaluating on EASY difficulty...
+Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+    Mean reward:  -110.60 ± 296.38
+    Mean length:   656.00
+
+  Evaluating on MEDIUM difficulty...
+Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+    Mean reward:  -203.71 ± 263.41
+    Mean length:   704.50
+
+  Evaluating on HARD difficulty...
+Loaded configuration from configs/field_config.yaml
+🚀 Testing mode enabled: 3.0x speed
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+😭 OPPONENT SCORED - EPISODE LOST!
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+🔍 TEST: Current timesteps = 0
+    Mean reward:  -428.89 ± 1163.21
+    Mean length:   742.40
+
+  Performance summary:
+    easy  :  -110.60 ± 296.38
+    medium:  -203.71 ± 263.41
+    hard  :  -428.89 ± 1163.21
+FAILED
+
+=================================== FAILURES ===================================
+__ TestCrossDifficultyPerformance.test_easy_trained_model_on_all_difficulties __
+
+self = <integration.test_model_evaluation.TestCrossDifficultyPerformance object at 0x782f3b915fa0>
+tmp_path = PosixPath('/tmp/pytest-of-aliriyazr1/pytest-2/test_easy_trained_model_on_all0')
+
+    def test_easy_trained_model_on_all_difficulties(self, tmp_path):
+        """
+        Test model trained on easy difficulty across all difficulties.
+    
+        This validates that learned behaviours generalise across
+        difficulty settings, with expected performance degradation.
+    
+        Expected ordering: easy > medium > hard (in terms of reward)
+        """
+        print(f"\n✓ Testing cross-difficulty performance")
+    
+        # Train on easy difficulty
+        print(f"  Training model on EASY difficulty...")
+        train_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=True)
+        train_env = Monitor(train_env, str(tmp_path))
+    
+        model = PPO(
+            "MlpPolicy",
+            train_env,
+            n_steps=512,
+            batch_size=128,
+            n_epochs=5,
+            verbose=0,
+            device="cpu"
+        )
+    
+        model.learn(total_timesteps=30000, progress_bar=False)
+        train_env.close()
+    
+        # Evaluate on all difficulties
+        difficulties = ["easy", "medium", "hard"]
+        results = {}
+    
+        for difficulty in difficulties:
+            print(f"\n  Evaluating on {difficulty.upper()} difficulty...")
+    
+            eval_env = SoccerEnv(
+                render_mode=None,
+                difficulty=difficulty,
+                reward_type="original"
+            )
+    
+            rewards, lengths, stats = evaluate_policy_episodes(
+                model, eval_env, n_episodes=10, deterministic=True
+            )
+    
+            mean_reward = np.mean(rewards)
+            std_reward = np.std(rewards)
+            mean_length = np.mean(lengths)
+    
+            results[difficulty] = {
+                'rewards': rewards,
+                'mean': mean_reward,
+                'std': std_reward,
+                'length': mean_length
+            }
+    
+            print(f"    Mean reward: {mean_reward:8.2f} ± {std_reward:.2f}")
+            print(f"    Mean length: {mean_length:8.2f}")
+    
+            eval_env.close()
+    
+        # Analyse results
+        print(f"\n  Performance summary:")
+        for difficulty in difficulties:
+            r = results[difficulty]
+            print(f"    {difficulty:6s}: {r['mean']:8.2f} ± {r['std']:.2f}")
+    
+        # Validation: Model should work on all difficulties
+        # (though performance may vary)
+        for difficulty in difficulties:
+            assert not np.isnan(results[difficulty]['mean']), \
+                f"Model should produce valid rewards on {difficulty} difficulty"
+    
+        # Model should perform best on training difficulty (easy)
+        easy_mean = results['easy']['mean']
+    
+        # Verify model learned something useful (better than random baseline)
+        # Even on easy difficulty, random gets negative rewards
+>       assert easy_mean > 0, \
+            "Model should achieve positive reward on training difficulty"
+E       AssertionError: Model should achieve positive reward on training difficulty
+E       assert np.float64(-110.59700737477519) > 0
+
+tests/integration/test_model_evaluation.py:530: AssertionError
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25
+  /home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+    from pkg_resources import resource_stream, resource_exists
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/integration/test_model_evaluation.py::TestCrossDifficultyPerformance::test_easy_trained_model_on_all_difficulties
+=================== 1 failed, 1 warning in 141.33s (0:02:21) ===================

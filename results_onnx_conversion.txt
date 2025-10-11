@@ -1,0 +1,129 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.4.2, pluggy-1.6.0 -- /home/aliriyazr1/NUbots_RL_FYP/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/aliriyazr1/NUbots_RL_FYP
+collecting ... collected 8 items
+
+tests/integration/test_onnx_conversion.py::TestONNXConversion::test_model_loads_successfully 
+✓ Loading model from: /home/aliriyazr1/NUbots_RL_FYP/models/ppo/soccer_rl_ppo_final.zip
+Warning: Config file /home/aliriyazr1/NUbots_RL_FYP/src/environments/field_config.yaml not found. Using default kidsize configuration.
+🔍 TEST: Current timesteps = 0
+
+✓ Model load test:
+  Model type: <class 'stable_baselines3.ppo.ppo.PPO'>
+  Policy type: <class 'stable_baselines3.common.policies.ActorCriticPolicy'>
+  Input dimension: 12
+  Output dimension: 3
+PASSED
+tests/integration/test_onnx_conversion.py::TestONNXConversion::test_onnx_export 
+✓ ONNX export test:
+  Export path: /tmp/tmp3t69xqoj.onnx
+  File exists: True
+  File size: 106.24 KB
+  ONNX validation: Passed
+PASSED
+tests/integration/test_onnx_conversion.py::TestONNXConversion::test_onnx_tensor_shapes 
+✓ ONNX tensor shape test:
+  Input name: observation
+  Input shape: [1, 12] (expected: [batch, 12])
+  Output name: action
+  Output shape: [1, 3] (expected: [batch, 3])
+PASSED
+tests/integration/test_onnx_conversion.py::TestONNXInferenceAccuracy::test_pytorch_vs_onnx_single_input Warning: Config file /home/aliriyazr1/NUbots_RL_FYP/src/environments/field_config.yaml not found. Using default kidsize configuration.
+🔍 TEST: Current timesteps = 0
+
+✓ Single input inference test:
+  PyTorch output: [ 1.          1.         -0.76169705]
+  ONNX output:    [ 1.          1.         -0.76169866]
+  Max difference: 1.61e-06
+  Mean difference: 5.36e-07
+  Tolerance: 1e-4
+PASSED
+tests/integration/test_onnx_conversion.py::TestONNXInferenceAccuracy::test_pytorch_vs_onnx_multiple_inputs 
+✓ Multiple inputs test (n=100):
+  Overall max difference: 1.37e-06
+  Overall mean difference: 1.29e-08
+  95th percentile: 2.38e-08
+  99th percentile: 1.08e-06
+  Tolerance: 1e-4
+  Tests within tolerance: 100/100
+PASSED
+tests/integration/test_onnx_conversion.py::TestONNXDeterminism::test_deterministic_inference Warning: Config file /home/aliriyazr1/NUbots_RL_FYP/src/environments/field_config.yaml not found. Using default kidsize configuration.
+🔍 TEST: Current timesteps = 0
+
+✓ Determinism test:
+  Number of runs: 10
+  Max difference across runs: 0.00e+00
+  First output: [1. 1. 1.]
+  Last output:  [1. 1. 1.]
+PASSED
+tests/integration/test_onnx_conversion.py::TestONNXInferenceLatency::test_inference_latency Warning: Config file /home/aliriyazr1/NUbots_RL_FYP/src/environments/field_config.yaml not found. Using default kidsize configuration.
+🔍 TEST: Current timesteps = 0
+
+✓ Inference latency test (n=1000):
+  Mean:         0.086 ms
+  Median:       0.069 ms
+  Min:          0.066 ms
+  Max:          0.410 ms
+  95th percentile: 0.130 ms
+  99th percentile: 0.151 ms
+  Requirement:  < 20.0 ms (95th percentile)
+PASSED
+tests/integration/test_onnx_conversion.py::TestONNXInferenceLatency::test_pytorch_vs_onnx_latency 
+✓ PyTorch vs ONNX latency comparison (n=100):
+  PyTorch mean: 1.157 ms
+  ONNX mean:    0.108 ms
+  Speedup:      10.75x
+PASSED
+
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25
+  /home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/pygame/pkgdata.py:25: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+    from pkg_resources import resource_stream, resource_exists
+
+tests/integration/test_onnx_conversion.py::TestONNXConversion::test_onnx_export
+  /home/aliriyazr1/NUbots_RL_FYP/tests/integration/test_onnx_conversion.py:181: DeprecationWarning: You are using the legacy TorchScript-based ONNX export. Starting in PyTorch 2.9, the new torch.export-based ONNX exporter will be the default. To switch now, set dynamo=True in torch.onnx.export. This new exporter supports features like exporting LLMs with DynamicCache. We encourage you to try it and share feedback to help improve the experience. Learn more about the new export logic: https://pytorch.org/docs/stable/onnx_dynamo.html. For exporting control flow: https://pytorch.org/tutorials/beginner/onnx/export_control_flow_model_to_onnx_tutorial.html.
+    torch.onnx.export(
+
+tests/integration/test_onnx_conversion.py::TestONNXConversion::test_onnx_export
+tests/integration/test_onnx_conversion.py::TestONNXConversion::test_onnx_tensor_shapes
+tests/integration/test_onnx_conversion.py::TestONNXInferenceAccuracy::test_pytorch_vs_onnx_single_input
+tests/integration/test_onnx_conversion.py::TestONNXDeterminism::test_deterministic_inference
+tests/integration/test_onnx_conversion.py::TestONNXInferenceLatency::test_inference_latency
+  /home/aliriyazr1/NUbots_RL_FYP/.venv/lib/python3.12/site-packages/torch/onnx/utils.py:179: DeprecationWarning: The feature will be removed. Please remove usage of this function
+    setup_onnx_logging(verbose) as log_ctx,
+
+tests/integration/test_onnx_conversion.py::TestONNXConversion::test_onnx_export
+tests/integration/test_onnx_conversion.py::TestONNXConversion::test_onnx_tensor_shapes
+tests/integration/test_onnx_conversion.py::TestONNXInferenceAccuracy::test_pytorch_vs_onnx_single_input
+tests/integration/test_onnx_conversion.py::TestONNXDeterminism::test_deterministic_inference
+tests/integration/test_onnx_conversion.py::TestONNXInferenceLatency::test_inference_latency
+  /home/aliriyazr1/NUbots_RL_FYP/tests/integration/test_onnx_conversion.py:110: TracerWarning: torch.tensor results are registered as constants in the trace. You can safely ignore this warning if you use this function to create tensors out of constant variables that would be the same every time you call this function. In any other case, this might cause the trace to be incorrect.
+    low = torch.tensor(self.action_space.low, dtype=mean_actions.dtype, device=mean_actions.device)
+
+tests/integration/test_onnx_conversion.py::TestONNXConversion::test_onnx_export
+tests/integration/test_onnx_conversion.py::TestONNXConversion::test_onnx_tensor_shapes
+tests/integration/test_onnx_conversion.py::TestONNXInferenceAccuracy::test_pytorch_vs_onnx_single_input
+tests/integration/test_onnx_conversion.py::TestONNXDeterminism::test_deterministic_inference
+tests/integration/test_onnx_conversion.py::TestONNXInferenceLatency::test_inference_latency
+  /home/aliriyazr1/NUbots_RL_FYP/tests/integration/test_onnx_conversion.py:111: TracerWarning: torch.tensor results are registered as constants in the trace. You can safely ignore this warning if you use this function to create tensors out of constant variables that would be the same every time you call this function. In any other case, this might cause the trace to be incorrect.
+    high = torch.tensor(self.action_space.high, dtype=mean_actions.dtype, device=mean_actions.device)
+
+tests/integration/test_onnx_conversion.py::TestONNXConversion::test_onnx_tensor_shapes
+  /home/aliriyazr1/NUbots_RL_FYP/tests/integration/test_onnx_conversion.py:229: DeprecationWarning: You are using the legacy TorchScript-based ONNX export. Starting in PyTorch 2.9, the new torch.export-based ONNX exporter will be the default. To switch now, set dynamo=True in torch.onnx.export. This new exporter supports features like exporting LLMs with DynamicCache. We encourage you to try it and share feedback to help improve the experience. Learn more about the new export logic: https://pytorch.org/docs/stable/onnx_dynamo.html. For exporting control flow: https://pytorch.org/tutorials/beginner/onnx/export_control_flow_model_to_onnx_tutorial.html.
+    torch.onnx.export(
+
+tests/integration/test_onnx_conversion.py::TestONNXInferenceAccuracy::test_pytorch_vs_onnx_single_input
+  /home/aliriyazr1/NUbots_RL_FYP/tests/integration/test_onnx_conversion.py:306: DeprecationWarning: You are using the legacy TorchScript-based ONNX export. Starting in PyTorch 2.9, the new torch.export-based ONNX exporter will be the default. To switch now, set dynamo=True in torch.onnx.export. This new exporter supports features like exporting LLMs with DynamicCache. We encourage you to try it and share feedback to help improve the experience. Learn more about the new export logic: https://pytorch.org/docs/stable/onnx_dynamo.html. For exporting control flow: https://pytorch.org/tutorials/beginner/onnx/export_control_flow_model_to_onnx_tutorial.html.
+    torch.onnx.export(
+
+tests/integration/test_onnx_conversion.py::TestONNXDeterminism::test_deterministic_inference
+  /home/aliriyazr1/NUbots_RL_FYP/tests/integration/test_onnx_conversion.py:453: DeprecationWarning: You are using the legacy TorchScript-based ONNX export. Starting in PyTorch 2.9, the new torch.export-based ONNX exporter will be the default. To switch now, set dynamo=True in torch.onnx.export. This new exporter supports features like exporting LLMs with DynamicCache. We encourage you to try it and share feedback to help improve the experience. Learn more about the new export logic: https://pytorch.org/docs/stable/onnx_dynamo.html. For exporting control flow: https://pytorch.org/tutorials/beginner/onnx/export_control_flow_model_to_onnx_tutorial.html.
+    torch.onnx.export(
+
+tests/integration/test_onnx_conversion.py::TestONNXInferenceLatency::test_inference_latency
+  /home/aliriyazr1/NUbots_RL_FYP/tests/integration/test_onnx_conversion.py:545: DeprecationWarning: You are using the legacy TorchScript-based ONNX export. Starting in PyTorch 2.9, the new torch.export-based ONNX exporter will be the default. To switch now, set dynamo=True in torch.onnx.export. This new exporter supports features like exporting LLMs with DynamicCache. We encourage you to try it and share feedback to help improve the experience. Learn more about the new export logic: https://pytorch.org/docs/stable/onnx_dynamo.html. For exporting control flow: https://pytorch.org/tutorials/beginner/onnx/export_control_flow_model_to_onnx_tutorial.html.
+    torch.onnx.export(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 8 passed, 21 warnings in 11.88s ========================
