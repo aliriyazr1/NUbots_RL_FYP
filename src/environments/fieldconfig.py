@@ -5,11 +5,24 @@ import yaml
 class FieldConfig:
     """Class to handle field configuration loading and calculations"""
     
-    def __init__(self, config_path="field_config.yaml"):
-        # If config_path is just a filename, look for it relative to this script's directory
-        if not os.path.isabs(config_path) and not os.path.dirname(config_path):
-            script_dir = Path(__file__).parent
-            self.config_path = script_dir / config_path
+    def __init__(self, config_path="configs/field_config.yaml"):
+        # Handle different path formats
+        if not os.path.isabs(config_path):
+            # If it's a relative path, try multiple locations
+            config_file = Path(config_path)
+
+            # First, try as-is (for paths like "configs/field_config.yaml" from project root)
+            if config_file.exists():
+                self.config_path = config_file
+            # Second, try relative to project root (go up two levels from this file)
+            elif (Path(__file__).parent.parent.parent / config_path).exists():
+                self.config_path = Path(__file__).parent.parent.parent / config_path
+            # Third, if it's just a filename, look in configs directory
+            elif not os.path.dirname(config_path):
+                project_root = Path(__file__).parent.parent.parent
+                self.config_path = project_root / "configs" / config_path
+            else:
+                self.config_path = config_path
         else:
             self.config_path = config_path
                    
@@ -149,12 +162,12 @@ class FieldConfig:
         """Convert meters to pixels as integer for pygame drawing"""
         return int(self.meters_to_pixels(meters))
     
-    #TODO:  This is not used
-    # def pixels_to_meters(self, pixels):
-    #     """Convert pixels to meters"""
-    #     if not hasattr(self, 'pixels_per_meter') or self.pixels_per_meter <= 0:
-    #         raise ValueError("Invalid pixels_per_meter value. Check field configuration.")
-    #     return pixels / self.pixels_per_meter
+    def pixels_to_meters(self, pixels):
+        """Convert pixels to meters"""
+        if not hasattr(self, 'pixels_per_meter') or self.pixels_per_meter <= 0:
+            raise ValueError("Invalid pixels_per_meter value. Check field configuration.")
+        return pixels / self.pixels_per_meter
+    
     @property
     def pixels_per_meter(self):
         """Calculate pixels per meter based on field dimensions"""
