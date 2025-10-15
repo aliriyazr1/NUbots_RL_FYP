@@ -194,7 +194,7 @@ class SoccerEnv(gym.Env):
             self.robot_rotation_speed = base_rotation_speed_rps * speed_multiplier * self.dt # Should be rad/frame
             opponent_speed_mps = opponent_speed_mps * speed_multiplier
 
-            print(f"🚀 Testing mode enabled: {speed_multiplier}x speed")
+            print(f"Testing mode enabled: {speed_multiplier}x speed")
 
         self.reset()
     
@@ -262,7 +262,6 @@ class SoccerEnv(gym.Env):
         
         # Get training progress (you'll need to pass this from your training script)
         training_timesteps = getattr(self, 'relative_timesteps', 0)
-        print(f"🔍 TEST: Current timesteps = {training_timesteps}")
 
         #TODO: WIP This is for no opponent
         # if training_timesteps < 200000:
@@ -378,11 +377,11 @@ class SoccerEnv(gym.Env):
         # Check specific termination reasons for logging
         if terminated and not truncated:
             if self._check_goal():
-                print("🎉 ROBOT SCORED - EPISODE WON!")
+                print("ROBOT SCORED - EPISODE WON")
             elif self._check_opponent_goal():
-                print("😭 OPPONENT SCORED - EPISODE LOST!")
+                print("OPPONENT SCORED - EPISODE LOST")
             elif self._check_ball_out_of_play():
-                print("❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!")
+                print("BALL OUT OF BOUNDS - EPISODE TERMINATED")
 
         if ball_out_of_bounds and not terminated:
             # Reset ball to center if it goes out of bounds
@@ -393,7 +392,7 @@ class SoccerEnv(gym.Env):
             self.ball_vel = np.array([0.0, 0.0])
             reward += self.field_config.config.get('reward_parameters', {}).get('out_of_bounds_penalty', -2.0)
             terminated = True  # End episode if ball goes out of bounds
-            print("❌ BALL OUT OF BOUNDS - EPISODE TERMINATED!")
+            print("BALL OUT OF BOUNDS - EPISODE TERMINATED")
         
         if self.render_mode == "human":
             self.render()
@@ -1971,8 +1970,9 @@ class SoccerEnv(gym.Env):
             self._font_debug_title = pygame.font.Font(None, 26)
 
         # Semi-transparent background for debug panel
+        # Position below opponent behavior indicator to avoid overlap
         overlay_x = self.field_width + 60
-        overlay_y = 140
+        overlay_y = 200  # Moved from 140 to 200 to avoid overlap with opponent behavior text
         overlay_width = 220
         overlay_height = 300
 
@@ -2017,7 +2017,7 @@ class SoccerEnv(gym.Env):
             y_pos += 18
 
         # Legend at bottom
-        legend_y = overlay_y + overlay_height - 60
+        legend_y = overlay_y + overlay_height
         legend_title = self._font_debug.render("Indicators:", True, (255, 255, 255))
         self.window.blit(legend_title, (overlay_x + 10, legend_y))
 
@@ -2037,7 +2037,7 @@ class SoccerEnv(gym.Env):
         # Toggle hint
         hint_text = "Press 'D' to toggle"
         hint_surface = self._font_debug.render(hint_text, True, (150, 150, 150))
-        self.window.blit(hint_surface, (overlay_x + 10, overlay_y + overlay_height + 10))
+        self.window.blit(hint_surface, (overlay_x + 10, overlay_y + overlay_height + 70))
 
     def close(self):
         if self.window is not None:
