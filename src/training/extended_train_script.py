@@ -14,7 +14,7 @@ from stable_baselines3.common.callbacks import EvalCallback, BaseCallback, Check
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from src.environments.soccerenv import SoccerEnv
+from src.environments.soccerenv import SoccerEnv, ActionSmoothingWrapper
 from src.training.train_GUI import TrainGUI
 import os, time, yaml, torch, datetime, json, copy
 from collections import deque
@@ -258,6 +258,243 @@ class ModelTracker(BaseCallback):
         with open(eval_file, 'w') as f:
             json.dump(existing_data, f, indent=2)
 
+class EnhancedMetricsCallback(BaseCallback):
+    """
+    Callback to track enhanced soccer-specific metrics during training.
+
+    Collects goals, possession, collisions, and out-of-bounds metrics at regular intervals
+    throughout the training process, not just at the end.
+    """
+
+    def __init__(self, eval_env: Monitor, eval_freq: int = 15000, n_eval_episodes: int = 10,
+                 log_path: str = None, verbose: int = 0):
+        super().__init__(verbose)
+        self.eval_env = eval_env
+        self.eval_freq = eval_freq
+        self.n_eval_episodes = n_eval_episodes
+        self.log_path = log_path
+
+        # History storage for enhanced metrics
+        self.timesteps_history = []
+        self.goals_scored_history = []
+        self.possession_rate_history = []
+        self.collision_rate_history = []
+        self.out_of_bounds_rate_history = []
+        self.mean_reward_history = []
+        self.episode_length_history = []
+
+    def _on_step(self) -> bool:
+        """Called at every step during training"""
+        # Evaluate at specified frequency
+        if self.n_calls % self.eval_freq == 0:
+            self._evaluate_enhanced_metrics()
+        return True
+
+    def _evaluate_enhanced_metrics(self):
+        """Run evaluation episodes and collect enhanced metrics"""
+        unwrapped_env = self.eval_env.unwrapped
+        POSSESSION_DISTANCE_THRESHOLD = unwrapped_env.field_config.meters_to_pixels(0.3)
+        COLLISION_DISTANCE_THRESHOLD = unwrapped_env.collision_distance
+
+        episode_rewards = []
+        episode_lengths = []
+        total_goals = 0
+        total_possession_steps = 0
+        total_collisions = 0
+        total_out_of_bounds = 0
+        total_steps = 0
+
+        for episode in range(self.n_eval_episodes):
+            obs, _ = self.eval_env.reset()
+            episode_reward = 0
+            episode_steps = 0
+            done = False
+
+            episode_possession_steps = 0
+            collision_occurred = False
+            out_of_bounds_occurred = False
+
+            while not done:
+                action, _ = self.model.predict(obs, deterministic=True)
+                obs, reward, terminated, truncated, info = self.eval_env.step(action)
+                episode_reward += reward
+                episode_steps += 1
+
+                # Track possession
+                robot_ball_distance = np.linalg.norm(
+                    unwrapped_env.robot_pos - unwrapped_env.ball_pos
+                )
+                if robot_ball_distance < POSSESSION_DISTANCE_THRESHOLD:
+                    episode_possession_steps += 1
+
+                # Track collisions (binary per episode)
+                robot_opponent_distance = np.linalg.norm(
+                    unwrapped_env.robot_pos - unwrapped_env.opponent_pos
+                )
+                if not collision_occurred and robot_opponent_distance < COLLISION_DISTANCE_THRESHOLD:
+                    total_collisions += 1
+                    collision_occurred = True
+
+                # Track out of bounds (binary per episode)
+                if not out_of_bounds_occurred and unwrapped_env._check_ball_out_of_play():
+                    total_out_of_bounds += 1
+                    out_of_bounds_occurred = True
+
+                # Track goals
+                if unwrapped_env._check_goal():
+                    total_goals += 1
+
+                done = terminated or truncated
+
+            episode_rewards.append(episode_reward)
+            episode_lengths.append(episode_steps)
+            total_possession_steps += episode_possession_steps
+            total_steps += episode_steps
+
+        # Calculate aggregate metrics
+        mean_reward = np.mean(episode_rewards)
+        mean_episode_length = np.mean(episode_lengths)
+        possession_rate = (total_possession_steps / total_steps) * 100 if total_steps > 0 else 0
+        collision_rate = (total_collisions / self.n_eval_episodes) * 100
+        out_of_bounds_rate = (total_out_of_bounds / self.n_eval_episodes) * 100
+
+        # Store in history
+        self.timesteps_history.append(self.num_timesteps)
+        self.goals_scored_history.append(total_goals)
+        self.possession_rate_history.append(possession_rate)
+        self.collision_rate_history.append(collision_rate)
+        self.out_of_bounds_rate_history.append(out_of_bounds_rate)
+        self.mean_reward_history.append(mean_reward)
+        self.episode_length_history.append(mean_episode_length)
+
+        if self.verbose > 0:
+            print(f"Enhanced Metrics @ {self.num_timesteps} steps: "
+                  f"Goals={total_goals}, Possession={possession_rate:.1f}%, "
+                  f"Collisions={collision_rate:.1f}%, OOB={out_of_bounds_rate:.1f}%")
+
+    def get_metrics_history(self) -> Dict[str, list]:
+        """Return all collected metrics as a dictionary"""
+        return {
+            'timesteps': self.timesteps_history,
+            'goals_scored': self.goals_scored_history,
+            'possession_rate': self.possession_rate_history,
+            'collision_rate': self.collision_rate_history,
+            'out_of_bounds_rate': self.out_of_bounds_rate_history,
+            'mean_reward': self.mean_reward_history,
+            'episode_length': self.episode_length_history
+        }
+
+    def save_metrics(self):
+        """Save metrics history to JSON file"""
+        if self.log_path is not None:
+            metrics_path = os.path.join(self.log_path, "enhanced_metrics_history.json")
+            metrics_data = self.get_metrics_history()
+            with open(metrics_path, 'w') as f:
+                json.dump(metrics_data, f, indent=2)
+            if self.verbose > 0:
+                print(f"Enhanced metrics saved to {metrics_path}")
+
+
+class HandCodedPolicy:
+    """
+    DEAD SIMPLE hand-coded policy (like opponent AI):
+    - Access environment state directly
+    - No ball? → Chase ball
+    - Have ball? → Move to goal
+    - Transform world direction to robot frame
+
+    That's it. No fancy logic, no opponent avoidance, no complexity.
+    """
+
+    def __init__(self, env, debug=False):
+        self.env = env
+        self.action_space = env.action_space
+        self.debug = debug
+        self.step_count = 0
+
+    def predict(self, obs, deterministic=True):
+        """
+        Simple 2-state policy using direct environment access (like opponent AI):
+        1. Chase ball when don't have it
+        2. Move to goal when have it
+
+        Access positions directly from environment (raw pixel coordinates).
+        Transform world-space direction to robot frame.
+        """
+        self.step_count += 1
+
+        # Access positions directly from environment (like opponent AI does)
+        robot_pos = np.array(self.env.robot_pos)  # Raw pixel coords
+        ball_pos = np.array(self.env.ball_pos)    # Raw pixel coords
+        goal_pos = np.array(self.env.goal_pos)    # Raw pixel coords
+        robot_angle = self.env.robot_angle        # Robot's orientation
+
+        # Calculate distance to ball for possession check
+        dist_to_ball = np.linalg.norm(ball_pos - robot_pos)
+        has_ball = dist_to_ball < self.env.possession_threshold
+
+        # Decide target: ball or goal?
+        if has_ball:
+            target = goal_pos
+            target_name = "GOAL"
+        else:
+            target = ball_pos
+            target_name = "BALL"
+
+        # Calculate world-space direction to target
+        direction_world = target - robot_pos
+        distance = np.linalg.norm(direction_world)
+
+        if distance > 1.0:
+            # Normalize direction vector
+            direction_world = direction_world / distance
+        else:
+            direction_world = np.array([0.0, 0.0])
+
+        # Transform world direction to robot frame
+        # Robot's forward is along its angle, strafe is perpendicular
+        cos_theta = np.cos(robot_angle)
+        sin_theta = np.sin(robot_angle)
+
+        # Forward/strafe in robot frame from world direction
+        forward = direction_world[0] * cos_theta + direction_world[1] * sin_theta
+        strafe = -direction_world[0] * sin_theta + direction_world[1] * cos_theta
+
+        # Calculate target angle for rotation
+        target_angle = np.arctan2(direction_world[1], direction_world[0])
+        angle_diff = target_angle - robot_angle
+
+        # Normalize angle difference to [-π, π]
+        angle_diff = np.arctan2(np.sin(angle_diff), np.cos(angle_diff))
+
+        # Rotation: proportional to angle difference
+        rotation = np.clip(angle_diff * 2.0, -1.0, 1.0)
+
+        # Scale forward/strafe to maintain constant speed (like opponent AI)
+        speed = 1.0
+        forward = forward * speed
+        strafe = strafe * speed
+
+        # Create action
+        action = np.array([forward, strafe, rotation], dtype=np.float32)
+        action = np.clip(action, self.action_space.low, self.action_space.high)
+
+        # Debug output every 50 steps
+        if self.debug and self.step_count % 50 == 0:
+            print(f"\n=== HandCoded Policy Debug (step {self.step_count}) ===")
+            print(f"Robot pos: {robot_pos}, angle: {np.degrees(robot_angle):.1f}°")
+            print(f"Ball pos: {ball_pos}")
+            print(f"Goal pos: {goal_pos}")
+            print(f"Dist to ball: {dist_to_ball:.1f}, Has ball: {has_ball}")
+            print(f"Target: {target_name} at {target}")
+            print(f"Distance to target: {distance:.1f}")
+            print(f"World direction: ({direction_world[0]:.2f}, {direction_world[1]:.2f})")
+            print(f"Target angle: {np.degrees(target_angle):.1f}°, Angle diff: {np.degrees(angle_diff):.1f}°")
+            print(f"Action: forward={forward:.2f}, strafe={strafe:.2f}, rotation={rotation:.2f}")
+
+        return action, None
+
+
 def create_ppo_model(env: Monitor, hyperparams: Dict[str, Any],
                     tensorboard_log: str) -> PPO:
     """
@@ -345,9 +582,9 @@ def create_callbacks_and_tracker(
     n_eval_episodes: int = 5,
     checkpoint_freq: int = 50000,
     verbose: int = 1
-) -> Tuple[ModelTracker, EvalCallback, CheckpointCallback]:
+) -> Tuple[ModelTracker, EvalCallback, CheckpointCallback, EnhancedMetricsCallback]:
     """
-    Create ModelTracker, EvalCallback, and CheckpointCallback for training.
+    Create ModelTracker, EvalCallback, CheckpointCallback, and EnhancedMetricsCallback for training.
 
     Args:
         algorithm_name: Name of algorithm ("PPO", "DDPG", etc.)
@@ -361,15 +598,15 @@ def create_callbacks_and_tracker(
         verbose: Verbosity level
 
     Returns:
-        Tuple of (ModelTracker, EvalCallback, CheckpointCallback)
+        Tuple of (ModelTracker, EvalCallback, CheckpointCallback, EnhancedMetricsCallback)
     """
     # Create ModelTracker
     model_tracker = ModelTracker(algorithm_name, training_system, variant_name, verbose=verbose)
-    
+
     # Set train_env if provided for timestep tracking
     if train_env is not None:
         model_tracker.train_env = train_env
-    
+
     # Create EvalCallback with algorithm-specific log path
     # This ensures evaluations.npz is saved with the algorithm's logs
     algo_log_path = f"{training_system.output_dir}/{algorithm_name.lower()}_logs/"
@@ -403,7 +640,16 @@ def create_callbacks_and_tracker(
         verbose=verbose
     )
 
-    return model_tracker, eval_callback, checkpoint_callback
+    # Create EnhancedMetricsCallback to track soccer-specific metrics throughout training
+    enhanced_metrics_callback = EnhancedMetricsCallback(
+        eval_env=eval_env,
+        eval_freq=eval_freq,
+        n_eval_episodes=n_eval_episodes,
+        log_path=algo_log_path,
+        verbose=verbose
+    )
+
+    return model_tracker, eval_callback, checkpoint_callback, enhanced_metrics_callback
 
 def evaluate_model_comprehensive(model: Union[PPO, DDPG], env: Monitor,
                                 n_episodes: int = 50, algorithm: str = "") -> Dict[str, Any]:
@@ -677,6 +923,545 @@ def comprehensive_final_evaluation(training_system, ppo_results, ddpg_results):
     
     return results
 
+
+def compare_three_policies(ppo_model, ddpg_model, config_path: str, difficulty: str = "medium",
+                          n_episodes: int = 50, output_dir: str = None, logger=None, debug_display: bool = False, testing_mode: bool = False):
+    """
+    Comprehensive 2-way comparison: DDPG vs PPO.
+
+    Evaluates both policies on the same environment and collects detailed metrics.
+    Generates comparison plots and thesis-ready summary report.
+
+    Args:
+        ppo_model: Trained PPO model
+        ddpg_model: Trained DDPG model
+        config_path: Path to field configuration
+        difficulty: Environment difficulty level
+        n_episodes: Number of evaluation episodes
+        output_dir: Directory to save results
+        logger: Logger instance
+        debug_display: Show debug overlay during evaluation (default: False)
+
+    Returns:
+        Dictionary with all metrics and file paths
+    """
+    if logger:
+        logger.info("="*60)
+        logger.info("2-WAY POLICY COMPARISON: DDPG vs PPO")
+        logger.info("="*60)
+
+    # Create evaluation environment
+    # Enable rendering if debug_display is requested
+    render_mode = "human" if debug_display else None
+    eval_env = SoccerEnv(config_path=config_path, difficulty=difficulty, reward_type="standard", render_mode=render_mode, testing_mode=testing_mode)
+
+    # Speed up visualization (match watch_trained_robot behavior)
+    eval_env.dt *= 4.0
+
+    # Enable debug display if requested
+    if debug_display:
+        if hasattr(eval_env, 'enable_debug_display'):
+            eval_env.enable_debug_display()
+        if hasattr(eval_env, 'set_show_velocities'):
+            eval_env.set_show_velocities(True)
+
+    eval_env = Monitor(eval_env)
+
+    # Storage for results
+    results = {
+        'ddpg': {},
+        'ppo': {},
+        'metadata': {
+            'date': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'n_episodes': n_episodes,
+            'difficulty': difficulty,
+            'config_path': config_path
+        }
+    }
+
+    # Wrap models with ActionSmoothingWrapper (match watch_trained_robot behavior)
+    ddpg_smooth = ActionSmoothingWrapper(ddpg_model, smoothing_factor=0.6)
+    ppo_smooth = ActionSmoothingWrapper(ppo_model, smoothing_factor=0.6)
+
+    # Evaluate each policy
+    policies = [
+        ('DDPG', ddpg_smooth, results['ddpg']),
+        ('PPO', ppo_smooth, results['ppo'])
+    ]
+
+    for policy_name, policy_model, policy_results in policies:
+        if logger:
+            logger.info(f"Evaluating {policy_name} policy...")
+
+        # Collect comprehensive metrics
+        episode_rewards = []
+        episode_lengths = []
+        goals_scored_list = []
+        possession_timesteps_list = []
+        collision_count_list = []
+        out_of_bounds_count_list = []
+        final_ball_distance_list = []
+
+        unwrapped_env = eval_env.unwrapped
+        POSSESSION_THRESHOLD = unwrapped_env.field_config.meters_to_pixels(0.3)
+        COLLISION_THRESHOLD = unwrapped_env.collision_distance
+
+        for episode in range(n_episodes):
+            obs, _ = eval_env.reset()
+            episode_reward = 0
+            episode_steps = 0
+            done = False
+
+            # Episode metrics
+            episode_goals = 0
+            episode_possession_steps = 0
+            collision_occurred = False
+            out_of_bounds_occurred = False
+
+            while not done:
+                action, _ = policy_model.predict(obs, deterministic=True)
+                obs, reward, terminated, truncated, info = eval_env.step(action)
+                episode_reward += reward
+                episode_steps += 1
+
+                # Track possession
+                robot_ball_dist = np.linalg.norm(
+                    unwrapped_env.robot_pos - unwrapped_env.ball_pos
+                )
+                if robot_ball_dist < POSSESSION_THRESHOLD:
+                    episode_possession_steps += 1
+
+                # Track collisions (binary)
+                robot_opp_dist = np.linalg.norm(
+                    unwrapped_env.robot_pos - unwrapped_env.opponent_pos
+                )
+                if not collision_occurred and robot_opp_dist < COLLISION_THRESHOLD:
+                    collision_occurred = True
+
+                # Track out of bounds (binary)
+                if not out_of_bounds_occurred and unwrapped_env._check_ball_out_of_play():
+                    out_of_bounds_occurred = True
+
+                # Track goals
+                if unwrapped_env._check_goal():
+                    episode_goals += 1
+
+                # Render with debug overlay if requested
+                if debug_display:
+                    if hasattr(unwrapped_env, 'set_debug_info'):
+                        unwrapped_env.set_debug_info({
+                            'policy': policy_name,
+                            'step': episode_steps,
+                            'reward': reward,
+                            'cumulative_reward': episode_reward,
+                            'goals': episode_goals,
+                            'possession_pct': (episode_possession_steps / (episode_steps)) * 100 if episode_steps > 0 else 0,
+                            'action': action,
+                            'has_possession': robot_ball_dist < POSSESSION_THRESHOLD,
+                            'has_collision': robot_opp_dist < COLLISION_THRESHOLD,
+                            'ball_out': unwrapped_env._check_ball_out_of_play()
+                        })
+                    if hasattr(unwrapped_env, 'render'):
+                        unwrapped_env.render()
+                    import time
+                    # Match watch_trained_robot speed: 0.05s for normal viewing
+                    time.sleep(0.05)  # Normal viewing speed (20 FPS, same as watch_trained_robot)
+
+                done = terminated or truncated
+
+            # Calculate final ball distance
+            final_ball_dist_px = np.linalg.norm(
+                unwrapped_env.robot_pos - unwrapped_env.ball_pos
+            )
+            final_ball_dist_m = unwrapped_env.field_config.pixels_to_meters(final_ball_dist_px)
+
+            # Store episode results
+            episode_rewards.append(episode_reward)
+            episode_lengths.append(episode_steps)
+            goals_scored_list.append(episode_goals)
+            possession_timesteps_list.append(episode_possession_steps)
+            collision_count_list.append(1 if collision_occurred else 0)
+            out_of_bounds_count_list.append(1 if out_of_bounds_occurred else 0)
+            final_ball_distance_list.append(final_ball_dist_m)
+
+        # Calculate aggregate statistics
+        total_goals = sum(goals_scored_list)
+        total_possession_steps = sum(possession_timesteps_list)
+        total_steps = sum(episode_lengths)
+        total_collisions = sum(collision_count_list)
+        total_out_of_bounds = sum(out_of_bounds_count_list)
+
+        policy_results['mean_reward'] = float(np.mean(episode_rewards))
+        policy_results['std_reward'] = float(np.std(episode_rewards))
+        policy_results['median_reward'] = float(np.median(episode_rewards))
+        policy_results['min_reward'] = float(np.min(episode_rewards))
+        policy_results['max_reward'] = float(np.max(episode_rewards))
+
+        policy_results['total_goals'] = int(total_goals)
+        policy_results['goals_per_episode'] = float(total_goals / n_episodes)
+        policy_results['goals_std'] = float(np.std(goals_scored_list))
+
+        policy_results['possession_rate'] = float((total_possession_steps / total_steps) * 100) if total_steps > 0 else 0
+        policy_results['collision_rate'] = float((total_collisions / n_episodes) * 100)
+        policy_results['out_of_bounds_rate'] = float((total_out_of_bounds / n_episodes) * 100)
+
+        policy_results['mean_episode_length'] = float(np.mean(episode_lengths))
+        policy_results['std_episode_length'] = float(np.std(episode_lengths))
+
+        policy_results['mean_final_ball_distance'] = float(np.mean(final_ball_distance_list))
+
+        # Store raw data for plotting
+        policy_results['episode_rewards'] = episode_rewards
+        policy_results['goals_scored_list'] = goals_scored_list
+
+        if logger:
+            logger.info(f"{policy_name} Results:")
+            logger.info(f"  Mean Reward: {policy_results['mean_reward']:.2f} ± {policy_results['std_reward']:.2f}")
+            logger.info(f"  Total Goals: {policy_results['total_goals']} ({policy_results['goals_per_episode']:.2f} per episode)")
+            logger.info(f"  Possession Rate: {policy_results['possession_rate']:.1f}%")
+            logger.info(f"  Collision Rate: {policy_results['collision_rate']:.1f}%")
+
+    eval_env.close()
+
+    # Generate visualisations and reports
+    if output_dir:
+        results['plots'] = create_3way_comparison_plots(results, output_dir)
+        results['summary_report'] = generate_thesis_summary(results, output_dir)
+        results['json_path'] = save_3way_results_json(results, output_dir)
+        results['markdown_path'] = save_3way_results_markdown(results, output_dir)
+
+    return results
+
+
+def create_3way_comparison_plots(results: Dict, output_dir: str) -> Dict[str, str]:
+    """
+    Create bar charts and histograms comparing the two policies (DDPG vs PPO).
+
+    Args:
+        results: Results dictionary from compare_three_policies
+        output_dir: Directory to save plots
+
+    Returns:
+        Dictionary with paths to generated plots
+    """
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    # Academic styling
+    plt.style.use('seaborn-v0_8-paper')
+    plt.rcParams['figure.dpi'] = 300
+    plt.rcParams['font.size'] = 11
+
+    plot_paths = {}
+
+    # Extract data - only DDPG and PPO
+    policies = ['DDPG', 'PPO']
+    policy_keys = ['ddpg', 'ppo']
+
+    # Colors for each policy
+    colors = ['#2E86C1', '#E74C3C']
+
+    # ============ PLOT 1: Bar Chart Comparison (5 subplots) ============
+    fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+    fig.suptitle('DDPG vs PPO: Performance Metrics Comparison', fontsize=16, fontweight='bold')
+    plt.subplots_adjust(hspace=0.35, wspace=0.3)
+
+    # Subplot 1: Mean Reward
+    ax = axes[0, 0]
+    means = [results[key]['mean_reward'] for key in policy_keys]
+    stds = [results[key]['std_reward'] for key in policy_keys]
+    bars = ax.bar(policies, means, yerr=stds, capsize=5, color=colors, alpha=0.8)
+    ax.set_ylabel('Mean Reward', fontsize=12)
+    ax.set_title('Mean Episode Reward', fontsize=13, fontweight='bold')
+    ax.grid(True, alpha=0.3, axis='y')
+    # Add value labels on bars
+    for bar, mean in zip(bars, means):
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height,
+                f'{mean:.0f}', ha='center', va='bottom', fontsize=10)
+
+    # Subplot 2: Total Goals
+    ax = axes[0, 1]
+    goals = [results[key]['total_goals'] for key in policy_keys]
+    bars = ax.bar(policies, goals, color=colors, alpha=0.8)
+    ax.set_ylabel('Total Goals Scored', fontsize=12)
+    ax.set_title('Goal Scoring Performance', fontsize=13, fontweight='bold')
+    ax.grid(True, alpha=0.3, axis='y')
+    for bar, goal in zip(bars, goals):
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height,
+                f'{goal}', ha='center', va='bottom', fontsize=10)
+
+    # Subplot 3: Ball Possession Rate
+    ax = axes[0, 2]
+    possession = [results[key]['possession_rate'] for key in policy_keys]
+    bars = ax.bar(policies, possession, color=colors, alpha=0.8)
+    ax.set_ylabel('Ball Possession Rate (%)', fontsize=12)
+    ax.set_title('Ball Possession Efficiency', fontsize=13, fontweight='bold')
+    ax.grid(True, alpha=0.3, axis='y')
+    ax.set_ylim([0, 100])
+    for bar, poss in zip(bars, possession):
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height,
+                f'{poss:.1f}%', ha='center', va='bottom', fontsize=10)
+
+    # Subplot 4: Collision Rate
+    ax = axes[1, 0]
+    collisions = [results[key]['collision_rate'] for key in policy_keys]
+    bars = ax.bar(policies, collisions, color=colors, alpha=0.8)
+    ax.set_ylabel('Collision Rate (%)', fontsize=12)
+    ax.set_title('Collision Frequency (Lower is Better)', fontsize=13, fontweight='bold')
+    ax.grid(True, alpha=0.3, axis='y')
+    for bar, coll in zip(bars, collisions):
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height,
+                f'{coll:.1f}%', ha='center', va='bottom', fontsize=10)
+
+    # Subplot 5: Mean Episode Length
+    ax = axes[1, 1]
+    lengths = [results[key]['mean_episode_length'] for key in policy_keys]
+    length_stds = [results[key]['std_episode_length'] for key in policy_keys]
+    bars = ax.bar(policies, lengths, yerr=length_stds, capsize=5, color=colors, alpha=0.8)
+    ax.set_ylabel('Mean Episode Length (steps)', fontsize=12)
+    ax.set_title('Episode Duration', fontsize=13, fontweight='bold')
+    ax.grid(True, alpha=0.3, axis='y')
+    for bar, length in zip(bars, lengths):
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height,
+                f'{length:.0f}', ha='center', va='bottom', fontsize=10)
+
+    # Subplot 6: Out of Bounds Rate
+    ax = axes[1, 2]
+    oob = [results[key]['out_of_bounds_rate'] for key in policy_keys]
+    bars = ax.bar(policies, oob, color=colors, alpha=0.8)
+    ax.set_ylabel('Out of Bounds Rate (%)', fontsize=12)
+    ax.set_title('Out of Bounds Incidents (Lower is Better)', fontsize=13, fontweight='bold')
+    ax.grid(True, alpha=0.3, axis='y')
+    for bar, oob_val in zip(bars, oob):
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height,
+                f'{oob_val:.1f}%', ha='center', va='bottom', fontsize=10)
+
+    bar_chart_path = os.path.join(output_dir, "3way_comparison_bar_charts.png")
+    plt.savefig(bar_chart_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    plot_paths['bar_charts'] = bar_chart_path
+
+    # ============ PLOT 2: Reward Distribution Histograms ============
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    fig.suptitle('Reward Distribution: DDPG vs PPO', fontsize=16, fontweight='bold')
+    plt.subplots_adjust(wspace=0.3)
+
+    for idx, (policy_name, policy_key, color) in enumerate(zip(policies, policy_keys, colors)):
+        ax = axes[idx]
+        rewards = results[policy_key]['episode_rewards']
+        ax.hist(rewards, bins=20, color=color, alpha=0.7, edgecolor='black')
+        ax.axvline(np.mean(rewards), color='red', linestyle='--', linewidth=2, label=f'Mean: {np.mean(rewards):.0f}')
+        ax.axvline(np.median(rewards), color='green', linestyle='--', linewidth=2, label=f'Median: {np.median(rewards):.0f}')
+        ax.set_xlabel('Episode Reward', fontsize=12)
+        ax.set_ylabel('Frequency', fontsize=12)
+        ax.set_title(f'{policy_name} Policy', fontsize=13, fontweight='bold')
+        ax.legend(fontsize=10)
+        ax.grid(True, alpha=0.3, axis='y')
+
+    histogram_path = os.path.join(output_dir, "ddpg_vs_ppo_reward_histograms.png")
+    plt.savefig(histogram_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    plot_paths['histograms'] = histogram_path
+
+    # ============ PLOT 3: Goals Over Episodes (Line Plot) ============
+    fig, ax = plt.subplots(figsize=(12, 6))
+    fig.suptitle('Goals Scored Over Episodes', fontsize=16, fontweight='bold')
+
+    for policy_name, policy_key, color in zip(policies, policy_keys, colors):
+        goals_list = results[policy_key]['goals_scored_list']
+        cumulative_goals = np.cumsum(goals_list)
+        ax.plot(range(1, len(cumulative_goals) + 1), cumulative_goals,
+                linewidth=2.5, color=color, label=policy_name, alpha=0.9, marker='o', markersize=3, markevery=5)
+
+    ax.set_xlabel('Episode Number', fontsize=12)
+    ax.set_ylabel('Cumulative Goals Scored', fontsize=12)
+    ax.set_title('Goal Scoring Progress', fontsize=14, fontweight='bold')
+    ax.legend(fontsize=12)
+    ax.grid(True, alpha=0.3)
+
+    goals_line_path = os.path.join(output_dir, "3way_goals_over_time.png")
+    plt.savefig(goals_line_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    plot_paths['goals_over_time'] = goals_line_path
+
+    return plot_paths
+
+
+def generate_thesis_summary(results: Dict, output_dir: str) -> str:
+    """
+    Generate thesis-ready text summary with clear numerical comparisons (DDPG vs PPO).
+
+    Args:
+        results: Results dictionary from compare_three_policies
+        output_dir: Directory to save summary
+
+    Returns:
+        Path to summary text file
+    """
+    # Extract data
+    ddpg = results['ddpg']
+    ppo = results['ppo']
+    metadata = results['metadata']
+
+    # Calculate percentage differences
+    def pct_diff(val1, val2):
+        if val2 == 0:
+            return "N/A"
+        return f"{((val1 - val2) / abs(val2)) * 100:.1f}%"
+
+    # Determine winner for each metric
+    reward_winner = "DDPG" if ddpg['mean_reward'] > ppo['mean_reward'] else "PPO"
+    goals_winner = "DDPG" if ddpg['total_goals'] > ppo['total_goals'] else "PPO"
+    possession_winner = "DDPG" if ddpg['possession_rate'] > ppo['possession_rate'] else "PPO"
+    collision_winner = "DDPG" if ddpg['collision_rate'] < ppo['collision_rate'] else "PPO"
+    oob_winner = "DDPG" if ddpg['out_of_bounds_rate'] < ppo['out_of_bounds_rate'] else "PPO"
+
+    summary = f"""
+# DDPG vs PPO Policy Comparison Summary
+Generated: {metadata['date']}
+Evaluation: {metadata['n_episodes']} episodes on {metadata['difficulty']} difficulty
+
+## Performance Comparison
+
+### Mean Episode Reward
+- DDPG: {ddpg['mean_reward']:.2f} ± {ddpg['std_reward']:.2f}
+- PPO: {ppo['mean_reward']:.2f} ± {ppo['std_reward']:.2f}
+
+{reward_winner} achieved {pct_diff(ddpg['mean_reward'], ppo['mean_reward'])} {'higher' if reward_winner == 'DDPG' else 'lower'} mean reward than {'PPO' if reward_winner == 'DDPG' else 'DDPG'}.
+
+### Goal Scoring Performance
+- DDPG: {ddpg['total_goals']} goals ({ddpg['goals_per_episode']:.2f} per episode, σ={ddpg['goals_std']:.2f})
+- PPO: {ppo['total_goals']} goals ({ppo['goals_per_episode']:.2f} per episode, σ={ppo['goals_std']:.2f})
+
+{goals_winner} scored {abs(ddpg['total_goals'] - ppo['total_goals'])} more goals than {'PPO' if goals_winner == 'DDPG' else 'DDPG'}.
+
+### Ball Possession Rate
+- DDPG: {ddpg['possession_rate']:.1f}%
+- PPO: {ppo['possession_rate']:.1f}%
+
+{possession_winner} maintained higher ball possession, outperforming {'PPO' if possession_winner == 'DDPG' else 'DDPG'} by {abs(ddpg['possession_rate'] - ppo['possession_rate']):.1f} percentage points.
+
+### Collision Avoidance
+- DDPG: {ddpg['collision_rate']:.1f}% collision rate
+- PPO: {ppo['collision_rate']:.1f}% collision rate
+
+{collision_winner} demonstrated better collision avoidance.
+
+### Out of Bounds Control
+- DDPG: {ddpg['out_of_bounds_rate']:.1f}% out of bounds rate
+- PPO: {ppo['out_of_bounds_rate']:.1f}% out of bounds rate
+
+{oob_winner} maintained better ball control with fewer out-of-bounds incidents.
+
+### Episode Length
+- DDPG: {ddpg['mean_episode_length']:.1f} ± {ddpg['std_episode_length']:.1f} steps
+- PPO: {ppo['mean_episode_length']:.1f} ± {ppo['std_episode_length']:.1f} steps
+
+## Summary Table
+
+| Metric                    | DDPG           | PPO            |
+|---------------------------|----------------|----------------|
+| Mean Reward               | {ddpg['mean_reward']:>7.1f} ± {ddpg['std_reward']:<6.1f} | {ppo['mean_reward']:>7.1f} ± {ppo['std_reward']:<6.1f} |
+| Total Goals               | {ddpg['total_goals']:>14} | {ppo['total_goals']:>14} |
+| Goals per Episode         | {ddpg['goals_per_episode']:>14.2f} | {ppo['goals_per_episode']:>14.2f} |
+| Ball Possession (%)       | {ddpg['possession_rate']:>14.1f} | {ppo['possession_rate']:>14.1f} |
+| Collision Rate (%)        | {ddpg['collision_rate']:>14.1f} | {ppo['collision_rate']:>14.1f} |
+| Out of Bounds (%)         | {ddpg['out_of_bounds_rate']:>14.1f} | {ppo['out_of_bounds_rate']:>14.1f} |
+| Mean Episode Length       | {ddpg['mean_episode_length']:>14.1f} | {ppo['mean_episode_length']:>14.1f} |
+| Median Reward             | {ddpg['median_reward']:>14.1f} | {ppo['median_reward']:>14.1f} |
+| Min Reward                | {ddpg['min_reward']:>14.1f} | {ppo['min_reward']:>14.1f} |
+| Max Reward                | {ddpg['max_reward']:>14.1f} | {ppo['max_reward']:>14.1f} |
+
+## Key Findings
+
+1. **Best Overall Performance**: {reward_winner} achieved the highest mean reward.
+
+2. **Best Goal Scorer**: {goals_winner} scored the most goals.
+
+3. **Best Ball Control**: {possession_winner} maintained the highest possession rate.
+
+4. **Best Collision Avoidance**: {collision_winner} had the lowest collision rate.
+
+5. **Best Out-of-Bounds Control**: {oob_winner} had the lowest out-of-bounds rate.
+
+## Conclusion
+
+This comparison demonstrates the relative performance of DDPG and PPO algorithms in the soccer environment.
+Both algorithms show learned behavior, with differences in risk-taking, ball control, and goal-scoring strategies.
+"""
+
+    summary_path = os.path.join(output_dir, "ddpg_vs_ppo_comparison_summary.txt")
+    with open(summary_path, 'w') as f:
+        f.write(summary)
+
+    return summary_path
+
+
+def save_3way_results_json(results: Dict, output_dir: str) -> str:
+    """Save complete results to JSON file"""
+    json_path = os.path.join(output_dir, "3way_comparison_results.json")
+
+    # Create clean copy without raw episode data for JSON
+    clean_results = {
+        'metadata': results['metadata'],
+        'ddpg': {k: v for k, v in results['ddpg'].items() if k not in ['episode_rewards', 'goals_scored_list']},
+        'ppo': {k: v for k, v in results['ppo'].items() if k not in ['episode_rewards', 'goals_scored_list']},
+        # 'handcoded': {k: v for k, v in results['handcoded'].items() if k not in ['episode_rewards', 'goals_scored_list']}
+    }
+
+    with open(json_path, 'w') as f:
+        json.dump(clean_results, f, indent=2)
+
+    return json_path
+
+
+def save_3way_results_markdown(results: Dict, output_dir: str) -> str:
+    """Save results in markdown table format"""
+    md_path = os.path.join(output_dir, "3way_comparison_table.md")
+
+    ddpg = results['ddpg']
+    ppo = results['ppo']
+    # hc = results['handcoded']
+
+    markdown = f"""# 2-Way Policy Comparison
+
+**Evaluation Date:** {results['metadata']['date']}
+**Episodes:** {results['metadata']['n_episodes']}
+**Difficulty:** {results['metadata']['difficulty']}
+
+## Performance Metrics
+
+| Metric | DDPG | PPO | Hand-Coded |
+|--------|------|-----|------------|
+| Mean Reward | {ddpg['mean_reward']:.2f} ± {ddpg['std_reward']:.2f} | {ppo['mean_reward']:.2f} ± {ppo['std_reward']:.2f} |
+| Median Reward | {ddpg['median_reward']:.2f} | {ppo['median_reward']:.2f} |
+| Total Goals | {ddpg['total_goals']} | {ppo['total_goals']} |
+| Goals/Episode | {ddpg['goals_per_episode']:.3f} | {ppo['goals_per_episode']:.3f} |
+| Possession (%) | {ddpg['possession_rate']:.1f}% | {ppo['possession_rate']:.1f}% |
+| Collision Rate (%) | {ddpg['collision_rate']:.1f}% | {ppo['collision_rate']:.1f}% |
+| Out of Bounds (%) | {ddpg['out_of_bounds_rate']:.1f}% | {ppo['out_of_bounds_rate']:.1f}% |
+| Episode Length | {ddpg['mean_episode_length']:.1f} ± {ddpg['std_episode_length']:.1f} | {ppo['mean_episode_length']:.1f} ± {ppo['std_episode_length']:.1f} |
+
+## Summary
+
+- **Best Reward:** {"DDPG" if ddpg['mean_reward'] > ppo['mean_reward'] else "PPO" if ppo['mean_reward'] > ddpg['mean_reward'] else "Tie"}
+- **Most Goals:** {"DDPG" if ddpg['total_goals'] > ppo['total_goals'] else "PPO" if ppo['total_goals'] > ddpg['total_goals'] else "Tie"}
+- **Best Possession:** {"DDPG" if ddpg['possession_rate'] > ppo['possession_rate'] else "PPO" if ppo['possession_rate'] > ddpg['possession_rate'] else "Tie"}
+- **Fewest Collisions:** {"DDPG" if ddpg['collision_rate'] <= ppo['collision_rate'] else "PPO" if ppo['collision_rate'] <= ddpg['collision_rate'] else "Tie"}
+"""
+
+    with open(md_path, 'w') as f:
+        f.write(markdown)
+
+    return md_path
+
+
 # def create_comprehensive_comparison_plots(training_system, ppo_results, ddpg_results, final_evaluation):
 #     """Create comprehensive plots comparing all model variants"""
 #     training_system.logger.info("Creating comprehensive comparison plots...")
@@ -947,7 +1732,7 @@ def create_academic_training_curves(training_system, algorithm_name, model_path,
         timesteps = training_data.get('timesteps', [])
         rewards = training_data.get('rewards', [])
 
-        if timesteps and rewards:
+        if len(timesteps) > 0 and len(rewards) > 0:
             # Calculate moving average and confidence intervals
             window_size = len(rewards) // 50  # Smooth over 2% of data
             if window_size < 10:
@@ -1046,7 +1831,7 @@ def create_academic_training_curves(training_system, algorithm_name, model_path,
         ax4.axis('off')
 
         # Calculate key statistics
-        if rewards:
+        if len(rewards) > 0:
             stats_text = "PERFORMANCE STATISTICS\n" + "="*30 + "\n\n"
             stats_text += f"Algorithm: {algorithm_name}\n"
             stats_text += f"Total Training Steps: {max(timesteps):,}\n"
@@ -1127,37 +1912,44 @@ def create_algorithm_comparison_plot(training_system, ppo_data, ddpg_data, title
         plt.subplots_adjust(hspace=0.35, wspace=0.25, top=0.88, bottom=0.08)
 
         # Plot 1: Training Curves Comparison
+        ppo_rewards = []
+        ddpg_rewards = []
+        ppo_timesteps = []
+        ddpg_timesteps = []
+
         if ppo_data and 'timesteps' in ppo_data and 'rewards' in ppo_data:
-            ppo_timesteps = [t/1e6 for t in ppo_data['timesteps']]  # Convert to millions
-            ppo_rewards = ppo_data['rewards']
+            if len(ppo_data['timesteps']) > 0 and len(ppo_data['rewards']) > 0:
+                ppo_timesteps = [t/1e6 for t in ppo_data['timesteps']]  # Convert to millions
+                ppo_rewards = ppo_data['rewards']
 
-            # Smooth PPO curve
-            window = len(ppo_rewards) // 50
-            if window < 10:
-                window = 10
-            ppo_smooth = pd.Series(ppo_rewards).rolling(window=window, center=True).mean()
-            ppo_std = pd.Series(ppo_rewards).rolling(window=window, center=True).std()
+                # Smooth PPO curve
+                window = len(ppo_rewards) // 50
+                if window < 10:
+                    window = 10
+                ppo_smooth = pd.Series(ppo_rewards).rolling(window=window, center=True).mean()
+                ppo_std = pd.Series(ppo_rewards).rolling(window=window, center=True).std()
 
-            ax1.plot(ppo_timesteps, ppo_smooth, linewidth=3, color='#2E86C1',
-                    label='PPO', alpha=0.9)
-            ax1.fill_between(ppo_timesteps, ppo_smooth - ppo_std, ppo_smooth + ppo_std,
-                           alpha=0.3, color='#2E86C1')
+                ax1.plot(ppo_timesteps, ppo_smooth, linewidth=3, color='#2E86C1',
+                        label='PPO', alpha=0.9)
+                ax1.fill_between(ppo_timesteps, ppo_smooth - ppo_std, ppo_smooth + ppo_std,
+                               alpha=0.3, color='#2E86C1')
 
         if ddpg_data and 'timesteps' in ddpg_data and 'rewards' in ddpg_data:
-            ddpg_timesteps = [t/1e6 for t in ddpg_data['timesteps']]  # Convert to millions
-            ddpg_rewards = ddpg_data['rewards']
+            if len(ddpg_data['timesteps']) > 0 and len(ddpg_data['rewards']) > 0:
+                ddpg_timesteps = [t/1e6 for t in ddpg_data['timesteps']]  # Convert to millions
+                ddpg_rewards = ddpg_data['rewards']
 
-            # Smooth DDPG curve
-            window = len(ddpg_rewards) // 50
-            if window < 10:
-                window = 10
-            ddpg_smooth = pd.Series(ddpg_rewards).rolling(window=window, center=True).mean()
-            ddpg_std = pd.Series(ddpg_rewards).rolling(window=window, center=True).std()
+                # Smooth DDPG curve
+                window = len(ddpg_rewards) // 50
+                if window < 10:
+                    window = 10
+                ddpg_smooth = pd.Series(ddpg_rewards).rolling(window=window, center=True).mean()
+                ddpg_std = pd.Series(ddpg_rewards).rolling(window=window, center=True).std()
 
-            ax1.plot(ddpg_timesteps, ddpg_smooth, linewidth=3, color='#E74C3C',
-                    label='DDPG', alpha=0.9)
-            ax1.fill_between(ddpg_timesteps, ddpg_smooth - ddpg_std, ddpg_smooth + ddpg_std,
-                           alpha=0.3, color='#E74C3C')
+                ax1.plot(ddpg_timesteps, ddpg_smooth, linewidth=3, color='#E74C3C',
+                        label='DDPG', alpha=0.9)
+                ax1.fill_between(ddpg_timesteps, ddpg_smooth - ddpg_std, ddpg_smooth + ddpg_std,
+                               alpha=0.3, color='#E74C3C')
 
         ax1.set_xlabel('Training Steps (Millions)', fontsize=14)
         ax1.set_ylabel('Episode Reward', fontsize=14)
@@ -1195,10 +1987,10 @@ def create_algorithm_comparison_plot(training_system, ppo_data, ddpg_data, title
         # Plot 3: Reward Distribution Comparison
         if ppo_data and ddpg_data:
             # Final 25% of training for comparison
-            ppo_final = ppo_rewards[-len(ppo_rewards)//4:] if ppo_rewards else []
-            ddpg_final = ddpg_rewards[-len(ddpg_rewards)//4:] if ddpg_rewards else []
+            ppo_final = ppo_rewards[-len(ppo_rewards)//4:] if len(ppo_rewards) > 0 else []
+            ddpg_final = ddpg_rewards[-len(ddpg_rewards)//4:] if len(ddpg_rewards) > 0 else []
 
-            if ppo_final and ddpg_final:
+            if len(ppo_final) > 0 and len(ddpg_final) > 0:
                 ax3.hist(ppo_final, bins=30, alpha=0.7, color='#2E86C1',
                         label=f'PPO (μ={np.mean(ppo_final):.2f})', density=True)
                 ax3.hist(ddpg_final, bins=30, alpha=0.7, color='#E74C3C',
@@ -1214,7 +2006,7 @@ def create_algorithm_comparison_plot(training_system, ppo_data, ddpg_data, title
                 ax3.grid(True, alpha=0.3)
 
         # Plot 4: Convergence Analysis
-        if ppo_data and ddpg_data and ppo_rewards and ddpg_rewards:
+        if ppo_data and ddpg_data and len(ppo_rewards) > 0 and len(ddpg_rewards) > 0:
             # Sample efficiency comparison
             reward_thresholds = np.linspace(min(min(ppo_rewards), min(ddpg_rewards)),
                                           max(max(ppo_rewards), max(ddpg_rewards)), 20)
@@ -1244,7 +2036,7 @@ def create_algorithm_comparison_plot(training_system, ppo_data, ddpg_data, title
         # Plot 5: Statistical Summary
         ax5.axis('off')
 
-        if ppo_data and ddpg_data and ppo_rewards and ddpg_rewards:
+        if ppo_data and ddpg_data and len(ppo_rewards) > 0 and len(ddpg_rewards) > 0:
             ppo_final = ppo_rewards[-len(ppo_rewards)//4:]
             ddpg_final = ddpg_rewards[-len(ddpg_rewards)//4:]
 
@@ -1486,46 +2278,56 @@ def create_enhanced_metrics_comparison(training_system, ppo_data, ddpg_data, tit
             ax3.legend(fontsize=11)
             ax3.grid(True, alpha=0.3)
 
-        # Plot 4: Out of Bounds Analysis
+        # Plot 4: Out of Bounds Analysis - Line Chart Over Time
         if 'out_of_bounds_count' in ppo_metrics and 'out_of_bounds_count' in ddpg_metrics:
-            # Create violin plots for out of bounds distribution
-            oob_data = [ppo_metrics['out_of_bounds_count'], ddpg_metrics['out_of_bounds_count']]
-            oob_labels = ['PPO', 'DDPG']
-            
-            parts = ax4.violinplot(oob_data, positions=[1, 2], showmeans=True, showmedians=True)
-            parts['bodies'][0].set_facecolor('#2E86C1')
-            parts['bodies'][1].set_facecolor('#E74C3C')
-            
-            ax4.set_xticks([1, 2])
-            ax4.set_xticklabels(oob_labels, fontsize=12)
-            ax4.set_ylabel('Out of Bounds Count per Episode', fontsize=12)
-            ax4.set_title('Ball Control Quality Distribution', fontsize=14, fontweight='bold')
-            ax4.grid(True, alpha=0.3, axis='y')
+            ppo_oob = ppo_metrics['out_of_bounds_count']
+            ddpg_oob = ddpg_metrics['out_of_bounds_count']
 
-        # Plot 5: Ball Contact Efficiency Heatmap
-        if 'ball_contact_time_pct' in ppo_metrics and 'ball_contact_time_pct' in ddpg_metrics:
-            # Create a comparison heatmap showing efficiency over time
-            # Bin episodes into segments for heatmap
-            n_segments = 20
-            ppo_segments = np.array_split(ppo_metrics['ball_contact_time_pct'], n_segments)
-            ddpg_segments = np.array_split(ddpg_metrics['ball_contact_time_pct'], n_segments)
-            
-            # Calculate statistics for each segment
-            ppo_means = [np.mean(seg) for seg in ppo_segments]
-            ddpg_means = [np.mean(seg) for seg in ddpg_segments]
-            
-            # Create heatmap data
-            heatmap_data = np.array([ppo_means, ddpg_means])
-            
-            im = ax5.imshow(heatmap_data, cmap='RdYlGn', aspect='auto', vmin=0, vmax=100)
-            ax5.set_yticks([0, 1])
-            ax5.set_yticklabels(['PPO', 'DDPG'], fontsize=12)
-            ax5.set_xlabel('Training Progress (Segments)', fontsize=12)
-            ax5.set_title('Ball Contact Efficiency Heatmap (%)', fontsize=14, fontweight='bold')
-            
-            # Add colorbar
-            cbar = plt.colorbar(im, ax=ax5, shrink=0.8)
-            cbar.set_label('Contact Time %', fontsize=10)
+            # Smooth the data for clearer trends
+            window_ppo = max(10, len(ppo_oob) // 50)
+            window_ddpg = max(10, len(ddpg_oob) // 50)
+
+            ppo_oob_smooth = pd.Series(ppo_oob).rolling(window=window_ppo, center=True).mean()
+            ddpg_oob_smooth = pd.Series(ddpg_oob).rolling(window=window_ddpg, center=True).mean()
+
+            # Plot line charts showing improvement over time
+            ax4.plot(range(len(ppo_oob_smooth)), ppo_oob_smooth, linewidth=2.5,
+                    color='#2E86C1', label='PPO', alpha=0.9)
+            ax4.plot(range(len(ddpg_oob_smooth)), ddpg_oob_smooth, linewidth=2.5,
+                    color='#E74C3C', label='DDPG', alpha=0.9)
+
+            ax4.set_xlabel('Episode Number', fontsize=12)
+            ax4.set_ylabel('Out of Bounds Count per Episode', fontsize=12)
+            ax4.set_title('Ball Control Quality Over Time (Lower is Better)', fontsize=14, fontweight='bold')
+            ax4.legend(fontsize=11)
+            ax4.grid(True, alpha=0.3)
+
+        # Plot 5: Final Ball Distance Over Time (Goal Approach Quality)
+        if 'final_ball_distance' in ppo_metrics and 'final_ball_distance' in ddpg_metrics:
+            ppo_dist = ppo_metrics['final_ball_distance']
+            ddpg_dist = ddpg_metrics['final_ball_distance']
+
+            # Smooth the data for clearer trends
+            window_ppo = max(10, len(ppo_dist) // 50)
+            window_ddpg = max(10, len(ddpg_dist) // 50)
+
+            ppo_dist_smooth = pd.Series(ppo_dist).rolling(window=window_ppo, center=True).mean()
+            ddpg_dist_smooth = pd.Series(ddpg_dist).rolling(window=window_ddpg, center=True).mean()
+
+            # Plot line charts showing distance to goal improvement
+            ax5.plot(range(len(ppo_dist_smooth)), ppo_dist_smooth, linewidth=2.5,
+                    color='#2E86C1', label='PPO', alpha=0.9)
+            ax5.plot(range(len(ddpg_dist_smooth)), ddpg_dist_smooth, linewidth=2.5,
+                    color='#E74C3C', label='DDPG', alpha=0.9)
+
+            # Add reference line for "good" distance (e.g., 2 meters)
+            ax5.axhline(2.0, color='green', linestyle='--', alpha=0.7, label='Target: 2m')
+
+            ax5.set_xlabel('Episode Number', fontsize=12)
+            ax5.set_ylabel('Final Ball Distance (meters)', fontsize=12)
+            ax5.set_title('Goal Approach Quality Over Time (Lower is Better)', fontsize=14, fontweight='bold')
+            ax5.legend(fontsize=11)
+            ax5.grid(True, alpha=0.3)
 
         # Plot 6: Performance Summary Statistics
         ax6.axis('off')
@@ -1759,7 +2561,7 @@ def run_academic_training_pipeline(total_timesteps=2500000, reward_type="smooth"
         training_system.logger.info(f"PPO checkpoint_freq: {ppo_checkpoint_freq} (checkpointing every {ppo_checkpoint_freq} steps)")
 
         # Create callbacks using separate environments
-        model_tracker, eval_callback, checkpoint_callback = create_callbacks_and_tracker(
+        model_tracker, eval_callback, checkpoint_callback, enhanced_metrics_callback = create_callbacks_and_tracker(
             algorithm_name='PPO',
             training_system=training_system,
             variant_name='PPO_academic',
@@ -1775,9 +2577,13 @@ def run_academic_training_pipeline(total_timesteps=2500000, reward_type="smooth"
         # Train PPO model with all callbacks
         ppo_model.learn(
             total_timesteps=total_timesteps,
-            callback=[model_tracker, eval_callback, checkpoint_callback],
+            callback=[model_tracker, eval_callback, checkpoint_callback, enhanced_metrics_callback],
             progress_bar=True
         )
+
+        # Save enhanced metrics history after training
+        enhanced_metrics_callback.save_metrics()
+        ppo_enhanced_metrics = enhanced_metrics_callback.get_metrics_history()
 
         # Save final PPO model
         ppo_model_path = f"{ppo_log_dir}/final_ppo_model"
@@ -1833,7 +2639,7 @@ def run_academic_training_pipeline(total_timesteps=2500000, reward_type="smooth"
         training_system.logger.info(f"DDPG checkpoint_freq: {ddpg_checkpoint_freq} (checkpointing every {ddpg_checkpoint_freq} steps)")
 
         # Create callbacks using separate environments
-        model_tracker_ddpg, eval_callback_ddpg, checkpoint_callback_ddpg = create_callbacks_and_tracker(
+        model_tracker_ddpg, eval_callback_ddpg, checkpoint_callback_ddpg, enhanced_metrics_callback_ddpg = create_callbacks_and_tracker(
             algorithm_name='DDPG',
             training_system=training_system,
             variant_name='DDPG_academic',
@@ -1849,9 +2655,13 @@ def run_academic_training_pipeline(total_timesteps=2500000, reward_type="smooth"
         # Train DDPG model with all callbacks
         ddpg_model.learn(
             total_timesteps=total_timesteps,
-            callback=[model_tracker_ddpg, eval_callback_ddpg, checkpoint_callback_ddpg],
+            callback=[model_tracker_ddpg, eval_callback_ddpg, checkpoint_callback_ddpg, enhanced_metrics_callback_ddpg],
             progress_bar=True
         )
+
+        # Save enhanced metrics history after training
+        enhanced_metrics_callback_ddpg.save_metrics()
+        ddpg_enhanced_metrics = enhanced_metrics_callback_ddpg.get_metrics_history()
 
         # Save final DDPG model
         ddpg_model_path = f"{ddpg_log_dir}/final_ddpg_model"
@@ -1919,22 +2729,7 @@ def run_academic_training_pipeline(total_timesteps=2500000, reward_type="smooth"
             )
             results['comparison_plot_path'] = comparison_plot_path
 
-            # Create enhanced metrics comparison plot if data is available
-            # Note: This requires 'enhanced_metrics' in training data
-            # Enhanced metrics include: goals_scored, possession_time_pct, collision_count,
-            # out_of_bounds_count, ball_contact_time_pct
-            training_system.logger.info("Creating enhanced metrics comparison plot...")
-            enhanced_comparison_path = create_enhanced_metrics_comparison(
-                training_system, ppo_training_data, ddpg_training_data,
-                f"Enhanced Metrics: PPO vs DDPG ({reward_type.title()} Reward)"
-            )
-            if enhanced_comparison_path:
-                results['enhanced_comparison_path'] = enhanced_comparison_path
-                training_system.logger.info(f"Enhanced comparison plot saved to {enhanced_comparison_path}")
-            else:
-                training_system.logger.info("Enhanced metrics not available - skipping enhanced comparison plot")
-
-        # ==================== FINAL EVALUATION ====================
+        # ==================== FINAL EVALUATION (Run BEFORE enhanced metrics plotting) ====================
         training_system.logger.info("="*60)
         training_system.logger.info("COMPREHENSIVE MODEL EVALUATION")
         training_system.logger.info("="*60)
@@ -1981,6 +2776,73 @@ def run_academic_training_pipeline(total_timesteps=2500000, reward_type="smooth"
             ddpg_eval_env.close()
 
         results['final_evaluation'] = evaluation_results
+
+        # ==================== ENHANCED METRICS PLOTTING ====================
+        # Extract enhanced metrics from evaluation results and training history for plotting
+        if ppo_training_data and ddpg_training_data:
+            training_system.logger.info("Enriching training data with enhanced metrics...")
+
+            # Option 1: Use final evaluation metrics (from 'medium' difficulty)
+            if 'medium' in evaluation_results['PPO'] and 'medium' in evaluation_results['DDPG']:
+                ppo_medium_results = evaluation_results['PPO']['medium']
+                ddpg_medium_results = evaluation_results['DDPG']['medium']
+
+                # Add enhanced metrics from final evaluation to training data dictionaries
+                if 'enhanced_metrics' in ppo_medium_results:
+                    ppo_training_data['enhanced_metrics'] = ppo_medium_results['enhanced_metrics']
+                    training_system.logger.info(f"Added PPO final evaluation enhanced metrics: {list(ppo_medium_results['enhanced_metrics'].keys())}")
+
+                if 'enhanced_metrics' in ddpg_medium_results:
+                    ddpg_training_data['enhanced_metrics'] = ddpg_medium_results['enhanced_metrics']
+                    training_system.logger.info(f"Added DDPG final evaluation enhanced metrics: {list(ddpg_medium_results['enhanced_metrics'].keys())}")
+
+            # Option 2: Also add training history metrics (tracked throughout training)
+            # These provide time-series data for plotting trends over training
+            if ppo_enhanced_metrics:
+                ppo_training_data['enhanced_metrics_history'] = ppo_enhanced_metrics
+                training_system.logger.info(f"Added PPO training history with {len(ppo_enhanced_metrics.get('timesteps', []))} evaluation points")
+
+            if ddpg_enhanced_metrics:
+                ddpg_training_data['enhanced_metrics_history'] = ddpg_enhanced_metrics
+                training_system.logger.info(f"Added DDPG training history with {len(ddpg_enhanced_metrics.get('timesteps', []))} evaluation points")
+
+            # Now create enhanced metrics comparison plot with enriched data
+            training_system.logger.info("Creating enhanced metrics comparison plot...")
+            enhanced_comparison_path = create_enhanced_metrics_comparison(
+                training_system, ppo_training_data, ddpg_training_data,
+                f"Enhanced Metrics: PPO vs DDPG ({reward_type.title()} Reward)"
+            )
+            if enhanced_comparison_path:
+                results['enhanced_comparison_path'] = enhanced_comparison_path
+                training_system.logger.info(f"Enhanced comparison plot saved to {enhanced_comparison_path}")
+            else:
+                training_system.logger.info("Enhanced metrics not available - skipping enhanced comparison plot")
+
+        # ==================== 3-WAY POLICY COMPARISON ====================
+        # Compare DDPG vs PPO vs Hand-Coded baseline
+        training_system.logger.info("="*60)
+        training_system.logger.info("RUNNING 3-WAY POLICY COMPARISON")
+        training_system.logger.info("="*60)
+
+        try:
+            # Use final trained models for comparison
+            comparison_results = compare_three_policies(
+                ppo_model=best_ppo,
+                ddpg_model=best_ddpg,
+                config_path=training_system.config_path,
+                difficulty="medium",  # Use medium difficulty for fair comparison
+                n_episodes=50,
+                output_dir=training_system.output_dir,
+                logger=training_system.logger
+            )
+            results['3way_comparison'] = comparison_results
+            training_system.logger.info("3-way policy comparison completed successfully")
+            training_system.logger.info(f"Results saved to: {comparison_results.get('json_path', 'N/A')}")
+            training_system.logger.info(f"Summary report: {comparison_results.get('summary_report', 'N/A')}")
+        except Exception as e:
+            training_system.logger.error(f"Error during 3-way policy comparison: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ==================== ACADEMIC SUMMARY ====================
         total_training_time = time.time() - training_system.training_start_time
