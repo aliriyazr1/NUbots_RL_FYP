@@ -924,6 +924,111 @@ def comprehensive_final_evaluation(training_system, ppo_results, ddpg_results):
     return results
 
 
+def print_policy_detailed_metrics(policy_name: str, n_episodes: int, total_steps: int,
+                                  goals_scored_list, episode_rewards, episode_lengths,
+                                  possession_timesteps_list, goal_approaches_list,
+                                  final_ball_distance_list, collision_count_list,
+                                  out_of_bounds_count_list):
+    """
+    Print detailed metrics for a single policy (matching watch_trained_robot format).
+    Reused for both DDPG and PPO in compare mode.
+    """
+    def calc_stats(data):
+        """Calculate mean, std, median, min, max for a list of values"""
+        arr = np.array(data)
+        return {
+            'mean': np.mean(arr),
+            'std': np.std(arr),
+            'median': np.median(arr),
+            'min': np.min(arr),
+            'max': np.max(arr)
+        }
+
+    # Create metrics dictionary
+    all_metrics = {
+        'goals_scored': goals_scored_list,
+        'ball_possession_timesteps': possession_timesteps_list,
+        'ball_out_of_bounds_count': out_of_bounds_count_list,
+        'robot_collisions_count': collision_count_list,
+        'episode_length': episode_lengths,
+        'cumulative_reward': episode_rewards,
+        'final_ball_distance': final_ball_distance_list,
+        'goal_approaches': goal_approaches_list
+    }
+
+    metrics_stats = {key: calc_stats(values) for key, values in all_metrics.items()}
+
+    # Calculate summary statistics
+    total_goals = sum(goals_scored_list)
+    avg_reward = metrics_stats['cumulative_reward']['mean']
+    std_reward = metrics_stats['cumulative_reward']['std']
+    avg_length = metrics_stats['episode_length']['mean']
+    success_rate = (total_goals / n_episodes) * 100 if n_episodes > 0 else 0
+
+    # Display comprehensive results
+    print(f"\n{'='*70}")
+    print(f"RESULTS FOR {policy_name}")
+    print(f"{'='*70}")
+    print(f"Episodes: {n_episodes}")
+    print(f"Total Steps: {total_steps}")
+    print(f"\nPrimary Metrics:")
+    print(f"  Goals Scored: {total_goals}/{n_episodes}")
+    print(f"  Success Rate: {success_rate:.1f}%")
+    print(f"  Average Reward: {avg_reward:.2f} ± {std_reward:.2f}")
+    print(f"  Average Episode Length: {avg_length:.1f} steps")
+
+    # Detailed metrics table
+    print(f"\nDetailed Performance Metrics:")
+    print(f"{'  Metric':<37} {'Mean ± Std':>18} {'[Min, Max]':>15}")
+    print(f"  {'-'*68}")
+
+    # Ball possession
+    s = metrics_stats['ball_possession_timesteps']
+    poss_rate_mean = (s['mean'] / avg_length) * 100 if avg_length > 0 else 0
+    print(f"  {'Ball Possession (steps)':<35} {s['mean']:>8.2f} ± {s['std']:<7.2f} [{s['min']:.0f}, {s['max']:.0f}]")
+    print(f"  {'Ball Possession Rate (%)':<35} {poss_rate_mean:>8.2f}%")
+
+    # Goal approaches
+    s = metrics_stats['goal_approaches']
+    print(f"  {'Goal Approaches':<35} {s['mean']:>8.2f} ± {s['std']:<7.2f} [{s['min']:.0f}, {s['max']:.0f}]")
+
+    # Final ball distance
+    s = metrics_stats['final_ball_distance']
+    print(f"  {'Final Ball Distance (m)':<35} {s['mean']:>8.2f} ± {s['std']:<7.2f} [{s['min']:.2f}, {s['max']:.2f}]")
+
+    # Collisions
+    s = metrics_stats['robot_collisions_count']
+    collision_rate_pct = (s['mean']) * 100
+    print(f"  {'Robot Collision Occurrences':<35} {s['mean']:>8.2f} ± {s['std']:<7.2f} [{s['min']:.0f}, {s['max']:.0f}]")
+    print(f"  {'Episodes with Collisions (%)':<35} {collision_rate_pct:>8.2f}%")
+
+    # Out of bounds
+    s = metrics_stats['ball_out_of_bounds_count']
+    out_of_bounds_pct = (s['mean']) * 100
+    print(f"  {'Ball Out of Bounds Occurrences':<35} {s['mean']:>8.2f} ± {s['std']:<7.2f} [{s['min']:.0f}, {s['max']:.0f}]")
+    print(f"  {'Episodes with Out-of-Bounds (%)':<35} {out_of_bounds_pct:>8.2f}%")
+
+    # Performance assessment
+    print(f"\nPERFORMANCE ASSESSMENT:")
+    if success_rate >= 70:
+        print(f"  Status: EXCELLENT - Success rate {success_rate:.1f}% is very high")
+    elif success_rate >= 40:
+        print(f"  Status: GOOD - Success rate {success_rate:.1f}% is solid")
+    elif success_rate >= 20:
+        print(f"  Status: DECENT - Success rate {success_rate:.1f}% shows learning")
+    else:
+        print(f"  Status: NEEDS IMPROVEMENT - Success rate {success_rate:.1f}% is low")
+
+    if avg_reward > 1000:
+        print(f"  Reward Level: EXCELLENT - Average reward {avg_reward:.1f} is very good")
+    elif avg_reward > 0:
+        print(f"  Reward Level: POSITIVE - Average reward {avg_reward:.1f}")
+    else:
+        print(f"  Reward Level: NEGATIVE - Average reward {avg_reward:.1f}, needs work")
+
+    print(f"{'='*70}\n")
+
+
 def compare_three_policies(ppo_model, ddpg_model, config_path: str, difficulty: str = "medium",
                           n_episodes: int = 50, output_dir: str = None, logger=None, debug_display: bool = False, testing_mode: bool = False):
     """
@@ -990,6 +1095,11 @@ def compare_three_policies(ppo_model, ddpg_model, config_path: str, difficulty: 
     ]
 
     for policy_name, policy_model, policy_results in policies:
+        # Terminal output for real-time feedback
+        print(f"\n{'='*70}")
+        print(f"EVALUATING: {policy_name}")
+        print(f"{'='*70}")
+
         if logger:
             logger.info(f"Evaluating {policy_name} policy...")
 
@@ -1001,12 +1111,17 @@ def compare_three_policies(ppo_model, ddpg_model, config_path: str, difficulty: 
         collision_count_list = []
         out_of_bounds_count_list = []
         final_ball_distance_list = []
+        goal_approaches_list = []
 
         unwrapped_env = eval_env.unwrapped
         POSSESSION_THRESHOLD = unwrapped_env.field_config.meters_to_pixels(0.3)
         COLLISION_THRESHOLD = unwrapped_env.collision_distance
+        ATTACKING_THIRD_START = unwrapped_env.field_width * 0.66  # Right third of field
 
         for episode in range(n_episodes):
+            # Terminal output: Episode progress
+            print(f"\nEpisode {episode + 1}/{n_episodes}")
+
             obs, _ = eval_env.reset()
             episode_reward = 0
             episode_steps = 0
@@ -1015,8 +1130,10 @@ def compare_three_policies(ppo_model, ddpg_model, config_path: str, difficulty: 
             # Episode metrics
             episode_goals = 0
             episode_possession_steps = 0
+            episode_goal_approaches = 0
             collision_occurred = False
             out_of_bounds_occurred = False
+            in_attacking_third = False
 
             while not done:
                 action, _ = policy_model.predict(obs, deterministic=True)
@@ -1042,6 +1159,12 @@ def compare_three_policies(ppo_model, ddpg_model, config_path: str, difficulty: 
                 if not out_of_bounds_occurred and unwrapped_env._check_ball_out_of_play():
                     out_of_bounds_occurred = True
 
+                # Track goal approaches (ball enters attacking third)
+                ball_in_attacking_third = unwrapped_env.ball_pos[0] > ATTACKING_THIRD_START
+                if ball_in_attacking_third and not in_attacking_third:
+                    episode_goal_approaches += 1
+                in_attacking_third = ball_in_attacking_third
+
                 # Track goals
                 if unwrapped_env._check_goal():
                     episode_goals += 1
@@ -1056,6 +1179,8 @@ def compare_three_policies(ppo_model, ddpg_model, config_path: str, difficulty: 
                             'cumulative_reward': episode_reward,
                             'goals': episode_goals,
                             'possession_pct': (episode_possession_steps / (episode_steps)) * 100 if episode_steps > 0 else 0,
+                            'robot_pos': unwrapped_env.robot_pos,
+                            'ball_pos': unwrapped_env.ball_pos,
                             'action': action,
                             'has_possession': robot_ball_dist < POSSESSION_THRESHOLD,
                             'has_collision': robot_opp_dist < COLLISION_THRESHOLD,
@@ -1066,6 +1191,25 @@ def compare_three_policies(ppo_model, ddpg_model, config_path: str, difficulty: 
                     import time
                     # Match watch_trained_robot speed: 0.05s for normal viewing
                     time.sleep(0.05)  # Normal viewing speed (20 FPS, same as watch_trained_robot)
+
+                # Check for termination and print reason
+                if terminated:
+                    # Check termination reason
+                    if unwrapped_env._check_goal():
+                        print(f"  SUCCESS! Robot scored a goal!")
+                    elif collision_occurred:
+                        print(f"  Episode ended: COLLISION with opponent")
+                    elif out_of_bounds_occurred:
+                        print(f"  Episode ended: Ball OUT OF BOUNDS")
+                    elif hasattr(unwrapped_env, '_check_opponent_goal') and unwrapped_env._check_opponent_goal():
+                        print(f"  Episode ended: Opponent scored")
+                    else:
+                        print(f"  Episode ended: Other termination reason")
+                    break
+
+                if truncated:
+                    print(f"  Episode timeout (reached {unwrapped_env.max_steps} steps)")
+                    break
 
                 done = terminated or truncated
 
@@ -1083,6 +1227,10 @@ def compare_three_policies(ppo_model, ddpg_model, config_path: str, difficulty: 
             collision_count_list.append(1 if collision_occurred else 0)
             out_of_bounds_count_list.append(1 if out_of_bounds_occurred else 0)
             final_ball_distance_list.append(final_ball_dist_m)
+            goal_approaches_list.append(episode_goal_approaches)
+
+            # Terminal output: Episode statistics
+            print(f"  Reward: {episode_reward:.2f} | Steps: {episode_steps} | Goals: {episode_goals} | Possession: {episode_possession_steps} steps\n")
 
         # Calculate aggregate statistics
         total_goals = sum(goals_scored_list)
@@ -1114,6 +1262,21 @@ def compare_three_policies(ppo_model, ddpg_model, config_path: str, difficulty: 
         policy_results['episode_rewards'] = episode_rewards
         policy_results['goals_scored_list'] = goals_scored_list
 
+        # Print detailed metrics to terminal (matching watch_trained_robot format)
+        print_policy_detailed_metrics(
+            policy_name=policy_name,
+            n_episodes=n_episodes,
+            total_steps=total_steps,
+            goals_scored_list=goals_scored_list,
+            episode_rewards=episode_rewards,
+            episode_lengths=episode_lengths,
+            possession_timesteps_list=possession_timesteps_list,
+            goal_approaches_list=goal_approaches_list,
+            final_ball_distance_list=final_ball_distance_list,
+            collision_count_list=collision_count_list,
+            out_of_bounds_count_list=out_of_bounds_count_list
+        )
+
         if logger:
             logger.info(f"{policy_name} Results:")
             logger.info(f"  Mean Reward: {policy_results['mean_reward']:.2f} ± {policy_results['std_reward']:.2f}")
@@ -1130,6 +1293,15 @@ def compare_three_policies(ppo_model, ddpg_model, config_path: str, difficulty: 
         results['json_path'] = save_3way_results_json(results, output_dir)
         results['markdown_path'] = save_3way_results_markdown(results, output_dir)
 
+        # Print comparison summary to terminal (reusing file content)
+        print(f"\n{'='*70}")
+        print("COMPARISON SUMMARY")
+        print(f"{'='*70}\n")
+
+        # Read and print the generated summary file
+        with open(results['summary_report'], 'r') as f:
+            summary_content = f.read()
+            print(summary_content)
     return results
 
 
@@ -1242,7 +1414,7 @@ def create_3way_comparison_plots(results: Dict, output_dir: str) -> Dict[str, st
         ax.text(bar.get_x() + bar.get_width()/2., height,
                 f'{oob_val:.1f}%', ha='center', va='bottom', fontsize=10)
 
-    bar_chart_path = os.path.join(output_dir, "3way_comparison_bar_charts.png")
+    bar_chart_path = os.path.join(output_dir, "2way_comparison_bar_charts.png")
     plt.savefig(bar_chart_path, dpi=300, bbox_inches='tight')
     plt.close()
     plot_paths['bar_charts'] = bar_chart_path
@@ -1285,7 +1457,7 @@ def create_3way_comparison_plots(results: Dict, output_dir: str) -> Dict[str, st
     ax.legend(fontsize=12)
     ax.grid(True, alpha=0.3)
 
-    goals_line_path = os.path.join(output_dir, "3way_goals_over_time.png")
+    goals_line_path = os.path.join(output_dir, "2way_goals_over_time.png")
     plt.savefig(goals_line_path, dpi=300, bbox_inches='tight')
     plt.close()
     plot_paths['goals_over_time'] = goals_line_path
@@ -1315,49 +1487,122 @@ def generate_thesis_summary(results: Dict, output_dir: str) -> str:
             return "N/A"
         return f"{((val1 - val2) / abs(val2)) * 100:.1f}%"
 
-    # Determine winner for each metric
-    reward_winner = "DDPG" if ddpg['mean_reward'] > ppo['mean_reward'] else "PPO"
-    goals_winner = "DDPG" if ddpg['total_goals'] > ppo['total_goals'] else "PPO"
-    possession_winner = "DDPG" if ddpg['possession_rate'] > ppo['possession_rate'] else "PPO"
-    collision_winner = "DDPG" if ddpg['collision_rate'] < ppo['collision_rate'] else "PPO"
-    oob_winner = "DDPG" if ddpg['out_of_bounds_rate'] < ppo['out_of_bounds_rate'] else "PPO"
+    # Determine winner for each metric (handle ties properly)
+    def determine_winner(ddpg_val, ppo_val, higher_is_better=True):
+        """Determine winner, handling ties correctly"""
+        if ddpg_val == ppo_val:
+            return "TIE"
+        if higher_is_better:
+            return "DDPG" if ddpg_val > ppo_val else "PPO"
+        else:
+            return "DDPG" if ddpg_val < ppo_val else "PPO"
+
+    reward_winner = determine_winner(ddpg['mean_reward'], ppo['mean_reward'], higher_is_better=True)
+    goals_winner = determine_winner(ddpg['total_goals'], ppo['total_goals'], higher_is_better=True)
+    possession_winner = determine_winner(ddpg['possession_rate'], ppo['possession_rate'], higher_is_better=True)
+    collision_winner = determine_winner(ddpg['collision_rate'], ppo['collision_rate'], higher_is_better=False)
+    oob_winner = determine_winner(ddpg['out_of_bounds_rate'], ppo['out_of_bounds_rate'], higher_is_better=False)
+
+    # Generate comparison text handling ties
+    if reward_winner == "TIE":
+        reward_comparison = "Both algorithms achieved identical mean rewards."
+    else:
+        reward_comparison = f"{reward_winner} achieved {pct_diff(ddpg['mean_reward'], ppo['mean_reward'])} {'higher' if reward_winner == 'DDPG' else 'lower'} mean reward than {'PPO' if reward_winner == 'DDPG' else 'DDPG'}."
+
+    if goals_winner == "TIE":
+        goals_comparison = "Both algorithms scored the same number of goals."
+    else:
+        goals_comparison = f"{goals_winner} scored {abs(ddpg['total_goals'] - ppo['total_goals'])} more goals than {'PPO' if goals_winner == 'DDPG' else 'DDPG'}."
+
+    if possession_winner == "TIE":
+        possession_comparison = "Both algorithms achieved identical ball possession rates."
+    else:
+        possession_comparison = f"{possession_winner} maintained higher ball possession, outperforming {'PPO' if possession_winner == 'DDPG' else 'DDPG'} by {abs(ddpg['possession_rate'] - ppo['possession_rate']):.1f} percentage points."
+
+    if collision_winner == "TIE":
+        collision_comparison = "Both algorithms had identical collision rates."
+    else:
+        collision_comparison = f"{collision_winner} demonstrated better collision avoidance."
+
+    if oob_winner == "TIE":
+        oob_comparison = "Both algorithms had identical out-of-bounds rates."
+    else:
+        oob_comparison = f"{oob_winner} maintained better ball control with fewer out-of-bounds incidents."
 
     summary = f"""
 # DDPG vs PPO Policy Comparison Summary
 Generated: {metadata['date']}
 Evaluation: {metadata['n_episodes']} episodes on {metadata['difficulty']} difficulty
 
-## Performance Comparison
+## Individual Policy Performance
+
+### DDPG Detailed Results
+
+**Primary Metrics:**
+- Goals Scored: {ddpg['total_goals']}/{metadata['n_episodes']}
+- Success Rate: {(ddpg['total_goals'] / metadata['n_episodes']) * 100:.1f}%
+- Average Reward: {ddpg['mean_reward']:.2f} ± {ddpg['std_reward']:.2f}
+- Average Episode Length: {ddpg['mean_episode_length']:.1f} steps
+
+**Detailed Performance Metrics:**
+- Ball Possession Rate: {ddpg['possession_rate']:.1f}%
+- Robot Collision Rate: {ddpg['collision_rate']:.1f}%
+- Ball Out-of-Bounds Rate: {ddpg['out_of_bounds_rate']:.1f}%
+- Mean Final Ball Distance: {ddpg['mean_final_ball_distance']:.2f} meters
+
+**Performance Assessment:**
+{('EXCELLENT - Success rate ' + f"{(ddpg['total_goals'] / metadata['n_episodes']) * 100:.1f}" + '% is very high') if (ddpg['total_goals'] / metadata['n_episodes']) * 100 >= 70 else ('GOOD - Success rate ' + f"{(ddpg['total_goals'] / metadata['n_episodes']) * 100:.1f}" + '% is solid') if (ddpg['total_goals'] / metadata['n_episodes']) * 100 >= 40 else ('DECENT - Success rate ' + f"{(ddpg['total_goals'] / metadata['n_episodes']) * 100:.1f}" + '% shows learning') if (ddpg['total_goals'] / metadata['n_episodes']) * 100 >= 20 else ('NEEDS IMPROVEMENT - Success rate ' + f"{(ddpg['total_goals'] / metadata['n_episodes']) * 100:.1f}" + '% is low')}
+{('EXCELLENT - Average reward ' + f"{ddpg['mean_reward']:.1f}" + ' is very good') if ddpg['mean_reward'] > 1000 else ('POSITIVE - Average reward ' + f"{ddpg['mean_reward']:.1f}") if ddpg['mean_reward'] > 0 else ('NEGATIVE - Average reward ' + f"{ddpg['mean_reward']:.1f}" + ', needs work')}
+
+### PPO Detailed Results
+
+**Primary Metrics:**
+- Goals Scored: {ppo['total_goals']}/{metadata['n_episodes']}
+- Success Rate: {(ppo['total_goals'] / metadata['n_episodes']) * 100:.1f}%
+- Average Reward: {ppo['mean_reward']:.2f} ± {ppo['std_reward']:.2f}
+- Average Episode Length: {ppo['mean_episode_length']:.1f} steps
+
+**Detailed Performance Metrics:**
+- Ball Possession Rate: {ppo['possession_rate']:.1f}%
+- Robot Collision Rate: {ppo['collision_rate']:.1f}%
+- Ball Out-of-Bounds Rate: {ppo['out_of_bounds_rate']:.1f}%
+- Mean Final Ball Distance: {ppo['mean_final_ball_distance']:.2f} meters
+
+**Performance Assessment:**
+{('EXCELLENT - Success rate ' + f"{(ppo['total_goals'] / metadata['n_episodes']) * 100:.1f}" + '% is very high') if (ppo['total_goals'] / metadata['n_episodes']) * 100 >= 70 else ('GOOD - Success rate ' + f"{(ppo['total_goals'] / metadata['n_episodes']) * 100:.1f}" + '% is solid') if (ppo['total_goals'] / metadata['n_episodes']) * 100 >= 40 else ('DECENT - Success rate ' + f"{(ppo['total_goals'] / metadata['n_episodes']) * 100:.1f}" + '% shows learning') if (ppo['total_goals'] / metadata['n_episodes']) * 100 >= 20 else ('NEEDS IMPROVEMENT - Success rate ' + f"{(ppo['total_goals'] / metadata['n_episodes']) * 100:.1f}" + '% is low')}
+{('EXCELLENT - Average reward ' + f"{ppo['mean_reward']:.1f}" + ' is very good') if ppo['mean_reward'] > 1000 else ('POSITIVE - Average reward ' + f"{ppo['mean_reward']:.1f}") if ppo['mean_reward'] > 0 else ('NEGATIVE - Average reward ' + f"{ppo['mean_reward']:.1f}" + ', needs work')}
+
+## Comparative Analysis
 
 ### Mean Episode Reward
 - DDPG: {ddpg['mean_reward']:.2f} ± {ddpg['std_reward']:.2f}
 - PPO: {ppo['mean_reward']:.2f} ± {ppo['std_reward']:.2f}
 
-{reward_winner} achieved {pct_diff(ddpg['mean_reward'], ppo['mean_reward'])} {'higher' if reward_winner == 'DDPG' else 'lower'} mean reward than {'PPO' if reward_winner == 'DDPG' else 'DDPG'}.
+{reward_comparison}
 
 ### Goal Scoring Performance
 - DDPG: {ddpg['total_goals']} goals ({ddpg['goals_per_episode']:.2f} per episode, σ={ddpg['goals_std']:.2f})
 - PPO: {ppo['total_goals']} goals ({ppo['goals_per_episode']:.2f} per episode, σ={ppo['goals_std']:.2f})
 
-{goals_winner} scored {abs(ddpg['total_goals'] - ppo['total_goals'])} more goals than {'PPO' if goals_winner == 'DDPG' else 'DDPG'}.
+{goals_comparison}
 
 ### Ball Possession Rate
 - DDPG: {ddpg['possession_rate']:.1f}%
 - PPO: {ppo['possession_rate']:.1f}%
 
-{possession_winner} maintained higher ball possession, outperforming {'PPO' if possession_winner == 'DDPG' else 'DDPG'} by {abs(ddpg['possession_rate'] - ppo['possession_rate']):.1f} percentage points.
+{possession_comparison}
 
 ### Collision Avoidance
 - DDPG: {ddpg['collision_rate']:.1f}% collision rate
 - PPO: {ppo['collision_rate']:.1f}% collision rate
 
-{collision_winner} demonstrated better collision avoidance.
+{collision_comparison}
 
 ### Out of Bounds Control
 - DDPG: {ddpg['out_of_bounds_rate']:.1f}% out of bounds rate
 - PPO: {ppo['out_of_bounds_rate']:.1f}% out of bounds rate
 
-{oob_winner} maintained better ball control with fewer out-of-bounds incidents.
+{oob_comparison}
 
 ### Episode Length
 - DDPG: {ddpg['mean_episode_length']:.1f} ± {ddpg['std_episode_length']:.1f} steps
@@ -1380,15 +1625,15 @@ Evaluation: {metadata['n_episodes']} episodes on {metadata['difficulty']} diffic
 
 ## Key Findings
 
-1. **Best Overall Performance**: {reward_winner} achieved the highest mean reward.
+1. **Best Overall Performance**: {reward_winner + ' achieved the highest mean reward.' if reward_winner != 'TIE' else 'Both algorithms achieved identical mean rewards.'}
 
-2. **Best Goal Scorer**: {goals_winner} scored the most goals.
+2. **Best Goal Scorer**: {goals_winner + ' scored the most goals.' if goals_winner != 'TIE' else 'Both algorithms scored the same number of goals.'}
 
-3. **Best Ball Control**: {possession_winner} maintained the highest possession rate.
+3. **Best Ball Control**: {possession_winner + ' maintained the highest possession rate.' if possession_winner != 'TIE' else 'Both algorithms had identical possession rates.'}
 
-4. **Best Collision Avoidance**: {collision_winner} had the lowest collision rate.
+4. **Best Collision Avoidance**: {collision_winner + ' had the lowest collision rate.' if collision_winner != 'TIE' else 'Both algorithms had identical collision rates.'}
 
-5. **Best Out-of-Bounds Control**: {oob_winner} had the lowest out-of-bounds rate.
+5. **Best Out-of-Bounds Control**: {oob_winner + ' had the lowest out-of-bounds rate.' if oob_winner != 'TIE' else 'Both algorithms had identical out-of-bounds rates.'}
 
 ## Conclusion
 
@@ -1405,7 +1650,7 @@ Both algorithms show learned behavior, with differences in risk-taking, ball con
 
 def save_3way_results_json(results: Dict, output_dir: str) -> str:
     """Save complete results to JSON file"""
-    json_path = os.path.join(output_dir, "3way_comparison_results.json")
+    json_path = os.path.join(output_dir, "2way_comparison_results.json")
 
     # Create clean copy without raw episode data for JSON
     clean_results = {
@@ -1423,11 +1668,34 @@ def save_3way_results_json(results: Dict, output_dir: str) -> str:
 
 def save_3way_results_markdown(results: Dict, output_dir: str) -> str:
     """Save results in markdown table format"""
-    md_path = os.path.join(output_dir, "3way_comparison_table.md")
+    md_path = os.path.join(output_dir, "2way_comparison_table.md")
 
     ddpg = results['ddpg']
     ppo = results['ppo']
     # hc = results['handcoded']
+
+    # Calculate success rates for individual assessments
+    ddpg_success_rate = (ddpg['total_goals'] / results['metadata']['n_episodes']) * 100
+    ppo_success_rate = (ppo['total_goals'] / results['metadata']['n_episodes']) * 100
+
+    # Performance assessments
+    def get_status_assessment(success_rate):
+        if success_rate >= 70:
+            return f"EXCELLENT - Success rate {success_rate:.1f}% is very high"
+        elif success_rate >= 40:
+            return f"GOOD - Success rate {success_rate:.1f}% is solid"
+        elif success_rate >= 20:
+            return f"DECENT - Success rate {success_rate:.1f}% shows learning"
+        else:
+            return f"NEEDS IMPROVEMENT - Success rate {success_rate:.1f}% is low"
+
+    def get_reward_assessment(mean_reward):
+        if mean_reward > 1000:
+            return f"EXCELLENT - Average reward {mean_reward:.1f} is very good"
+        elif mean_reward > 0:
+            return f"POSITIVE - Average reward {mean_reward:.1f}"
+        else:
+            return f"NEGATIVE - Average reward {mean_reward:.1f}, needs work"
 
     markdown = f"""# 2-Way Policy Comparison
 
@@ -1435,10 +1703,54 @@ def save_3way_results_markdown(results: Dict, output_dir: str) -> str:
 **Episodes:** {results['metadata']['n_episodes']}
 **Difficulty:** {results['metadata']['difficulty']}
 
-## Performance Metrics
+---
 
-| Metric | DDPG | PPO | Hand-Coded |
-|--------|------|-----|------------|
+## Individual Policy Performance
+
+### DDPG Detailed Results
+
+**Primary Metrics:**
+- Goals Scored: {ddpg['total_goals']}/{results['metadata']['n_episodes']}
+- Success Rate: {ddpg_success_rate:.1f}%
+- Average Reward: {ddpg['mean_reward']:.2f} ± {ddpg['std_reward']:.2f}
+- Average Episode Length: {ddpg['mean_episode_length']:.1f} steps
+
+**Detailed Performance Metrics:**
+- Ball Possession Rate: {ddpg['possession_rate']:.1f}%
+- Robot Collision Rate: {ddpg['collision_rate']:.1f}%
+- Ball Out-of-Bounds Rate: {ddpg['out_of_bounds_rate']:.1f}%
+- Mean Final Ball Distance: {ddpg['mean_final_ball_distance']:.2f} meters
+
+**Performance Assessment:**
+- Status: {get_status_assessment(ddpg_success_rate)}
+- Reward: {get_reward_assessment(ddpg['mean_reward'])}
+
+---
+
+### PPO Detailed Results
+
+**Primary Metrics:**
+- Goals Scored: {ppo['total_goals']}/{results['metadata']['n_episodes']}
+- Success Rate: {ppo_success_rate:.1f}%
+- Average Reward: {ppo['mean_reward']:.2f} ± {ppo['std_reward']:.2f}
+- Average Episode Length: {ppo['mean_episode_length']:.1f} steps
+
+**Detailed Performance Metrics:**
+- Ball Possession Rate: {ppo['possession_rate']:.1f}%
+- Robot Collision Rate: {ppo['collision_rate']:.1f}%
+- Ball Out-of-Bounds Rate: {ppo['out_of_bounds_rate']:.1f}%
+- Mean Final Ball Distance: {ppo['mean_final_ball_distance']:.2f} meters
+
+**Performance Assessment:**
+- Status: {get_status_assessment(ppo_success_rate)}
+- Reward: {get_reward_assessment(ppo['mean_reward'])}
+
+---
+
+## Comparison Table
+
+| Metric | DDPG | PPO |
+|--------|------|-----|
 | Mean Reward | {ddpg['mean_reward']:.2f} ± {ddpg['std_reward']:.2f} | {ppo['mean_reward']:.2f} ± {ppo['std_reward']:.2f} |
 | Median Reward | {ddpg['median_reward']:.2f} | {ppo['median_reward']:.2f} |
 | Total Goals | {ddpg['total_goals']} | {ppo['total_goals']} |
@@ -1448,12 +1760,12 @@ def save_3way_results_markdown(results: Dict, output_dir: str) -> str:
 | Out of Bounds (%) | {ddpg['out_of_bounds_rate']:.1f}% | {ppo['out_of_bounds_rate']:.1f}% |
 | Episode Length | {ddpg['mean_episode_length']:.1f} ± {ddpg['std_episode_length']:.1f} | {ppo['mean_episode_length']:.1f} ± {ppo['std_episode_length']:.1f} |
 
-## Summary
+## Winner Summary
 
 - **Best Reward:** {"DDPG" if ddpg['mean_reward'] > ppo['mean_reward'] else "PPO" if ppo['mean_reward'] > ddpg['mean_reward'] else "Tie"}
 - **Most Goals:** {"DDPG" if ddpg['total_goals'] > ppo['total_goals'] else "PPO" if ppo['total_goals'] > ddpg['total_goals'] else "Tie"}
 - **Best Possession:** {"DDPG" if ddpg['possession_rate'] > ppo['possession_rate'] else "PPO" if ppo['possession_rate'] > ddpg['possession_rate'] else "Tie"}
-- **Fewest Collisions:** {"DDPG" if ddpg['collision_rate'] <= ppo['collision_rate'] else "PPO" if ppo['collision_rate'] <= ddpg['collision_rate'] else "Tie"}
+- **Fewest Collisions:** {"DDPG" if ddpg['collision_rate'] < ppo['collision_rate'] else "PPO" if ppo['collision_rate'] < ddpg['collision_rate'] else "Tie"}
 """
 
     with open(md_path, 'w') as f:
@@ -2836,11 +3148,11 @@ def run_academic_training_pipeline(total_timesteps=2500000, reward_type="smooth"
                 logger=training_system.logger
             )
             results['3way_comparison'] = comparison_results
-            training_system.logger.info("3-way policy comparison completed successfully")
+            training_system.logger.info("2-way policy comparison completed successfully")
             training_system.logger.info(f"Results saved to: {comparison_results.get('json_path', 'N/A')}")
             training_system.logger.info(f"Summary report: {comparison_results.get('summary_report', 'N/A')}")
         except Exception as e:
-            training_system.logger.error(f"Error during 3-way policy comparison: {e}")
+            training_system.logger.error(f"Error during 2-way policy comparison: {e}")
             import traceback
             traceback.print_exc()
 

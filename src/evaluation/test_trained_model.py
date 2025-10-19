@@ -34,7 +34,7 @@ def create_timestamped_results_dir(base_name="evaluation"):
 
     Args:
         base_name: Descriptive name for the evaluation type
-            Examples: "ddpg_evaluation", "ppo_evaluation", "three_way_comparison"
+            Examples: "ddpg_evaluation", "ppo_evaluation", "two_way_comparison"
 
     Returns:
         Path object to the created directory
@@ -901,11 +901,11 @@ def compare_pretrained_models(ddpg_model_path, ppo_model_path,
     print(f"  PPO: {ppo_model_path}")
 
     # Create timestamped output directory to prevent overwriting
-    output_dir = create_timestamped_results_dir("three_way_comparison")
+    output_dir = create_timestamped_results_dir("two_way_comparison")
     print(f"\nResults will be saved to: {output_dir}")
 
     # Run the comparison (reuses existing function)
-    print(f"\nRunning 3-way comparison with {n_episodes} episodes per model...")
+    print(f"\nRunning 2-way comparison with {n_episodes} episodes per model...")
     if debug_display:
         print(f"Debug display: ENABLED")
     results = compare_three_policies(
