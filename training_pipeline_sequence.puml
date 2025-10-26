@@ -1,0 +1,134 @@
+@startuml Training Pipeline Sequence Diagram
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 200
+
+title RL Training Pipeline - Component Interactions and Data Flow
+
+actor User
+participant "CLI" as CLI
+participant "Training Pipeline\n(Orchestrator)" as Pipeline
+participant "SoccerEnv\n(Gymnasium)" as Env
+participant "RL Algorithm\n(PPO/DDPG)" as Algorithm
+participant "Callbacks\n(Tracker, Eval,\nCheckpoint, Metrics)" as Callbacks
+participant "TensorBoard" as TB
+participant "File System" as FS
+
+== Initialization Phase ==
+User -> CLI: Execute training command\n(--mode academic --timesteps 2500000)
+activate CLI
+activate Pipeline
+
+CLI -> Pipeline: Initialize training pipeline
+Pipeline -> FS: Create experiment directory structure
+Pipeline -> Pipeline: Setup logging
+Pipeline -> TB: Setup TensorBoard logging
+
+Pipeline -> FS: Load configurations\n(field_config.yaml, hyperparams_config.yaml)
+activate FS
+FS --> Pipeline: Return configurations
+deactivate FS
+
+== Environment and Algorithm Setup ==
+
+Pipeline -> Env: Create and wrap training/eval environments\n(Monitor wrapper, reward_type)
+activate Env
+Env -> Env: Initialize field, physics, reward function
+
+Pipeline -> Algorithm: Create algorithm instance\n(hyperparameters, environments, log_dir)
+activate Algorithm
+Algorithm -> Algorithm: Initialize policy network and optimizer
+
+Pipeline -> Callbacks: Create and configure callbacks\n(ModelTracker, EvalCallback, CheckpointCallback, EnhancedMetricsCallback)
+activate Callbacks
+
+Pipeline -> FS: Save hyperparameters to JSON
+activate FS
+deactivate FS
+
+== Training Loop Phase ==
+
+Pipeline -> Algorithm: Start training\n(total_timesteps, callbacks)
+
+loop For each training step
+    Algorithm -> Env: Reset and get initial observation
+    Env -> Env: Randomize positions, calculate observation
+    Env --> Algorithm: Return observation
+    
+    loop For each timestep in episode
+        Algorithm -> Algorithm: Select action via policy network
+        
+        Algorithm -> Env: Execute action
+        Env -> Env: Update positions and ball physics
+        Env -> Env: Calculate reward components
+        Env -> Env: Check termination conditions
+        Env --> Algorithm: Return (observation, reward, terminated, truncated, info)
+        
+        Algorithm -> Algorithm: Store transition, update policy
+        Algorithm -> TB: Log training metrics
+        
+        Algorithm -> Callbacks: Execute callback hooks
+        
+        Callbacks -> Callbacks: Track episode rewards (ModelTracker)
+        
+        opt Every eval_freq steps
+            Callbacks -> Env: Run evaluation episodes
+            Env --> Callbacks: Return evaluation results
+            Callbacks -> FS: Save best model if improved
+            Callbacks -> TB: Log evaluation metrics
+        end
+        
+        opt Every checkpoint_freq steps
+            Callbacks -> FS: Save model checkpoint
+        end
+        
+        opt Every 100k steps
+            Callbacks -> Callbacks: Comprehensive evaluation\n(creates temp environments internally)
+            
+            opt If best score
+                Callbacks -> FS: Save timestamped model
+                Callbacks -> Pipeline: Update best model tracking
+            end
+        end
+        
+        Callbacks -> Callbacks: Collect performance metrics\n(possession, collisions, boundaries)
+        
+        Callbacks --> Algorithm: Continue training
+    end
+end
+
+Algorithm --> Pipeline: Training completed
+
+== Post-Training Analysis Phase ==
+
+Pipeline -> FS: Save final models and metrics
+activate FS
+deactivate FS
+
+Pipeline -> FS: Load training data (evaluations.npz)
+activate FS
+FS --> Pipeline: Return training history
+deactivate FS
+
+Pipeline -> Pipeline: Generate analysis plots\n(training curves, comparisons)
+Pipeline -> FS: Save visualizations
+activate FS
+deactivate FS
+
+Pipeline -> Pipeline: Calculate statistics and perform tests\n(mean, std, t-tests, p-values)
+Pipeline -> FS: Save comprehensive results JSON
+activate FS
+deactivate FS
+
+deactivate Callbacks
+deactivate Algorithm
+deactivate Env
+
+Pipeline --> CLI: Analysis completed
+deactivate Pipeline
+
+CLI -> User: Display completion summary
+deactivate CLI
+
+@enduml

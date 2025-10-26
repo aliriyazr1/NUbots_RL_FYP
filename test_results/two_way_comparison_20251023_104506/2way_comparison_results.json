@@ -1,0 +1,41 @@
+{
+  "metadata": {
+    "date": "2025-10-23 10:45:06",
+    "n_episodes": 100,
+    "difficulty": "easy",
+    "config_path": "configs/field_config.yaml",
+    "comparison_type": "3-WAY"
+  },
+  "ddpg": {
+    "mean_reward": 12648.720126363745,
+    "std_reward": 3464.7537038983446,
+    "median_reward": 12900.499017987473,
+    "min_reward": 134.9556472450837,
+    "max_reward": 19357.682894982092,
+    "total_goals": 21,
+    "goals_per_episode": 0.21,
+    "goals_std": 0.40730823708832603,
+    "possession_rate": 52.55603315934909,
+    "collision_rate": 19.0,
+    "out_of_bounds_rate": 48.0,
+    "mean_episode_length": 260.56,
+    "std_episode_length": 229.5745334308664,
+    "mean_final_ball_distance": 1.616465772416015
+  },
+  "ppo": {
+    "mean_reward": -563.3059328855966,
+    "std_reward": 543.8940527966987,
+    "median_reward": -670.0456743075804,
+    "min_reward": -1704.0807247567748,
+    "max_reward": 778.2920347474648,
+    "total_goals": 0,
+    "goals_per_episode": 0.0,
+    "goals_std": 0.0,
+    "possession_rate": 1.9239268141775436,
+    "collision_rate": 25.0,
+    "out_of_bounds_rate": 1.0,
+    "mean_episode_length": 678.82,
+    "std_episode_length": 188.0344851350411,
+    "mean_final_ball_distance": 3.0058620528323754
+  }
+}

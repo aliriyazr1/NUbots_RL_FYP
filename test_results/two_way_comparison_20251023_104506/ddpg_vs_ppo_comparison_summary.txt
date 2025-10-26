@@ -1,0 +1,129 @@
+
+# DDPG vs PPO vs Hand-Coded Policy Comparison Summary
+Generated: 2025-10-23 10:45:06
+Evaluation: 100 episodes on easy difficulty
+
+## Individual Policy Performance
+
+### DDPG Detailed Results
+
+**Primary Metrics:**
+- Goals Scored: 21/100
+- Success Rate: 21.0%
+- Average Reward: 12648.72 ± 3464.75
+- Average Episode Length: 260.6 steps
+
+**Detailed Performance Metrics:**
+- Ball Possession Rate: 52.6%
+- Robot Collision Rate: 19.0%
+- Ball Out-of-Bounds Rate: 48.0%
+- Mean Final Ball Distance: 1.62 meters
+
+**Performance Assessment:**
+DECENT - Success rate 21.0% shows learning
+EXCELLENT - Average reward 12648.7 is very good
+
+### PPO Detailed Results
+
+**Primary Metrics:**
+- Goals Scored: 0/100
+- Success Rate: 0.0%
+- Average Reward: -563.31 ± 543.89
+- Average Episode Length: 678.8 steps
+
+**Detailed Performance Metrics:**
+- Ball Possession Rate: 1.9%
+- Robot Collision Rate: 25.0%
+- Ball Out-of-Bounds Rate: 1.0%
+- Mean Final Ball Distance: 3.01 meters
+
+**Performance Assessment:**
+NEEDS IMPROVEMENT - Success rate 0.0% is low
+NEGATIVE - Average reward -563.3, needs work
+
+### Hand-Coded Detailed Results
+
+**Primary Metrics:**
+- Goals Scored: 0/100
+- Success Rate: 0.0%
+- Average Reward: -817.40 ± 772.75
+- Average Episode Length: 747.3 steps
+
+**Detailed Performance Metrics:**
+- Ball Possession Rate: 2.2%
+- Robot Collision Rate: 3.0%
+- Ball Out-of-Bounds Rate: 1.0%
+- Mean Final Ball Distance: 3.35 meters
+
+**Performance Assessment:**
+NEEDS IMPROVEMENT - Success rate 0.0% is low
+NEGATIVE - Average reward -817.4, needs work
+
+## Comparative Analysis
+
+### Mean Episode Reward
+- DDPG: {ddpg['mean_reward']:.2f} ± {ddpg['std_reward']:.2f}
+- PPO: {ppo['mean_reward']:.2f} ± {ppo['std_reward']:.2f}
+
+{reward_comparison}
+
+### Goal Scoring Performance
+- DDPG: {ddpg['total_goals']} goals ({ddpg['goals_per_episode']:.2f} per episode, σ={ddpg['goals_std']:.2f})
+- PPO: {ppo['total_goals']} goals ({ppo['goals_per_episode']:.2f} per episode, σ={ppo['goals_std']:.2f})
+
+{goals_comparison}
+
+### Ball Possession Rate
+- DDPG: {ddpg['possession_rate']:.1f}%
+- PPO: {ppo['possession_rate']:.1f}%
+
+{possession_comparison}
+
+### Collision Avoidance
+- DDPG: {ddpg['collision_rate']:.1f}% collision rate
+- PPO: {ppo['collision_rate']:.1f}% collision rate
+
+{collision_comparison}
+
+### Out of Bounds Control
+- DDPG: {ddpg['out_of_bounds_rate']:.1f}% out of bounds rate
+- PPO: {ppo['out_of_bounds_rate']:.1f}% out of bounds rate
+
+{oob_comparison}
+
+### Episode Length
+- DDPG: {ddpg['mean_episode_length']:.1f} ± {ddpg['std_episode_length']:.1f} steps
+- PPO: {ppo['mean_episode_length']:.1f} ± {ppo['std_episode_length']:.1f} steps
+
+## Summary Table
+
+| Metric                    | DDPG           | PPO            | Hand-Coded     |
+|---------------------------|----------------|----------------|----------------|
+| Mean Reward               | 12648.7 ± 3464.8 |  -563.3 ± 543.9  |  -817.4 ± 772.7  |
+| Total Goals               |             21 |              0 |              0 |
+| Goals per Episode         |           0.21 |           0.00 |           0.00 |
+| Ball Possession (%)       |           52.6 |            1.9 |            2.2 |
+| Collision Rate (%)        |           19.0 |           25.0 |            3.0 |
+| Out of Bounds (%)         |           48.0 |            1.0 |            1.0 |
+| Mean Episode Length       |          260.6 |          678.8 |          747.3 |
+| Median Reward             |        12900.5 |         -670.0 |         -906.7 |
+| Min Reward                |          135.0 |        -1704.1 |        -1977.8 |
+| Max Reward                |        19357.7 |          778.3 |         4197.6 |
+
+
+## Key Findings
+
+1. **Best Overall Performance**: {reward_winner + ' achieved the highest mean reward.' if reward_winner != 'TIE' else 'Both algorithms achieved identical mean rewards.'}
+
+2. **Best Goal Scorer**: {goals_winner + ' scored the most goals.' if goals_winner != 'TIE' else 'Both algorithms scored the same number of goals.'}
+
+3. **Best Ball Control**: {possession_winner + ' maintained the highest possession rate.' if possession_winner != 'TIE' else 'Both algorithms had identical possession rates.'}
+
+4. **Best Collision Avoidance**: {collision_winner + ' had the lowest collision rate.' if collision_winner != 'TIE' else 'Both algorithms had identical collision rates.'}
+
+5. **Best Out-of-Bounds Control**: {oob_winner + ' had the lowest out-of-bounds rate.' if oob_winner != 'TIE' else 'Both algorithms had identical out-of-bounds rates.'}
+
+## Conclusion
+
+This comparison demonstrates the relative performance of DDPG and PPO algorithms in the soccer environment.
+Both algorithms show learned behavior, with differences in risk-taking, ball control, and goal-scoring strategies.

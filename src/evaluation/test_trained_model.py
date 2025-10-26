@@ -10,11 +10,10 @@ from stable_baselines3 import PPO, DDPG
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from src.environments.soccerenv import SoccerEnv
+from src.environments.soccerenv import SoccerEnv, ActionSmoothingWrapper, OpponentPolicy
 from src.training.train_GUI import TrainGUI
 import numpy as np
 import matplotlib.pyplot as plt
-from src.environments.soccerenv import ActionSmoothingWrapper
 import argparse
 import traceback
 import sys
@@ -24,7 +23,6 @@ from pathlib import Path
 
 # Import 3-way comparison functions from extended_train_script.py
 from src.training.extended_train_script import (
-    HandCodedPolicy,
     compare_three_policies
 )
 
@@ -904,8 +902,15 @@ def compare_pretrained_models(ddpg_model_path, ppo_model_path,
     output_dir = create_timestamped_results_dir("two_way_comparison")
     print(f"\nResults will be saved to: {output_dir}")
 
-    # Run the comparison (reuses existing function)
-    print(f"\nRunning 2-way comparison with {n_episodes} episodes per model...")
+    # Rule-based opponent policy will be instantiated inside compare_three_policies
+    # Pass a placeholder to signal 3-way comparison
+    # The comparison function will create OpponentAsPolicy with environment reference
+
+    # Run the comparison (3-way: DDPG vs PPO vs Rule-Based)
+    print(f"\nRunning 3-way comparison with {n_episodes} episodes per model...")
+    print(f"  - DDPG: Learned off-policy algorithm")
+    print(f"  - PPO: Learned on-policy algorithm")
+    print(f"  - Rule-Based: Opponent AI strategy (hand-coded baseline)")
     if debug_display:
         print(f"Debug display: ENABLED")
     results = compare_three_policies(
@@ -916,7 +921,8 @@ def compare_pretrained_models(ddpg_model_path, ppo_model_path,
         n_episodes=n_episodes,
         output_dir=str(output_dir),
         logger=None,  # test_trained_model.py doesn't have logger
-        debug_display=debug_display  # Pass debug_display flag
+        debug_display=debug_display,  # Pass debug_display flag
+        handcoded_policy="OPPONENT_POLICY"  # Placeholder - will create OpponentAsPolicy inside
     )
 
     # Optional: Demonstrate with rendering

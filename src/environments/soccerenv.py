@@ -53,25 +53,546 @@ from .fieldconfig import FieldConfig
 
 class ActionSmoothingWrapper:
     """Wrapper to smooth model actions - no retraining needed"""
-    
+
     def __init__(self, model, smoothing_factor=0.7):
         self.model = model
         self.smoothing_factor = smoothing_factor
         self.prev_action = np.array([0.0, 0.0, 0.0])
-    
+
     def predict(self, obs, deterministic=True):
         # Get raw action from trained model
         raw_action, state = self.model.predict(obs, deterministic=deterministic)
-        
+
         # Smooth the action with previous action
-        smoothed_action = (self.smoothing_factor * self.prev_action + 
+        smoothed_action = (self.smoothing_factor * self.prev_action +
                           (1 - self.smoothing_factor) * raw_action)
-        
+
         # Store for next iteration
         self.prev_action = smoothed_action.copy()
-        
+
         return smoothed_action, state
-    
+
+
+class OpponentAsPolicy:
+    """
+    PRIVILEGED wrapper that runs opponent AI logic as a standalone evaluable policy.
+
+    This class DIRECTLY accesses the environment's internal state (breaking encapsulation)
+    to replicate the opponent's behavior without using the observation/action interface.
+
+    This is a workaround to get 3-way comparison data without fixing the broken observation
+    space (which would require retraining all models).
+
+    Usage:
+        env = SoccerEnv(...)
+        policy = OpponentAsPolicy(env, behavior='balanced')
+        action, _ = policy.predict(obs)  # obs is ignored, uses env.robot_pos directly
+    """
+
+    def __init__(self, env, behavior='balanced', debug=False):
+        """
+        Initialize with DIRECT environment access.
+
+        Args:
+            env: SoccerEnv instance (we'll access its internal state directly!)
+            behavior: 'aggressive', 'defensive', or 'balanced'
+            debug: Enable debug logging
+        """
+        self.env = env  # Direct environment reference - PRIVILEGED ACCESS!
+        self.behavior = behavior
+        self.debug = debug
+        self.step_count = 0
+
+    def predict(self, obs, deterministic=True):
+        """
+        Predict action using DIRECT environment state access.
+
+        Args:
+            obs: Observation (IGNORED - we use env.robot_pos etc. directly)
+            deterministic: Ignored
+
+        Returns:
+            action: Pixel-space movement converted to action space
+            state: None
+        """
+        self.step_count += 1
+
+        # === PRIVILEGED ACCESS: Read environment state directly ===
+        robot_pos = self.env.robot_pos.copy()
+        ball_pos = self.env.ball_pos.copy()
+        opponent_pos = self.env.opponent_pos.copy()
+        goal_pos = self.env.goal_pos.copy()
+        has_ball = self.env.has_ball
+
+        # Calculate distances (in pixels, not normalized)
+        robot_ball_distance = np.linalg.norm(robot_pos - ball_pos)
+        opponent_ball_distance = np.linalg.norm(opponent_pos - ball_pos)
+        robot_opponent_distance = np.linalg.norm(robot_pos - opponent_pos)
+
+        # === EXACT OPPONENT AI LOGIC (from _update_opponent()) ===
+        if self.behavior == 'aggressive':
+            if has_ball and robot_opponent_distance > 50:
+                # Try to intercept robot's path to goal
+                intercept_point = robot_pos + (goal_pos - robot_pos) * 0.3
+                target = intercept_point
+            elif opponent_ball_distance < robot_ball_distance:
+                # Go for ball if closer
+                target = ball_pos
+            else:
+                # Chase robot aggressively
+                target = robot_pos
+
+        elif self.behavior == 'defensive':
+            goal_center = self.env._goal_center
+            if has_ball:
+                # Position between robot and goal
+                defensive_pos = robot_pos + (goal_center - robot_pos) * 0.4
+                defensive_pos[0] = min(defensive_pos[0], self.env.field_width - 60)
+                target = defensive_pos
+            else:
+                # Position between ball and goal
+                defensive_pos = ball_pos + (goal_center - ball_pos) * 0.3
+                defensive_pos[0] = min(defensive_pos[0], self.env.field_width - 60)
+                target = defensive_pos
+
+        else:  # balanced
+            # Note: We're controlling the ROBOT, so this is from robot's perspective
+            # When robot has ball, move toward goal
+            if has_ball:
+                target = goal_pos
+            elif robot_ball_distance < opponent_ball_distance * 0.8:
+                # Go for ball if significantly closer
+                target = ball_pos
+            else:
+                # Default to ball position
+                target = ball_pos
+
+        # Calculate direction in pixel space
+        direction = target - robot_pos
+        distance = np.linalg.norm(direction)
+
+        if distance > 1.0:
+            direction = direction / distance
+        else:
+            direction = np.array([0.0, 0.0])
+
+        # Map pixel-space movement to action space
+        # Opponent moves at opponent_speed pixels/frame
+        opponent_speed = self.env.opponent_speed_pixels_per_frame
+
+        # CRITICAL: Convert pixel-space direction to action-space velocities
+        # Actions are normalized to [-1, 1], representing max movement
+        # We scale by opponent_speed / robot_speed to match magnitudes
+        speed_ratio = opponent_speed / self.env.robot_speed
+
+        action_forward = np.clip(direction[0] * speed_ratio, -1.0, 1.0)
+        action_strafe = np.clip(direction[1] * speed_ratio, -1.0, 1.0)
+        action_rotation = 0.0  # Opponent doesn't rotate
+
+        action = np.array([action_forward, action_strafe, action_rotation], dtype=np.float32)
+
+        if self.debug and self.step_count % 10 == 0:
+            print(f"\n=== OpponentAsPolicy Debug (Step {self.step_count}) ===")
+            print(f"Behavior: {self.behavior}")
+            print(f"Robot pos (pixels): {robot_pos}")
+            print(f"Ball pos (pixels): {ball_pos}")
+            print(f"Target pos (pixels): {target}")
+            print(f"Has ball: {has_ball}")
+            print(f"Direction: {direction}")
+            print(f"Speed ratio: {speed_ratio:.3f}")
+            print(f"Action: forward={action[0]:.3f}, strafe={action[1]:.3f}, rotation={action[2]:.3f}")
+            print("=" * 50)
+
+        return action, None
+
+
+class OpponentPolicy:
+    """
+    Rule-based opponent policy extracted as a standalone baseline.
+
+    This policy replicates the opponent AI behavior from SoccerEnv,
+    serving as a hand-coded baseline for comparison with learned policies (PPO, DDPG).
+
+    Unlike the original HandCodedPolicy, this uses the same observation space as
+    the environment opponent and applies proven heuristics:
+    - Balanced behavior: Mix of aggressive ball pursuit and defensive positioning
+    - Direct position-based control (reconstructed from observations)
+    - Simple but effective strategy
+
+    Note: This policy works in PIXEL SPACE internally, not normalized observation space,
+    similar to how the environment's opponent operates. We reconstruct pixel coordinates
+    from normalized observations.
+    """
+
+    def __init__(self, behavior='balanced', field_width=800, field_height=600,
+                 opponent_speed=1.5, debug=False):
+        """
+        Initialize opponent policy.
+
+        Args:
+            behavior: 'aggressive', 'defensive', or 'balanced' (default)
+            field_width: Field width in pixels (default: 800)
+            field_height: Field height in pixels (default: 600)
+            opponent_speed: Movement speed in pixels/frame (default: 1.5)
+            debug: Enable debug logging (default: False)
+        """
+        self.behavior = behavior
+        self.field_width = field_width
+        self.field_height = field_height
+        self.opponent_speed = opponent_speed
+        self.debug = debug
+        self.step_count = 0
+
+        # For mapping actions back to [-1, 1] range
+        self.max_action_magnitude = opponent_speed
+
+    def predict(self, obs, deterministic=True):
+        """
+        Predict action based on observation.
+
+        Compatible with Stable-Baselines3 interface.
+
+        Args:
+            obs: Observation array (12 dimensions)
+            deterministic: Ignored (policy is always deterministic)
+
+        Returns:
+            action: Action array (3 dimensions: forward, strafe, rotation)
+            state: None (stateless policy)
+        """
+        self.step_count += 1
+
+        # Parse observation (all in normalized [-1, 1] coords)
+        # NOTE: Observation is from ROBOT's perspective (the agent we're controlling)
+        robot_x_norm, robot_y_norm, robot_angle_norm = obs[0], obs[1], obs[2]
+        ball_x_norm, ball_y_norm = obs[3], obs[4]
+        opponent_x_norm, opponent_y_norm = obs[5], obs[6]
+        ball_distance = obs[9]
+        has_ball = obs[11] > 0.5
+
+        # Reconstruct pixel coordinates from normalized observations
+        # Denormalization: norm in [-1, 1] → pixels
+        robot_x = (robot_x_norm + 1) * self.field_width / 2
+        robot_y = (robot_y_norm + 1) * self.field_height / 2
+        ball_x = (ball_x_norm + 1) * self.field_width / 2
+        ball_y = (ball_y_norm + 1) * self.field_height / 2
+        opponent_x = (opponent_x_norm + 1) * self.field_width / 2
+        opponent_y = (opponent_y_norm + 1) * self.field_height / 2
+
+        robot_pos = np.array([robot_x, robot_y])
+        ball_pos = np.array([ball_x, ball_y])
+        opponent_pos = np.array([opponent_x, opponent_y])
+        goal_pos = np.array([self.field_width, self.field_height / 2])  # Right side center
+
+        # Calculate distances (in pixels)
+        robot_ball_distance = np.linalg.norm(robot_pos - ball_pos)
+        opponent_ball_distance = np.linalg.norm(opponent_pos - ball_pos)
+        robot_opponent_distance = np.linalg.norm(robot_pos - opponent_pos)
+
+        # Determine target based on behavior strategy
+        # This is now from the ROBOT's perspective (same strategy as opponent, but for robot)
+        if self.behavior == 'aggressive':
+            # Always chase the ball or try to score
+            if has_ball and robot_opponent_distance > 50:
+                # Move toward goal when has ball and opponent is far
+                target = goal_pos
+            elif robot_ball_distance < opponent_ball_distance:
+                # Go for ball if closer
+                target = ball_pos
+            else:
+                # Pursue ball aggressively
+                target = ball_pos
+
+        elif self.behavior == 'defensive':
+            # More conservative - prioritize ball control over scoring
+            if has_ball:
+                # Position between opponent and goal (keep ball safe)
+                defensive_pos = opponent_pos + (goal_pos - opponent_pos) * 0.6
+                defensive_pos[0] = max(defensive_pos[0], self.field_width * 0.4)  # Don't retreat too far
+                target = defensive_pos
+            else:
+                # Position to intercept ball
+                target = ball_pos
+
+        else:  # balanced (default)
+            # Mix of aggressive and defensive based on situation
+            if has_ball:
+                # Move towards goal when has ball
+                target = goal_pos
+            elif robot_ball_distance < opponent_ball_distance * 0.8:
+                # Go for ball if significantly closer
+                target = ball_pos
+            else:
+                # Default to ball position
+                target = ball_pos
+
+        # Calculate direction to target (in pixel space)
+        direction = target - robot_pos  # Direction for ROBOT to move
+        distance = np.linalg.norm(direction)
+
+        if distance > 1.0:
+            direction = direction / distance
+        else:
+            direction = np.array([0.0, 0.0])
+
+        # Map pixel-space direction to action space
+        # WARNING: Actions are robot-relative (forward/strafe), not world-absolute!
+        # We're approximating by treating forward=x, strafe=y which only works
+        # if robot is facing right (angle ~0). This is a limitation of using
+        # opponent-style control with the standard action space.
+
+        # Scale direction by opponent_speed to get pixel velocity
+        # Then normalize to [-1, 1] action range
+        action_forward = np.clip(direction[0] * self.opponent_speed / self.max_action_magnitude, -1.0, 1.0)
+        action_strafe = np.clip(direction[1] * self.opponent_speed / self.max_action_magnitude, -1.0, 1.0)
+        action_rotation = 0.0  # Simplified: no rotation (same as original opponent)
+
+        action = np.array([action_forward, action_strafe, action_rotation], dtype=np.float32)
+
+        if self.debug and self.step_count % 10 == 0:
+            print(f"\n=== OpponentPolicy Debug (Step {self.step_count}) ===")
+            print(f"Behavior: {self.behavior}")
+            print(f"Robot pos: ({robot_x:.1f}, {robot_y:.1f})")
+            print(f"Ball pos: ({ball_x:.1f}, {ball_y:.1f})")
+            print(f"Opponent pos: ({opponent_x:.1f}, {opponent_y:.1f})")
+            print(f"Target pos: ({target[0]:.1f}, {target[1]:.1f})")
+            print(f"Has ball: {has_ball}")
+            print(f"Direction: {direction}")
+            print(f"Action: forward={action[0]:.3f}, strafe={action[1]:.3f}, rotation={action[2]:.3f}")
+            print("=" * 50)
+
+        return action, None
+
+
+class HandCodedPolicy:
+    """
+    Hand-coded soccer policy implementing intelligent baseline behavior.
+
+    This policy serves as a baseline for comparing RL algorithms (PPO, DDPG).
+    It implements deterministic, rule-based soccer behavior using proportional
+    control and strategic positioning.
+
+    Observation Space (12 dimensions):
+        [0-2]: Robot position (x, y) and angle (normalised)
+        [3-4]: Ball position (x, y) (normalised)
+        [5-6]: Opponent position (x, y) (normalised)
+        [7-8]: Robot velocity (vx, vy) (normalised)
+        [9]: Ball distance (normalised)
+        [10]: Goal distance (normalised)
+        [11]: Has ball (boolean as float)
+
+    Action Space (3 dimensions):
+        [0]: Forward/backward movement [-1, 1]
+        [1]: Left/right strafing [-1, 1]
+        [2]: Rotation [-1, 1]
+
+    Behavior Strategy:
+        1. Approach ball using proportional control
+        2. When possessing ball, dribble toward goal
+        3. Avoid boundaries and walls
+        4. Basic opponent avoidance
+        5. Strategic positioning when not in possession
+    """
+
+    def __init__(self, k_p=0.8, k_angle=1.2, boundary_margin=0.15, debug=False):
+        """
+        Initialise hand-coded policy with control parameters.
+
+        Args:
+            k_p: Proportional gain for position control (higher = more aggressive)
+            k_angle: Gain for angular control (higher = faster rotation)
+            boundary_margin: Safety margin from boundaries (in normalised coords)
+            debug: Enable debug logging for diagnostics (default: False)
+        """
+        self.k_p = k_p  # Proportional control gain
+        self.k_angle = k_angle  # Angular control gain
+        self.boundary_margin = boundary_margin  # Avoid getting too close to walls
+        self.debug = debug  # Debug logging flag
+        self.step_count = 0  # Track steps for debug logging
+        self.prev_action = np.array([0.0, 0.0, 0.0])  # For action smoothing
+        self.smoothing_factor = 0.6  # Smooth actions to prevent jerky movement
+
+    def predict(self, obs, deterministic=True):
+        """
+        Predict action based on current observation.
+
+        Compatible with Stable-Baselines3 model interface.
+
+        Args:
+            obs: Observation array (12 dimensions)
+            deterministic: Ignored (policy is always deterministic)
+
+        Returns:
+            action: Action array (3 dimensions)
+            state: None (stateless policy)
+        """
+        self.step_count += 1
+
+        # Parse observation
+        robot_x, robot_y, robot_angle = obs[0], obs[1], obs[2]
+        ball_x, ball_y = obs[3], obs[4]
+        opponent_x, opponent_y = obs[5], obs[6]
+        robot_vx, robot_vy = obs[7], obs[8]
+        ball_distance = obs[9]
+        goal_distance = obs[10]
+        has_ball = obs[11] > 0.5
+
+        if self.debug and self.step_count % 10 == 0:  # Log every 10 steps
+            print(f"\n=== HandCodedPolicy Debug (Step {self.step_count}) ===")
+            print(f"Robot: pos=({robot_x:.3f}, {robot_y:.3f}), angle={robot_angle:.3f} ({robot_angle * 180:.1f}°)")
+            print(f"Ball: pos=({ball_x:.3f}, {ball_y:.3f}), dist={ball_distance:.3f}")
+            print(f"Opponent: pos=({opponent_x:.3f}, {opponent_y:.3f})")
+            print(f"Has ball: {has_ball}")
+
+        # Goal is at the right side of the field (x = 1.0 in normalised coords)
+        goal_x, goal_y = 1.0, 0.0  # Center-right of field
+
+        # Calculate vectors
+        to_ball = np.array([ball_x - robot_x, ball_y - robot_y])
+        to_goal = np.array([goal_x - robot_x, goal_y - robot_y])
+        to_opponent = np.array([opponent_x - robot_x, opponent_y - robot_y])
+
+        if self.debug and self.step_count % 10 == 0:
+            print(f"Vectors: to_ball={to_ball}, to_goal={to_goal}")
+
+        # Initialise action
+        forward = 0.0
+        strafe = 0.0
+        rotation = 0.0
+
+        # === BEHAVIOR LOGIC ===
+
+        if has_ball:
+            # Strategy: Dribble toward goal when possessing ball
+            target = to_goal
+
+            # Denormalize angle: norm_angle in [0, 2] represents angle in [0, 2π)
+            current_angle = robot_angle * np.pi
+
+            # Calculate desired angle to goal in world space
+            desired_angle = np.arctan2(target[1], target[0])
+
+            # Calculate shortest angular error
+            angle_error = np.arctan2(np.sin(desired_angle - current_angle),
+                                     np.cos(desired_angle - current_angle))
+
+            if self.debug and self.step_count % 10 == 0:
+                print(f"Mode: DRIBBLE TO GOAL")
+                print(f"  Target vector (world): {target}")
+                print(f"  Desired angle (world): {np.degrees(desired_angle):.1f}°")
+                print(f"  Current angle (robot): {np.degrees(current_angle):.1f}°")
+                print(f"  Angle error: {np.degrees(angle_error):.1f}°")
+
+            # Rotate toward goal (proportional control)
+            rotation = np.clip(self.k_angle * angle_error / np.pi, -1.0, 1.0)
+
+            # Move forward when facing approximately the right direction
+            angle_alignment = np.cos(angle_error)
+            if angle_alignment > 0.7:  # Within ~45° of target
+                forward = 0.8 * angle_alignment
+            elif angle_alignment > 0.0:  # Within 90° of target
+                forward = 0.3  # Move slowly while rotating
+            else:
+                forward = 0.0  # Stop if facing away
+
+            # Small strafe to avoid obstacles
+            if abs(to_opponent[0]) < 0.3 and abs(to_opponent[1]) < 0.2:
+                # Opponent is close, strafe away
+                strafe = -np.sign(to_opponent[1]) * 0.4
+
+        else:
+            # Strategy: Approach ball to gain possession
+            target = to_ball
+
+            # === SIMPLE PROPORTIONAL CONTROL ===
+            # Directly control movement in world space using proportional gain
+            # No angle calculations - just move toward the target
+
+            # Normalize target vector to get direction
+            target_dist = np.linalg.norm(target)
+            if target_dist > 0.001:
+                target_direction = target / target_dist
+            else:
+                target_direction = np.array([0.0, 0.0])
+
+            # Use proportional control with distance scaling
+            distance_factor = np.clip(ball_distance * 2.0, 0.3, 1.0)
+
+            # Map world-space direction to forward/strafe
+            # Forward is along x-axis (toward goal), strafe is along y-axis
+            forward = self.k_p * target_direction[0] * distance_factor
+            strafe = self.k_p * target_direction[1] * distance_factor
+
+            # Since angle observation is unreliable, use velocity to estimate facing
+            # and add corrective rotation if moving in wrong direction
+            vel_mag = np.linalg.norm([robot_vx, robot_vy])
+            if vel_mag > 0.1 and target_dist > 0.01:
+                # Check if velocity aligns with desired direction
+                vel_direction = np.array([robot_vx, robot_vy]) / vel_mag
+                alignment = np.dot(vel_direction, target_direction)
+
+                # If moving in wrong direction, add rotation
+                if alignment < 0.5:  # Not well aligned
+                    # Cross product gives rotation direction
+                    cross = vel_direction[0] * target_direction[1] - vel_direction[1] * target_direction[0]
+                    rotation = np.sign(cross) * 0.5
+                else:
+                    rotation = 0.0
+            else:
+                # No reliable velocity - just move without rotation
+                rotation = 0.0
+
+            if self.debug and self.step_count % 10 == 0:
+                print(f"Mode: APPROACH BALL (Simple Proportional Control)")
+                print(f"  Target vector (world): {target}")
+                print(f"  Target direction: {target_direction}")
+                print(f"  Distance factor: {distance_factor:.3f}")
+                print(f"  Forward: {forward:.3f}, Strafe: {strafe:.3f}, Rotation: {rotation:.3f}")
+
+        # === BOUNDARY AVOIDANCE ===
+        # Slow down and reverse near boundaries
+        if robot_x > (1.0 - self.boundary_margin):
+            forward = min(forward, -0.3)  # Reverse away from right boundary
+        if robot_x < (-1.0 + self.boundary_margin):
+            forward = max(forward, 0.3)  # Move away from left boundary
+
+        if robot_y > (1.0 - self.boundary_margin):
+            strafe = min(strafe, -0.3)  # Strafe down from top boundary
+        if robot_y < (-1.0 + self.boundary_margin):
+            strafe = max(strafe, 0.3)  # Strafe up from bottom boundary
+
+        # === OPPONENT AVOIDANCE ===
+        # If opponent is very close, take evasive action
+        opponent_dist = np.linalg.norm(to_opponent)
+        if opponent_dist < 0.15:  # Very close collision risk
+            # Strafe perpendicular to opponent direction
+            strafe = -np.sign(to_opponent[1]) * 0.6
+            rotation += np.sign(angle_error) * 0.3  # Add evasive rotation
+
+        # Construct raw action
+        raw_action = np.array([forward, strafe, rotation], dtype=np.float32)
+
+        # Clip to action space bounds
+        raw_action = np.clip(raw_action, -1.0, 1.0)
+
+        # Apply action smoothing to prevent jerky movements
+        smoothed_action = (self.smoothing_factor * self.prev_action +
+                          (1 - self.smoothing_factor) * raw_action)
+        smoothed_action = np.clip(smoothed_action, -1.0, 1.0)
+
+        if self.debug and self.step_count % 10 == 0:
+            print(f"Actions:")
+            print(f"  Raw: forward={raw_action[0]:.3f}, strafe={raw_action[1]:.3f}, rotation={raw_action[2]:.3f}")
+            print(f"  Smoothed: forward={smoothed_action[0]:.3f}, strafe={smoothed_action[1]:.3f}, rotation={smoothed_action[2]:.3f}")
+            print("=" * 50)
+
+        # Store for next iteration
+        self.prev_action = smoothed_action.copy()
+
+        # Return action and None state (stateless policy)
+        return smoothed_action, None
+
+
 class SoccerEnv(gym.Env):
     """
     Simple 2D Soccer Environment for FYP
@@ -332,7 +853,9 @@ class SoccerEnv(gym.Env):
         ball_distance = np.clip(np.linalg.norm(self.robot_pos - self.ball_pos) / max_distance, 0, 1)
         goal_distance = np.clip(np.linalg.norm(self.robot_pos - self.goal_pos) / max_distance, 0, 1)
     
-        # Normalize angle
+        # Normalize angle to [-1, 1] range for consistency with observation space
+        # NOTE: This clips angles > π, losing information, but maintains compatibility
+        # with trained models that expect this range
         norm_angle = np.clip(self.robot_angle / np.pi, -1, 1)
         
         obs = np.array([

@@ -1,0 +1,101 @@
+@startuml Evaluation and Testing Sequence Diagram
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 200
+
+title Model Evaluation and Testing - Component Interactions and Data Flow
+
+actor "NUbots Developer" as User
+participant "CLI" as CLI
+participant "Evaluation System" as Eval
+participant "Trained Model\n(PPO/DDPG)" as Model
+participant "SoccerEnv\n(Gymnasium)" as Env
+participant "Visualisation\n(Pygame)" as Visual
+participant "File System" as FS
+
+== Initialisation Phase ==
+
+User -> CLI: Execute evaluation command\n(model-path=path, model-type=PPO/DDPG,\n episodes=50, difficulty=medium)
+activate CLI
+activate Eval
+
+CLI -> Eval: Initialise evaluation system
+
+Eval -> FS: Load configurations and trained model\n(field_config.yaml, model.zip)
+activate FS
+FS --> Eval: Return configuration and model
+deactivate FS
+
+Eval -> Model: Load trained model
+activate Model
+
+Eval -> Env: Create evaluation environment\n(difficulty, field_config, render_mode)
+activate Env
+Env -> Env: Initialise field and physics parameters
+
+opt Visualisation enabled
+    Eval -> Visual: Initialise Pygame rendering
+    activate Visual
+end
+
+== Evaluation Loop Phase ==
+
+loop For each evaluation episode (n_episodes)
+    Eval -> Env: Reset environment
+    Env -> Env: Randomise initial positions
+    Env --> Eval: Return observation (12D state)
+    
+    Eval -> Eval: Initialise episode metrics
+    
+    loop For each timestep in episode (until terminated or truncated)
+        Eval -> Model: Get action for observation
+        Model --> Eval: Return action (v_x, v_y, v_θ)
+        
+        Eval -> Env: Execute action
+        Env -> Env: Update physics and calculate reward
+        Env --> Eval: Return (observation, reward, terminated, truncated)
+        
+        Eval -> Eval: Update episode metrics
+        
+        opt Visualisation enabled
+            Eval -> Visual: Render current state
+        end
+    end
+    
+    Eval -> Eval: Store episode results
+end
+
+opt Visualisation enabled
+    Eval -> Visual: Close rendering
+    deactivate Visual
+end
+
+deactivate Env
+deactivate Model
+
+== Analysis and Reporting Phase ==
+
+Eval -> Eval: Calculate statistics\n(mean, std, success rate, possession %, collision frequency)
+
+opt Comparison mode
+    Eval -> Eval: Perform statistical tests\n(t-test, Cohen's d, p-values)
+end
+
+Eval -> Eval: Generate visualisation plots
+
+Eval -> FS: Save results\n(metrics JSON, plots, summary report)
+activate FS
+deactivate FS
+
+Eval --> CLI: Evaluation completed
+deactivate Eval
+
+CLI -> User: Display results summary
+deactivate CLI
+
+@enduml
+
+
+' I am working on my FYP research report/thesis and I am working on it in C3412624_SENG4001B_Research_Report.pdf. Need help in writing the report more than good enough to score full marks as per the SENG4001B Assessment4.pdf. Important guidelines in report_structure_guidelines.txt and report_dump.md although there were some draft paras for the report in between subtopics. There are example research reports which are apparently of high quality from last year named as eadejordan_38144_7775090_FYP_report.pdf, ResearchReportMartynCox_Redacted.pdf, clarkematthew_47018_7779286_Research Report.pdf. I am working on the Design section specifically Design Specifications. Keep in mind the project implementation and real data and results that we have got. Test cases and markdown files may have some data that we need to get into the report. I have my research and architecture in the C3412624_SENG4001B_Research Presentation System Demonstration.pdf presentation. I was thinking of also taking some ideas from the research paper s1084602201619y 1.pdf. Also Try not to make the Design chapter too similar to the Implementation chapter. Write it in an academic tone but somehow make it like I wrote it so AI detectors won't detect AI, this is mainly because it says AI regardless of whether I write it or not
+' Is there anything else I can say for Data Design and Interface Design (CLI is there, should I also talk about PyGame visualisation here or in Implementation section)

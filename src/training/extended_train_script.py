@@ -14,7 +14,7 @@ from stable_baselines3.common.callbacks import EvalCallback, BaseCallback, Check
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from src.environments.soccerenv import SoccerEnv, ActionSmoothingWrapper
+from src.environments.soccerenv import SoccerEnv, ActionSmoothingWrapper, HandCodedPolicy
 from src.training.train_GUI import TrainGUI
 import os, time, yaml, torch, datetime, json, copy
 from collections import deque
@@ -393,106 +393,6 @@ class EnhancedMetricsCallback(BaseCallback):
                 json.dump(metrics_data, f, indent=2)
             if self.verbose > 0:
                 print(f"Enhanced metrics saved to {metrics_path}")
-
-
-class HandCodedPolicy:
-    """
-    DEAD SIMPLE hand-coded policy (like opponent AI):
-    - Access environment state directly
-    - No ball? → Chase ball
-    - Have ball? → Move to goal
-    - Transform world direction to robot frame
-
-    That's it. No fancy logic, no opponent avoidance, no complexity.
-    """
-
-    def __init__(self, env, debug=False):
-        self.env = env
-        self.action_space = env.action_space
-        self.debug = debug
-        self.step_count = 0
-
-    def predict(self, obs, deterministic=True):
-        """
-        Simple 2-state policy using direct environment access (like opponent AI):
-        1. Chase ball when don't have it
-        2. Move to goal when have it
-
-        Access positions directly from environment (raw pixel coordinates).
-        Transform world-space direction to robot frame.
-        """
-        self.step_count += 1
-
-        # Access positions directly from environment (like opponent AI does)
-        robot_pos = np.array(self.env.robot_pos)  # Raw pixel coords
-        ball_pos = np.array(self.env.ball_pos)    # Raw pixel coords
-        goal_pos = np.array(self.env.goal_pos)    # Raw pixel coords
-        robot_angle = self.env.robot_angle        # Robot's orientation
-
-        # Calculate distance to ball for possession check
-        dist_to_ball = np.linalg.norm(ball_pos - robot_pos)
-        has_ball = dist_to_ball < self.env.possession_threshold
-
-        # Decide target: ball or goal?
-        if has_ball:
-            target = goal_pos
-            target_name = "GOAL"
-        else:
-            target = ball_pos
-            target_name = "BALL"
-
-        # Calculate world-space direction to target
-        direction_world = target - robot_pos
-        distance = np.linalg.norm(direction_world)
-
-        if distance > 1.0:
-            # Normalize direction vector
-            direction_world = direction_world / distance
-        else:
-            direction_world = np.array([0.0, 0.0])
-
-        # Transform world direction to robot frame
-        # Robot's forward is along its angle, strafe is perpendicular
-        cos_theta = np.cos(robot_angle)
-        sin_theta = np.sin(robot_angle)
-
-        # Forward/strafe in robot frame from world direction
-        forward = direction_world[0] * cos_theta + direction_world[1] * sin_theta
-        strafe = -direction_world[0] * sin_theta + direction_world[1] * cos_theta
-
-        # Calculate target angle for rotation
-        target_angle = np.arctan2(direction_world[1], direction_world[0])
-        angle_diff = target_angle - robot_angle
-
-        # Normalize angle difference to [-π, π]
-        angle_diff = np.arctan2(np.sin(angle_diff), np.cos(angle_diff))
-
-        # Rotation: proportional to angle difference
-        rotation = np.clip(angle_diff * 2.0, -1.0, 1.0)
-
-        # Scale forward/strafe to maintain constant speed (like opponent AI)
-        speed = 1.0
-        forward = forward * speed
-        strafe = strafe * speed
-
-        # Create action
-        action = np.array([forward, strafe, rotation], dtype=np.float32)
-        action = np.clip(action, self.action_space.low, self.action_space.high)
-
-        # Debug output every 50 steps
-        if self.debug and self.step_count % 50 == 0:
-            print(f"\n=== HandCoded Policy Debug (step {self.step_count}) ===")
-            print(f"Robot pos: {robot_pos}, angle: {np.degrees(robot_angle):.1f}°")
-            print(f"Ball pos: {ball_pos}")
-            print(f"Goal pos: {goal_pos}")
-            print(f"Dist to ball: {dist_to_ball:.1f}, Has ball: {has_ball}")
-            print(f"Target: {target_name} at {target}")
-            print(f"Distance to target: {distance:.1f}")
-            print(f"World direction: ({direction_world[0]:.2f}, {direction_world[1]:.2f})")
-            print(f"Target angle: {np.degrees(target_angle):.1f}°, Angle diff: {np.degrees(angle_diff):.1f}°")
-            print(f"Action: forward={forward:.2f}, strafe={strafe:.2f}, rotation={rotation:.2f}")
-
-        return action, None
 
 
 def create_ppo_model(env: Monitor, hyperparams: Dict[str, Any],
@@ -1030,11 +930,11 @@ def print_policy_detailed_metrics(policy_name: str, n_episodes: int, total_steps
 
 
 def compare_three_policies(ppo_model, ddpg_model, config_path: str, difficulty: str = "medium",
-                          n_episodes: int = 50, output_dir: str = None, logger=None, debug_display: bool = False, testing_mode: bool = False):
+                          n_episodes: int = 50, output_dir: str = None, logger=None, debug_display: bool = False, testing_mode: bool = False, handcoded_policy=None):
     """
-    Comprehensive 2-way comparison: DDPG vs PPO.
+    Comprehensive 3-way comparison: DDPG vs PPO vs Hand-Coded.
 
-    Evaluates both policies on the same environment and collects detailed metrics.
+    Evaluates all three policies on the same environment and collects detailed metrics.
     Generates comparison plots and thesis-ready summary report.
 
     Args:
@@ -1046,13 +946,20 @@ def compare_three_policies(ppo_model, ddpg_model, config_path: str, difficulty: 
         output_dir: Directory to save results
         logger: Logger instance
         debug_display: Show debug overlay during evaluation (default: False)
+        testing_mode: Enable testing mode (default: False)
+        handcoded_policy: Hand-coded policy instance (optional, if None runs 2-way comparison)
 
     Returns:
         Dictionary with all metrics and file paths
     """
+    # Determine if running 2-way or 3-way comparison
+    is_3way = handcoded_policy is not None
+    comparison_type = "3-WAY" if is_3way else "2-WAY"
+    comparison_desc = "DDPG vs PPO vs Hand-Coded" if is_3way else "DDPG vs PPO"
+
     if logger:
         logger.info("="*60)
-        logger.info("2-WAY POLICY COMPARISON: DDPG vs PPO")
+        logger.info(f"{comparison_type} POLICY COMPARISON: {comparison_desc}")
         logger.info("="*60)
 
     # Create evaluation environment
@@ -1080,21 +987,41 @@ def compare_three_policies(ppo_model, ddpg_model, config_path: str, difficulty: 
             'date': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'n_episodes': n_episodes,
             'difficulty': difficulty,
-            'config_path': config_path
+            'config_path': config_path,
+            'comparison_type': comparison_type
         }
     }
+
+    # Add hand-coded results storage if running 3-way comparison
+    if is_3way:
+        results['handcoded'] = {}
 
     # Wrap models with ActionSmoothingWrapper (match watch_trained_robot behavior)
     ddpg_smooth = ActionSmoothingWrapper(ddpg_model, smoothing_factor=0.6)
     ppo_smooth = ActionSmoothingWrapper(ppo_model, smoothing_factor=0.6)
 
-    # Evaluate each policy
+    # Build policy list based on comparison type
     policies = [
         ('DDPG', ddpg_smooth, results['ddpg']),
         ('PPO', ppo_smooth, results['ppo'])
     ]
 
+    # Add hand-coded policy if running 3-way comparison
+    # Note: OpponentAsPolicy requires environment reference, created later
+    handcoded_policy_template = None
+    if is_3way:
+        handcoded_policy_template = handcoded_policy  # Save for later instantiation
+        policies.append(('Rule-Based', 'PLACEHOLDER', results['handcoded']))
+
+    # Evaluate each policy
+
     for policy_name, policy_model, policy_results in policies:
+        # Special handling for OpponentAsPolicy - needs environment reference
+        if policy_name == 'Rule-Based' and policy_model == 'PLACEHOLDER':
+            # Import OpponentAsPolicy
+            from src.environments.soccerenv import OpponentAsPolicy
+            # Create policy with direct environment access
+            policy_model = OpponentAsPolicy(eval_env.unwrapped, behavior='balanced', debug=False)
         # Terminal output for real-time feedback
         print(f"\n{'='*70}")
         print(f"EVALUATING: {policy_name}")
@@ -1326,16 +1253,25 @@ def create_3way_comparison_plots(results: Dict, output_dir: str) -> Dict[str, st
 
     plot_paths = {}
 
-    # Extract data - only DDPG and PPO
-    policies = ['DDPG', 'PPO']
-    policy_keys = ['ddpg', 'ppo']
+    # Determine if 3-way comparison based on presence of handcoded results
+    is_3way = 'handcoded' in results and len(results['handcoded']) > 0
 
-    # Colors for each policy
-    colors = ['#2E86C1', '#E74C3C']
+    # Extract data - DDPG, PPO, and optionally Hand-Coded
+    if is_3way:
+        policies = ['DDPG', 'PPO', 'Hand-Coded']
+        policy_keys = ['ddpg', 'ppo', 'handcoded']
+        # Colors: Blue (DDPG), Red (PPO), Green (Hand-Coded)
+        colors = ['#2E86C1', '#E74C3C', '#27AE60']
+    else:
+        policies = ['DDPG', 'PPO']
+        policy_keys = ['ddpg', 'ppo']
+        # Colors: Blue (DDPG), Red (PPO)
+        colors = ['#2E86C1', '#E74C3C']
 
-    # ============ PLOT 1: Bar Chart Comparison (5 subplots) ============
+    # ============ PLOT 1: Bar Chart Comparison (6 subplots) ============
     fig, axes = plt.subplots(2, 3, figsize=(18, 10))
-    fig.suptitle('DDPG vs PPO: Performance Metrics Comparison', fontsize=16, fontweight='bold')
+    comparison_title = 'Policy Comparison: ' + ' vs '.join(policies)
+    fig.suptitle(comparison_title, fontsize=16, fontweight='bold')
     plt.subplots_adjust(hspace=0.35, wspace=0.3)
 
     # Subplot 1: Mean Reward
@@ -1420,9 +1356,15 @@ def create_3way_comparison_plots(results: Dict, output_dir: str) -> Dict[str, st
     plot_paths['bar_charts'] = bar_chart_path
 
     # ============ PLOT 2: Reward Distribution Histograms ============
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-    fig.suptitle('Reward Distribution: DDPG vs PPO', fontsize=16, fontweight='bold')
+    num_policies = len(policies)
+    fig, axes = plt.subplots(1, num_policies, figsize=(6 * num_policies, 5))
+    histogram_title = 'Reward Distribution: ' + ' vs '.join(policies)
+    fig.suptitle(histogram_title, fontsize=16, fontweight='bold')
     plt.subplots_adjust(wspace=0.3)
+
+    # Handle both single and multiple subplots
+    if num_policies == 1:
+        axes = [axes]
 
     for idx, (policy_name, policy_key, color) in enumerate(zip(policies, policy_keys, colors)):
         ax = axes[idx]
@@ -1467,7 +1409,9 @@ def create_3way_comparison_plots(results: Dict, output_dir: str) -> Dict[str, st
 
 def generate_thesis_summary(results: Dict, output_dir: str) -> str:
     """
-    Generate thesis-ready text summary with clear numerical comparisons (DDPG vs PPO).
+    Generate thesis-ready text summary with clear numerical comparisons.
+
+    Supports both 2-way (DDPG vs PPO) and 3-way (DDPG vs PPO vs Hand-Coded) comparisons.
 
     Args:
         results: Results dictionary from compare_three_policies
@@ -1480,6 +1424,11 @@ def generate_thesis_summary(results: Dict, output_dir: str) -> str:
     ddpg = results['ddpg']
     ppo = results['ppo']
     metadata = results['metadata']
+
+    # Check if 3-way comparison (has hand-coded results)
+    is_3way = 'handcoded' in results and len(results['handcoded']) > 0
+    if is_3way:
+        handcoded = results['handcoded']
 
     # Calculate percentage differences
     def pct_diff(val1, val2):
@@ -1529,8 +1478,14 @@ def generate_thesis_summary(results: Dict, output_dir: str) -> str:
     else:
         oob_comparison = f"{oob_winner} maintained better ball control with fewer out-of-bounds incidents."
 
+    # Generate title based on comparison type
+    if is_3way:
+        summary_title = "# DDPG vs PPO vs Hand-Coded Policy Comparison Summary"
+    else:
+        summary_title = "# DDPG vs PPO Policy Comparison Summary"
+
     summary = f"""
-# DDPG vs PPO Policy Comparison Summary
+{summary_title}
 Generated: {metadata['date']}
 Evaluation: {metadata['n_episodes']} episodes on {metadata['difficulty']} difficulty
 
@@ -1571,7 +1526,32 @@ Evaluation: {metadata['n_episodes']} episodes on {metadata['difficulty']} diffic
 **Performance Assessment:**
 {('EXCELLENT - Success rate ' + f"{(ppo['total_goals'] / metadata['n_episodes']) * 100:.1f}" + '% is very high') if (ppo['total_goals'] / metadata['n_episodes']) * 100 >= 70 else ('GOOD - Success rate ' + f"{(ppo['total_goals'] / metadata['n_episodes']) * 100:.1f}" + '% is solid') if (ppo['total_goals'] / metadata['n_episodes']) * 100 >= 40 else ('DECENT - Success rate ' + f"{(ppo['total_goals'] / metadata['n_episodes']) * 100:.1f}" + '% shows learning') if (ppo['total_goals'] / metadata['n_episodes']) * 100 >= 20 else ('NEEDS IMPROVEMENT - Success rate ' + f"{(ppo['total_goals'] / metadata['n_episodes']) * 100:.1f}" + '% is low')}
 {('EXCELLENT - Average reward ' + f"{ppo['mean_reward']:.1f}" + ' is very good') if ppo['mean_reward'] > 1000 else ('POSITIVE - Average reward ' + f"{ppo['mean_reward']:.1f}") if ppo['mean_reward'] > 0 else ('NEGATIVE - Average reward ' + f"{ppo['mean_reward']:.1f}" + ', needs work')}
+"""
 
+    # Add Hand-Coded section if 3-way comparison
+    if is_3way:
+        handcoded_section = f"""
+### Hand-Coded Detailed Results
+
+**Primary Metrics:**
+- Goals Scored: {handcoded['total_goals']}/{metadata['n_episodes']}
+- Success Rate: {(handcoded['total_goals'] / metadata['n_episodes']) * 100:.1f}%
+- Average Reward: {handcoded['mean_reward']:.2f} ± {handcoded['std_reward']:.2f}
+- Average Episode Length: {handcoded['mean_episode_length']:.1f} steps
+
+**Detailed Performance Metrics:**
+- Ball Possession Rate: {handcoded['possession_rate']:.1f}%
+- Robot Collision Rate: {handcoded['collision_rate']:.1f}%
+- Ball Out-of-Bounds Rate: {handcoded['out_of_bounds_rate']:.1f}%
+- Mean Final Ball Distance: {handcoded['mean_final_ball_distance']:.2f} meters
+
+**Performance Assessment:**
+{('EXCELLENT - Success rate ' + f"{(handcoded['total_goals'] / metadata['n_episodes']) * 100:.1f}" + '% is very high') if (handcoded['total_goals'] / metadata['n_episodes']) * 100 >= 70 else ('GOOD - Success rate ' + f"{(handcoded['total_goals'] / metadata['n_episodes']) * 100:.1f}" + '% is solid') if (handcoded['total_goals'] / metadata['n_episodes']) * 100 >= 40 else ('DECENT - Success rate ' + f"{(handcoded['total_goals'] / metadata['n_episodes']) * 100:.1f}" + '% shows learning') if (handcoded['total_goals'] / metadata['n_episodes']) * 100 >= 20 else ('NEEDS IMPROVEMENT - Success rate ' + f"{(handcoded['total_goals'] / metadata['n_episodes']) * 100:.1f}" + '% is low')}
+{('EXCELLENT - Average reward ' + f"{handcoded['mean_reward']:.1f}" + ' is very good') if handcoded['mean_reward'] > 1000 else ('POSITIVE - Average reward ' + f"{handcoded['mean_reward']:.1f}") if handcoded['mean_reward'] > 0 else ('NEGATIVE - Average reward ' + f"{handcoded['mean_reward']:.1f}" + ', needs work')}
+"""
+        summary += handcoded_section
+
+    summary += """
 ## Comparative Analysis
 
 ### Mean Episode Reward
@@ -1609,7 +1589,26 @@ Evaluation: {metadata['n_episodes']} episodes on {metadata['difficulty']} diffic
 - PPO: {ppo['mean_episode_length']:.1f} ± {ppo['std_episode_length']:.1f} steps
 
 ## Summary Table
+"""
 
+    # Add summary table with conditional Hand-Coded column
+    if is_3way:
+        summary += f"""
+| Metric                    | DDPG           | PPO            | Hand-Coded     |
+|---------------------------|----------------|----------------|----------------|
+| Mean Reward               | {ddpg['mean_reward']:>7.1f} ± {ddpg['std_reward']:<6.1f} | {ppo['mean_reward']:>7.1f} ± {ppo['std_reward']:<6.1f} | {handcoded['mean_reward']:>7.1f} ± {handcoded['std_reward']:<6.1f} |
+| Total Goals               | {ddpg['total_goals']:>14} | {ppo['total_goals']:>14} | {handcoded['total_goals']:>14} |
+| Goals per Episode         | {ddpg['goals_per_episode']:>14.2f} | {ppo['goals_per_episode']:>14.2f} | {handcoded['goals_per_episode']:>14.2f} |
+| Ball Possession (%)       | {ddpg['possession_rate']:>14.1f} | {ppo['possession_rate']:>14.1f} | {handcoded['possession_rate']:>14.1f} |
+| Collision Rate (%)        | {ddpg['collision_rate']:>14.1f} | {ppo['collision_rate']:>14.1f} | {handcoded['collision_rate']:>14.1f} |
+| Out of Bounds (%)         | {ddpg['out_of_bounds_rate']:>14.1f} | {ppo['out_of_bounds_rate']:>14.1f} | {handcoded['out_of_bounds_rate']:>14.1f} |
+| Mean Episode Length       | {ddpg['mean_episode_length']:>14.1f} | {ppo['mean_episode_length']:>14.1f} | {handcoded['mean_episode_length']:>14.1f} |
+| Median Reward             | {ddpg['median_reward']:>14.1f} | {ppo['median_reward']:>14.1f} | {handcoded['median_reward']:>14.1f} |
+| Min Reward                | {ddpg['min_reward']:>14.1f} | {ppo['min_reward']:>14.1f} | {handcoded['min_reward']:>14.1f} |
+| Max Reward                | {ddpg['max_reward']:>14.1f} | {ppo['max_reward']:>14.1f} | {handcoded['max_reward']:>14.1f} |
+"""
+    else:
+        summary += f"""
 | Metric                    | DDPG           | PPO            |
 |---------------------------|----------------|----------------|
 | Mean Reward               | {ddpg['mean_reward']:>7.1f} ± {ddpg['std_reward']:<6.1f} | {ppo['mean_reward']:>7.1f} ± {ppo['std_reward']:<6.1f} |
@@ -1622,6 +1621,9 @@ Evaluation: {metadata['n_episodes']} episodes on {metadata['difficulty']} diffic
 | Median Reward             | {ddpg['median_reward']:>14.1f} | {ppo['median_reward']:>14.1f} |
 | Min Reward                | {ddpg['min_reward']:>14.1f} | {ppo['min_reward']:>14.1f} |
 | Max Reward                | {ddpg['max_reward']:>14.1f} | {ppo['max_reward']:>14.1f} |
+"""
+
+    summary += """
 
 ## Key Findings
 
@@ -1667,16 +1669,23 @@ def save_3way_results_json(results: Dict, output_dir: str) -> str:
 
 
 def save_3way_results_markdown(results: Dict, output_dir: str) -> str:
-    """Save results in markdown table format"""
+    """Save results in markdown table format (supports both 2-way and 3-way)"""
+    # Determine if 3-way comparison
+    is_3way = 'handcoded' in results and len(results['handcoded']) > 0
+
     md_path = os.path.join(output_dir, "2way_comparison_table.md")
 
     ddpg = results['ddpg']
     ppo = results['ppo']
-    # hc = results['handcoded']
 
     # Calculate success rates for individual assessments
     ddpg_success_rate = (ddpg['total_goals'] / results['metadata']['n_episodes']) * 100
     ppo_success_rate = (ppo['total_goals'] / results['metadata']['n_episodes']) * 100
+
+    # Add hand-coded if 3-way comparison
+    if is_3way:
+        handcoded = results['handcoded']
+        handcoded_success_rate = (handcoded['total_goals'] / results['metadata']['n_episodes']) * 100
 
     # Performance assessments
     def get_status_assessment(success_rate):
@@ -1697,7 +1706,10 @@ def save_3way_results_markdown(results: Dict, output_dir: str) -> str:
         else:
             return f"NEGATIVE - Average reward {mean_reward:.1f}, needs work"
 
-    markdown = f"""# 2-Way Policy Comparison
+    # Generate title based on comparison type
+    comparison_title = "# 3-Way Policy Comparison" if is_3way else "# 2-Way Policy Comparison"
+
+    markdown = f"""{comparison_title}
 
 **Evaluation Date:** {results['metadata']['date']}
 **Episodes:** {results['metadata']['n_episodes']}
@@ -1746,10 +1758,55 @@ def save_3way_results_markdown(results: Dict, output_dir: str) -> str:
 - Reward: {get_reward_assessment(ppo['mean_reward'])}
 
 ---
+"""
 
-## Comparison Table
+    # Add Hand-Coded section if 3-way comparison
+    if is_3way:
+        markdown += f"""
+### Hand-Coded Detailed Results
 
-| Metric | DDPG | PPO |
+**Primary Metrics:**
+- Goals Scored: {handcoded['total_goals']}/{results['metadata']['n_episodes']}
+- Success Rate: {handcoded_success_rate:.1f}%
+- Average Reward: {handcoded['mean_reward']:.2f} ± {handcoded['std_reward']:.2f}
+- Average Episode Length: {handcoded['mean_episode_length']:.1f} steps
+
+**Detailed Performance Metrics:**
+- Ball Possession Rate: {handcoded['possession_rate']:.1f}%
+- Robot Collision Rate: {handcoded['collision_rate']:.1f}%
+- Ball Out-of-Bounds Rate: {handcoded['out_of_bounds_rate']:.1f}%
+- Mean Final Ball Distance: {handcoded['mean_final_ball_distance']:.2f} meters
+
+**Performance Assessment:**
+- Status: {get_status_assessment(handcoded_success_rate)}
+- Reward: {get_reward_assessment(handcoded['mean_reward'])}
+
+---
+"""
+
+    # Add comparison table with conditional columns
+    markdown += "\n## Comparison Table\n\n"
+    if is_3way:
+        markdown += f"""| Metric | DDPG | PPO | Hand-Coded |
+|--------|------|-----|------------|
+| Mean Reward | {ddpg['mean_reward']:.2f} ± {ddpg['std_reward']:.2f} | {ppo['mean_reward']:.2f} ± {ppo['std_reward']:.2f} | {handcoded['mean_reward']:.2f} ± {handcoded['std_reward']:.2f} |
+| Median Reward | {ddpg['median_reward']:.2f} | {ppo['median_reward']:.2f} | {handcoded['median_reward']:.2f} |
+| Total Goals | {ddpg['total_goals']} | {ppo['total_goals']} | {handcoded['total_goals']} |
+| Goals/Episode | {ddpg['goals_per_episode']:.3f} | {ppo['goals_per_episode']:.3f} | {handcoded['goals_per_episode']:.3f} |
+| Possession (%) | {ddpg['possession_rate']:.1f}% | {ppo['possession_rate']:.1f}% | {handcoded['possession_rate']:.1f}% |
+| Collision Rate (%) | {ddpg['collision_rate']:.1f}% | {ppo['collision_rate']:.1f}% | {handcoded['collision_rate']:.1f}% |
+| Out of Bounds (%) | {ddpg['out_of_bounds_rate']:.1f}% | {ppo['out_of_bounds_rate']:.1f}% | {handcoded['out_of_bounds_rate']:.1f}% |
+| Episode Length | {ddpg['mean_episode_length']:.1f} ± {ddpg['std_episode_length']:.1f} | {ppo['mean_episode_length']:.1f} ± {ppo['std_episode_length']:.1f} | {handcoded['mean_episode_length']:.1f} ± {handcoded['std_episode_length']:.1f} |
+
+## Winner Summary
+
+- **Best Reward:** {"DDPG" if ddpg['mean_reward'] > max(ppo['mean_reward'], handcoded['mean_reward']) else "PPO" if ppo['mean_reward'] > max(ddpg['mean_reward'], handcoded['mean_reward']) else "Hand-Coded" if handcoded['mean_reward'] > max(ddpg['mean_reward'], ppo['mean_reward']) else "Tie"}
+- **Most Goals:** {"DDPG" if ddpg['total_goals'] > max(ppo['total_goals'], handcoded['total_goals']) else "PPO" if ppo['total_goals'] > max(ddpg['total_goals'], handcoded['total_goals']) else "Hand-Coded" if handcoded['total_goals'] > max(ddpg['total_goals'], ppo['total_goals']) else "Tie"}
+- **Best Possession:** {"DDPG" if ddpg['possession_rate'] > max(ppo['possession_rate'], handcoded['possession_rate']) else "PPO" if ppo['possession_rate'] > max(ddpg['possession_rate'], handcoded['possession_rate']) else "Hand-Coded" if handcoded['possession_rate'] > max(ddpg['possession_rate'], ppo['possession_rate']) else "Tie"}
+- **Fewest Collisions:** {"DDPG" if ddpg['collision_rate'] < min(ppo['collision_rate'], handcoded['collision_rate']) else "PPO" if ppo['collision_rate'] < min(ddpg['collision_rate'], handcoded['collision_rate']) else "Hand-Coded" if handcoded['collision_rate'] < min(ddpg['collision_rate'], ppo['collision_rate']) else "Tie"}
+"""
+    else:
+        markdown += f"""| Metric | DDPG | PPO |
 |--------|------|-----|
 | Mean Reward | {ddpg['mean_reward']:.2f} ± {ddpg['std_reward']:.2f} | {ppo['mean_reward']:.2f} ± {ppo['std_reward']:.2f} |
 | Median Reward | {ddpg['median_reward']:.2f} | {ppo['median_reward']:.2f} |
