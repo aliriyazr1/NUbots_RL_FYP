@@ -1,0 +1,81 @@
+@startuml C4_Level2_Complete_RL_System
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_TOP_DOWN()
+LAYOUT_WITH_LEGEND()
+
+title Level 2: RL Soccer Training System - Container Diagram
+
+Person(researcher, "NUbots Developer", "Configures training, monitors experiments, evaluates models")
+
+' ================================================================================
+' EXTERNAL SYSTEMS (Outside system boundary)
+' ================================================================================
+
+ContainerDb_Ext(file_system, "File System", "Local Storage + Git", "Stores trained models, configs, logs, and test results")
+
+' ================================================================================
+' RL TRAINING SYSTEM (What was implemented)
+' ================================================================================
+
+System_Boundary(rl_system, "RL Soccer Training System") {
+    ' Training Phase Components
+    Container(cli, "Command-Line Interface", "Python argparse", "Training control via flags:\nalgorithm=(PPO/DDPG)\nconfig=(YAML path)\nepisodes=(num)\nmodel=(path)")
+    
+    Container(config_loader, "Configuration Loader", "Python YAML", "Loads field config YAML\nValidates hyperparameters\nProvides runtime configuration")
+    
+    Container(training_pipeline, "Training Pipeline", "Python", "Manages training loop\nCurriculum learning (easy→medium→hard)\nMonitors convergence\nSaves checkpoints")
+    
+    Container(soccerenv, "SoccerEnv", "Gymnasium Environment", "2D soccer simulation\n9m × 6m SPL field\nPhysics engine with collisions\nOpponent AI (3 difficulties)\nMulti-objective reward function")
+    
+    Container(visualization, "Visualisation System", "Matplotlib + Python", "Generates training plots\nComparative analysis charts\nPerformance metrics graphs")
+    
+    ' Deployment Preparation Components
+    Container(onnx_converter, "ONNX Conversion Pipeline", "Python Scripts", "PyTorch → ONNX export\nDeterministicPPOWrapper\nNumerical validation\nCross-platform compatibility")
+    
+    Container(testing_suite, "Testing & Validation", "Pytest (66 tests)", "Unit tests (33): environment, physics\nIntegration tests (25): models, ONNX\nPerformance benchmarks (8)\n90.9% pass rate")
+}
+
+' ================================================================================
+' EXTERNAL SYSTEMS BELOW BOUNDARY
+' ================================================================================
+
+System_Ext(sb3, "Stable-Baselines3", "External RL Library\nProvides PPO and DDPG implementations")
+System_Ext(tensorboard_ui, "TensorBoard", "Web Visualisation\n which renders training metrics and curves")
+
+' ================================================================================
+' RELATIONSHIPS
+' ================================================================================
+
+' User interactions
+Rel(researcher, cli, "Executes training commands")
+
+' Configuration flow
+Rel(cli, config_loader, "Loads configuration")
+Rel(config_loader, file_system, "Reads YAML from")
+Rel(config_loader, training_pipeline, "Provides hyperparameters")
+Rel(config_loader, soccerenv, "Configures field dimensions")
+
+' Training flow
+Rel(cli, training_pipeline, "Starts training")
+Rel(training_pipeline, sb3, "Uses algorithms from")
+Rel(sb3, soccerenv, "Interacts with (step/reset)")
+Rel(training_pipeline, file_system, "Saves models to")
+Rel(training_pipeline, visualization, "Logs metrics to")
+
+' Visualization
+Rel(visualization, file_system, "Saves plots to")
+Rel(visualization, tensorboard_ui, "Streams metrics to")
+
+' Deployment preparation
+Rel(file_system, onnx_converter, "Provides trained models")
+Rel(onnx_converter, file_system, "Saves ONNX models to")
+
+' Testing
+Rel(testing_suite, soccerenv, "Validates environment")
+Rel(testing_suite, file_system, "Tests models from")
+Rel(testing_suite, file_system, "Saves results to")
+
+SHOW_LEGEND()
+
+@enduml
