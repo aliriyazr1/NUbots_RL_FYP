@@ -235,28 +235,29 @@ reward_parameters:
   close_threshold_multiplier: 2.0     # 2x contact_threshold for "close"
   medium_threshold_multiplier: 4.0    # 4x contact_threshold for "medium"  
   far_threshold_multiplier: 6.0       # 6x contact_threshold for "far"
-  # Ball seeking penalties and rewards
-  far_ball_threshold: 0.4             # Fraction of max field distance for "too far" 
-  far_ball_penalty: 0.5               # Penalty for being too far from ball
-  movement_threshold: 0.1             # Minimum speed to get movement rewards
 
-  ball_possession_max_reward: 25.0    # Maximum reward for ball possession
+  # Ball seeking penalties and rewards
+  # far_ball_threshold: 0.4             # Fraction of max field distance for "too far" 
+  # far_ball_penalty: 0.5               # Penalty for being too far from ball
+  # movement_threshold: 0.1             # Minimum speed to get movement rewards
+
+  # ball_possession_max_reward: 25.0    # Maximum reward for ball possession
   ball_distance_penalty_rate: 1.5    # Reduced from 2.0 - less harsh distance penalty
   opponent_closer_penalty_rate: 0.01   # Reduced from 0.3 - less penalty when opponent closer
   opponent_closer_max_penalty: 2.0   # Reduced from 5.0 - less max penalty
 
   # === PHASE 2: BALL CONTROL & DRIBBLING ===
-  ball_possession_reward: 3.0         # Base reward per step for having ball
+  # ball_possession_reward: 3.0         # Base reward per step for having ball
   goal_progress_reward_rate: 20.0     # Increased from 10.0 - more reward for ball progress
-  goal_regression_penalty_rate: 3.0  # Reduced from 5.0 - less harsh regression penalty
-  goal_regression_threshold: -1.0     # Minimum backward movement to trigger penalty
+  # goal_regression_penalty_rate: 3.0  # Reduced from 5.0 - less harsh regression penalty
+  # goal_regression_threshold: -1.0     # Minimum backward movement to trigger penalty
   
-  shepherding_max_bonus: 3.0         # Increased from 6.0 - better shepherding reward
-  shepherding_angle_threshold: 60.0   # Increased from 45.0 - more lenient angle
+  # shepherding_max_bonus: 3.0         # Increased from 6.0 - better shepherding reward
+  # shepherding_angle_threshold: 60.0   # Increased from 45.0 - more lenient angle
   
   ball_direction_reward_rate: 8.0    # Increased from 5.0 - more reward for good ball direction
   ball_direction_threshold: 0.3       # Reduced from 0.5 - more lenient threshold
-  optimal_ball_speed_mps: 1.0         # Slightly faster optimal dribbling speed
+  # optimal_ball_speed_mps: 1.0         # Slightly faster optimal dribbling speed
 
   # === PHASE 3: POSITIONAL STRATEGY ===
   robot_progress_reward_rate: 8.0    # Increased from 5.0 - more reward for robot advancement
@@ -266,11 +267,11 @@ reward_parameters:
   # === BEHAVIORAL PENALTIES (REDUCED TO ENCOURAGE AGGRESSION) ===
   boundary_penalty_threshold: 0.05    # Reduced from 0.1 - smaller boundary penalty zone
   boundary_penalty_max: 0.5          # Reduced from 3.0 - less harsh boundary penalty
-  ball_boundary_penalty_max: 1.0     # Reduced from 2.0 - less ball boundary penalty
+  # ball_boundary_penalty_max: 1.0     # Reduced from 2.0 - less ball boundary penalty
   
   time_step_penalty: 0.01              # Reduced from 0.02 - less time pressure
-  stationary_penalty: 1.0             # Reduced from 3.0 - less harsh stationary penalty
-  stationary_speed_threshold: 0.15     # Reduced from 0.2 - more lenient speed requirement
+  # stationary_penalty: 1.0             # Reduced from 3.0 - less harsh stationary penalty
+  # stationary_speed_threshold: 0.15     # Reduced from 0.2 - more lenient speed requirement
   
   opponent_possession_penalty: 1.5    # Reduced from 3.0 - less penalty for opponent possession
   robot_possession_bonus_rate: 0.5    # Increased from 0.3 - better possession bonus
@@ -283,7 +284,7 @@ reward_parameters:
   spinning_penalty: 7.0               # Reduced from 8.0 - less harsh spinning penalty
   ball_seeking_threshold: 0.2         # Reduced from 0.3 - more lenient seeking threshold
   ball_seeking_reward_rate: 3.0       # Increased from 5.0 - better seeking reward
-  wrong_direction_penalty_rate: 0.5   # Reduced from 3.0 - less harsh wrong direction penalty
+  # wrong_direction_penalty_rate: 0.5   # Reduced from 3.0 - less harsh wrong direction penalty
   
   # === SAFETY AND BOUNDS ===
   reward_min_bound: -30.0             # Increased from -50.0 - less harsh minimum

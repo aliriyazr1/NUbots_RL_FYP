@@ -1,0 +1,109 @@
+======================================================================
+REWARD COMPONENT ANALYSIS RESULTS
+======================================================================
+
+Episodes analyzed: 100
+Environment difficulty: easy
+
+COMPONENT STATISTICS:
+----------------------------------------------------------------------
+
+robot_progress:
+  Mean: 694.22
+  Std:  614.09
+  Min:  19.88
+  Max:  2591.30
+
+ball_seeking:
+  Mean: 541.84
+  Std:  159.10
+  Min:  143.36
+  Max:  723.76
+
+goal_progress:
+  Mean: 139.89
+  Std:  134.64
+  Min:  0.13
+  Max:  517.09
+
+ball_direction:
+  Mean: 86.05
+  Std:  77.33
+  Min:  2.67
+  Max:  340.52
+
+robot_possession_bonus:
+  Mean: 81.56
+  Std:  90.90
+  Min:  2.00
+  Max:  352.50
+
+ball_contact:
+  Mean: 80.17
+  Std:  72.00
+  Min:  3.00
+  Max:  327.00
+
+middle_third_bonus:
+  Mean: 38.48
+  Std:  35.18
+  Min:  2.00
+  Max:  154.00
+
+aggressive_dribbling:
+  Mean: 35.05
+  Std:  28.53
+  Min:  13.13
+  Max:  83.36
+
+time_penalty:
+  Mean: -6.64
+  Std:  1.82
+  Min:  -8.00
+  Max:  -1.83
+
+boundary_penalty:
+  Mean: -16.73
+  Std:  13.98
+  Min:  -61.95
+  Max:  -0.01
+
+collision_penalty:
+  Mean: -32.73
+  Std:  18.09
+  Min:  -88.00
+  Max:  -8.00
+
+opponent_possession_penalty:
+  Mean: -110.58
+  Std:  67.11
+  Min:  -300.00
+  Max:  -9.00
+
+ball_distance_penalty:
+  Mean: -126.71
+  Std:  67.31
+  Min:  -351.86
+  Max:  -16.08
+
+competitive_penalty:
+  Mean: -218.57
+  Std:  215.60
+  Min:  -1016.08
+  Max:  -0.03
+
+======================================================================
+PERCENTAGE BREAKDOWN:
+----------------------------------------------------------------------
+robot_progress                :  40.90%
+ball_seeking                  :  31.92%
+goal_progress                 :   8.24%
+ball_direction                :   5.07%
+robot_possession_bonus        :   4.81%
+ball_contact                  :   4.72%
+middle_third_bonus            :   2.27%
+aggressive_dribbling          :   2.07%
+
+======================================================================
+Goal Progress Dominance: 8.24%
+======================================================================

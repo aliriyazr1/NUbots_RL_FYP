@@ -149,7 +149,7 @@ class TestTrainedModelPerformance:
         print(f"\n✓ Testing pre-trained model vs random baseline")
 
         # Create environment
-        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
 
         # Evaluate pre-trained model
         print(f"  Evaluating pre-trained model...")
@@ -220,7 +220,7 @@ class TestTrainedModelPerformance:
         print(f"\n✓ Testing pre-trained DDPG model vs random baseline")
 
         # Create environment
-        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
 
         # Evaluate pre-trained model
         print(f"  Evaluating pre-trained DDPG model...")
@@ -287,7 +287,7 @@ class TestTrainedModelPerformance:
         print(f"\n✓ Testing trained model vs random baseline (training new model)")
 
         # Create environment
-        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
 
         # Train a minimal model
         print(f"  Training minimal model...")
@@ -391,7 +391,7 @@ class TestTrainedModelPerformance:
         print(f"\n✓ Testing minimum performance threshold")
 
         # Create and train model
-        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
         env = Monitor(env, str(tmp_path))
 
         model = PPO(
@@ -409,7 +409,7 @@ class TestTrainedModelPerformance:
 
         # Evaluate
         print(f"  Evaluating model...")
-        eval_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        eval_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
 
         rewards, lengths, stats = evaluate_policy_episodes(
             model, eval_env, n_episodes=10, deterministic=True
@@ -461,7 +461,7 @@ class TestCrossDifficultyPerformance:
 
         # Train on easy difficulty
         print(f"  Training model on EASY difficulty...")
-        train_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        train_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
         train_env = Monitor(train_env, str(tmp_path))
 
         model = PPO(
@@ -487,7 +487,8 @@ class TestCrossDifficultyPerformance:
             eval_env = SoccerEnv(
                 render_mode=None,
                 difficulty=difficulty,
-                reward_type="original"
+                reward_type="original",
+                testing_mode=False
             )
 
             rewards, lengths, stats = evaluate_policy_episodes(
@@ -559,7 +560,7 @@ class TestONNXDeploymentPipeline:
 
         # Stage 1: Train PyTorch model
         print(f"\n  Stage 1: Training PyTorch model...")
-        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
         env = Monitor(env, str(tmp_path))
 
         model = PPO(
@@ -659,7 +660,7 @@ class TestONNXDeploymentPipeline:
         # Stage 5: Evaluate ONNX model performance
         print(f"\n  Stage 5: Evaluating ONNX model performance...")
 
-        eval_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        eval_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
 
         # Run evaluation episodes using ONNX model
         episode_rewards = []
@@ -786,7 +787,7 @@ class TestModelConsistency:
         print(f"\n✓ Testing deterministic predictions (training pipeline validation)")
 
         # Train model
-        env = SoccerEnv(render_mode=None, difficulty="easy")
+        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
         env = Monitor(env, str(tmp_path))
 
         model = PPO("MlpPolicy", env, verbose=0, device="cpu")

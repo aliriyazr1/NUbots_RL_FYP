@@ -1551,7 +1551,7 @@ Evaluation: {metadata['n_episodes']} episodes on {metadata['difficulty']} diffic
 """
         summary += handcoded_section
 
-    summary += """
+    summary += f"""
 ## Comparative Analysis
 
 ### Mean Episode Reward
@@ -1623,7 +1623,7 @@ Evaluation: {metadata['n_episodes']} episodes on {metadata['difficulty']} diffic
 | Max Reward                | {ddpg['max_reward']:>14.1f} | {ppo['max_reward']:>14.1f} |
 """
 
-    summary += """
+    summary += f"""
 
 ## Key Findings
 
@@ -1799,11 +1799,51 @@ def save_3way_results_markdown(results: Dict, output_dir: str) -> str:
 | Episode Length | {ddpg['mean_episode_length']:.1f} ± {ddpg['std_episode_length']:.1f} | {ppo['mean_episode_length']:.1f} ± {ppo['std_episode_length']:.1f} | {handcoded['mean_episode_length']:.1f} ± {handcoded['std_episode_length']:.1f} |
 
 ## Winner Summary
+"""
 
-- **Best Reward:** {"DDPG" if ddpg['mean_reward'] > max(ppo['mean_reward'], handcoded['mean_reward']) else "PPO" if ppo['mean_reward'] > max(ddpg['mean_reward'], handcoded['mean_reward']) else "Hand-Coded" if handcoded['mean_reward'] > max(ddpg['mean_reward'], ppo['mean_reward']) else "Tie"}
-- **Most Goals:** {"DDPG" if ddpg['total_goals'] > max(ppo['total_goals'], handcoded['total_goals']) else "PPO" if ppo['total_goals'] > max(ddpg['total_goals'], handcoded['total_goals']) else "Hand-Coded" if handcoded['total_goals'] > max(ddpg['total_goals'], ppo['total_goals']) else "Tie"}
-- **Best Possession:** {"DDPG" if ddpg['possession_rate'] > max(ppo['possession_rate'], handcoded['possession_rate']) else "PPO" if ppo['possession_rate'] > max(ddpg['possession_rate'], handcoded['possession_rate']) else "Hand-Coded" if handcoded['possession_rate'] > max(ddpg['possession_rate'], ppo['possession_rate']) else "Tie"}
-- **Fewest Collisions:** {"DDPG" if ddpg['collision_rate'] < min(ppo['collision_rate'], handcoded['collision_rate']) else "PPO" if ppo['collision_rate'] < min(ddpg['collision_rate'], handcoded['collision_rate']) else "Hand-Coded" if handcoded['collision_rate'] < min(ddpg['collision_rate'], ppo['collision_rate']) else "Tie"}
+        # Helper function for 3-way winner detection with proper tie handling
+        def determine_3way_winner(ddpg_val, ppo_val, handcoded_val, higher_is_better=True):
+            """
+            Determine winner in 3-way comparison with proper tie detection.
+
+            Returns:
+                String describing winner(s): "DDPG", "PPO", "Hand-Coded",
+                "DDPG and PPO tied", "DDPG and Hand-Coded tied",
+                "PPO and Hand-Coded tied", or "Three-way tie"
+            """
+            values = [
+                (ddpg_val, "DDPG"),
+                (ppo_val, "PPO"),
+                (handcoded_val, "Hand-Coded")
+            ]
+
+            # Sort by value (descending for higher_is_better, ascending otherwise)
+            values.sort(key=lambda x: x[0], reverse=higher_is_better)
+
+            # Get the best value
+            best_value = values[0][0]
+
+            # Find all agents with the best value (ties)
+            winners = [name for val, name in values if val == best_value]
+
+            if len(winners) == 3:
+                return "Three-way tie"
+            elif len(winners) == 2:
+                return f"{winners[0]} and {winners[1]} tied"
+            else:
+                return winners[0]
+
+        # Calculate winners with proper tie detection
+        reward_winner = determine_3way_winner(ddpg['mean_reward'], ppo['mean_reward'], handcoded['mean_reward'], higher_is_better=True)
+        goals_winner = determine_3way_winner(ddpg['total_goals'], ppo['total_goals'], handcoded['total_goals'], higher_is_better=True)
+        possession_winner = determine_3way_winner(ddpg['possession_rate'], ppo['possession_rate'], handcoded['possession_rate'], higher_is_better=True)
+        collision_winner = determine_3way_winner(ddpg['collision_rate'], ppo['collision_rate'], handcoded['collision_rate'], higher_is_better=False)
+
+        markdown += f"""
+- **Best Reward:** {reward_winner}
+- **Most Goals:** {goals_winner}
+- **Best Possession:** {possession_winner}
+- **Fewest Collisions:** {collision_winner}
 """
     else:
         markdown += f"""| Metric | DDPG | PPO |
@@ -2101,6 +2141,14 @@ def create_academic_training_curves(training_system, algorithm_name, model_path,
         timesteps = training_data.get('timesteps', [])
         rewards = training_data.get('rewards', [])
 
+        # DEBUG: Log data availability
+        training_system.logger.info(f"{algorithm_name} - Timesteps available: {len(timesteps)}")
+        training_system.logger.info(f"{algorithm_name} - Rewards available: {len(rewards)}")
+        if len(timesteps) > 0:
+            training_system.logger.info(f"{algorithm_name} - Timestep range: {timesteps[0]:.0f} to {timesteps[-1]:.0f}")
+        if len(rewards) > 0:
+            training_system.logger.info(f"{algorithm_name} - Reward range: {np.min(rewards):.2f} to {np.max(rewards):.2f}")
+
         if len(timesteps) > 0 and len(rewards) > 0:
             # Calculate moving average and confidence intervals
             window_size = len(rewards) // 50  # Smooth over 2% of data
@@ -2112,24 +2160,34 @@ def create_academic_training_curves(training_system, algorithm_name, model_path,
             rewards_smooth = pd.Series(rewards).rolling(window=window_size, center=True).mean()
             rewards_std = pd.Series(rewards).rolling(window=window_size, center=True).std()
 
-            # Convert timesteps to millions for readability
-            timesteps_m = [t / 1e6 for t in timesteps]
+            # ADAPTIVE SCALING: Determine appropriate scale based on max timestep
+            max_timestep = max(timesteps)
+            if max_timestep < 1e6:
+                # Use thousands (K) for runs < 1M steps
+                timesteps_scaled = [t / 1e3 for t in timesteps]
+                x_label = 'Training Steps (Thousands)'
+                training_system.logger.info(f"{algorithm_name} - Using thousands scale (max: {max_timestep/1e3:.1f}K)")
+            else:
+                # Use millions (M) for runs >= 1M steps
+                timesteps_scaled = [t / 1e6 for t in timesteps]
+                x_label = 'Training Steps (Millions)'
+                training_system.logger.info(f"{algorithm_name} - Using millions scale (max: {max_timestep/1e6:.2f}M)")
 
             # Plot smoothed learning curve with confidence intervals
-            ax1.plot(timesteps_m, rewards_smooth, linewidth=2.5, alpha=0.9,
+            ax1.plot(timesteps_scaled, rewards_smooth, linewidth=2.5, alpha=0.9,
                     label=f'{algorithm_name} Mean Reward', color='navy')
-            ax1.fill_between(timesteps_m,
+            ax1.fill_between(timesteps_scaled,
                            rewards_smooth - rewards_std,
                            rewards_smooth + rewards_std,
                            alpha=0.3, color='navy', label='±1 Standard Deviation')
 
             # Add raw data as scatter for transparency
             sample_indices = np.linspace(0, len(rewards)-1, min(1000, len(rewards)), dtype=int)
-            ax1.scatter([timesteps_m[i] for i in sample_indices],
+            ax1.scatter([timesteps_scaled[i] for i in sample_indices],
                        [rewards[i] for i in sample_indices],
                        alpha=0.1, s=1, color='darkblue')
 
-            ax1.set_xlabel('Training Steps (Millions)', fontsize=14)
+            ax1.set_xlabel(x_label, fontsize=14)
             ax1.set_ylabel('Episode Reward', fontsize=14)
             ax1.set_title('Learning Curve with Confidence Intervals', fontsize=16, fontweight='bold')
             ax1.legend(loc='lower right')
@@ -2285,10 +2343,22 @@ def create_algorithm_comparison_plot(training_system, ppo_data, ddpg_data, title
         ddpg_rewards = []
         ppo_timesteps = []
         ddpg_timesteps = []
+        ppo_timesteps_raw = []
+        ddpg_timesteps_raw = []
+
+        # DEBUG: Log data availability for comparison plot
+        training_system.logger.info("Comparison Plot - PPO data check:")
+        if ppo_data:
+            training_system.logger.info(f"  PPO timesteps available: {len(ppo_data.get('timesteps', []))}")
+            training_system.logger.info(f"  PPO rewards available: {len(ppo_data.get('rewards', []))}")
+        training_system.logger.info("Comparison Plot - DDPG data check:")
+        if ddpg_data:
+            training_system.logger.info(f"  DDPG timesteps available: {len(ddpg_data.get('timesteps', []))}")
+            training_system.logger.info(f"  DDPG rewards available: {len(ddpg_data.get('rewards', []))}")
 
         if ppo_data and 'timesteps' in ppo_data and 'rewards' in ppo_data:
             if len(ppo_data['timesteps']) > 0 and len(ppo_data['rewards']) > 0:
-                ppo_timesteps = [t/1e6 for t in ppo_data['timesteps']]  # Convert to millions
+                ppo_timesteps_raw = ppo_data['timesteps']
                 ppo_rewards = ppo_data['rewards']
 
                 # Smooth PPO curve
@@ -2298,14 +2368,9 @@ def create_algorithm_comparison_plot(training_system, ppo_data, ddpg_data, title
                 ppo_smooth = pd.Series(ppo_rewards).rolling(window=window, center=True).mean()
                 ppo_std = pd.Series(ppo_rewards).rolling(window=window, center=True).std()
 
-                ax1.plot(ppo_timesteps, ppo_smooth, linewidth=3, color='#2E86C1',
-                        label='PPO', alpha=0.9)
-                ax1.fill_between(ppo_timesteps, ppo_smooth - ppo_std, ppo_smooth + ppo_std,
-                               alpha=0.3, color='#2E86C1')
-
         if ddpg_data and 'timesteps' in ddpg_data and 'rewards' in ddpg_data:
             if len(ddpg_data['timesteps']) > 0 and len(ddpg_data['rewards']) > 0:
-                ddpg_timesteps = [t/1e6 for t in ddpg_data['timesteps']]  # Convert to millions
+                ddpg_timesteps_raw = ddpg_data['timesteps']
                 ddpg_rewards = ddpg_data['rewards']
 
                 # Smooth DDPG curve
@@ -2315,12 +2380,40 @@ def create_algorithm_comparison_plot(training_system, ppo_data, ddpg_data, title
                 ddpg_smooth = pd.Series(ddpg_rewards).rolling(window=window, center=True).mean()
                 ddpg_std = pd.Series(ddpg_rewards).rolling(window=window, center=True).std()
 
-                ax1.plot(ddpg_timesteps, ddpg_smooth, linewidth=3, color='#E74C3C',
-                        label='DDPG', alpha=0.9)
-                ax1.fill_between(ddpg_timesteps, ddpg_smooth - ddpg_std, ddpg_smooth + ddpg_std,
-                               alpha=0.3, color='#E74C3C')
+        # ADAPTIVE SCALING: Determine scale based on max timestep across both algorithms
+        max_timestep = 0
+        if len(ppo_timesteps_raw) > 0:
+            max_timestep = max(max_timestep, max(ppo_timesteps_raw))
+        if len(ddpg_timesteps_raw) > 0:
+            max_timestep = max(max_timestep, max(ddpg_timesteps_raw))
 
-        ax1.set_xlabel('Training Steps (Millions)', fontsize=14)
+        if max_timestep < 1e6:
+            # Use thousands (K) for runs < 1M steps
+            scale_factor = 1e3
+            x_label = 'Training Steps (Thousands)'
+            training_system.logger.info(f"Comparison plot using thousands scale (max: {max_timestep/1e3:.1f}K)")
+        else:
+            # Use millions (M) for runs >= 1M steps
+            scale_factor = 1e6
+            x_label = 'Training Steps (Millions)'
+            training_system.logger.info(f"Comparison plot using millions scale (max: {max_timestep/1e6:.2f}M)")
+
+        # Now plot with adaptive scaling
+        if len(ppo_timesteps_raw) > 0:
+            ppo_timesteps = [t/scale_factor for t in ppo_timesteps_raw]
+            ax1.plot(ppo_timesteps, ppo_smooth, linewidth=3, color='#2E86C1',
+                    label='PPO', alpha=0.9)
+            ax1.fill_between(ppo_timesteps, ppo_smooth - ppo_std, ppo_smooth + ppo_std,
+                           alpha=0.3, color='#2E86C1')
+
+        if len(ddpg_timesteps_raw) > 0:
+            ddpg_timesteps = [t/scale_factor for t in ddpg_timesteps_raw]
+            ax1.plot(ddpg_timesteps, ddpg_smooth, linewidth=3, color='#E74C3C',
+                    label='DDPG', alpha=0.9)
+            ax1.fill_between(ddpg_timesteps, ddpg_smooth - ddpg_std, ddpg_smooth + ddpg_std,
+                           alpha=0.3, color='#E74C3C')
+
+        ax1.set_xlabel(x_label, fontsize=14)
         ax1.set_ylabel('Episode Reward', fontsize=14)
         ax1.set_title('Learning Curves Comparison', fontsize=16, fontweight='bold')
         ax1.legend(loc='lower right', fontsize=12)
@@ -2330,24 +2423,25 @@ def create_algorithm_comparison_plot(training_system, ppo_data, ddpg_data, title
         if ppo_data and ddpg_data and 'episode_lengths' in ppo_data and 'episode_lengths' in ddpg_data:
             ppo_episode_lengths = ppo_data['episode_lengths']
             ddpg_episode_lengths = ddpg_data['episode_lengths']
-            
+
             # Calculate rolling averages for episode lengths
             window = len(ppo_episode_lengths) // 50
             if window < 10:
                 window = 10
-            
+
             ppo_ep_smooth = pd.Series(ppo_episode_lengths).rolling(window=window, center=True).mean()
             ddpg_ep_smooth = pd.Series(ddpg_episode_lengths).rolling(window=window, center=True).mean()
-            
-            ppo_timesteps_ep = [t/1e6 for t in ppo_data['timesteps'][:len(ppo_episode_lengths)]]
-            ddpg_timesteps_ep = [t/1e6 for t in ddpg_data['timesteps'][:len(ddpg_episode_lengths)]]
-            
+
+            # Use same adaptive scaling as Plot 1
+            ppo_timesteps_ep = [t/scale_factor for t in ppo_data['timesteps'][:len(ppo_episode_lengths)]]
+            ddpg_timesteps_ep = [t/scale_factor for t in ddpg_data['timesteps'][:len(ddpg_episode_lengths)]]
+
             ax2.plot(ppo_timesteps_ep, ppo_ep_smooth, linewidth=3, color='#2E86C1',
                     label='PPO', alpha=0.9)
             ax2.plot(ddpg_timesteps_ep, ddpg_ep_smooth, linewidth=3, color='#E74C3C',
                     label='DDPG', alpha=0.9)
-            
-            ax2.set_xlabel('Training Steps (Millions)', fontsize=14)
+
+            ax2.set_xlabel(x_label, fontsize=14)
             ax2.set_ylabel('Episode Length (Steps)', fontsize=14)
             ax2.set_title('Episode Length Comparison', fontsize=16, fontweight='bold')
             ax2.legend(loc='upper right', fontsize=12)

@@ -116,7 +116,7 @@ def interpret_effect_size(d: float) -> str:
         return "large"
 
 
-def evaluate_algorithm_performance(model, env, n_episodes: int = 100) -> Tuple[np.ndarray, Dict]:
+def evaluate_algorithm_performance(model, env, n_episodes: int = 100, seed: int = None) -> Tuple[np.ndarray, Dict]:
     """
     Evaluate algorithm performance over multiple episodes.
 
@@ -124,6 +124,7 @@ def evaluate_algorithm_performance(model, env, n_episodes: int = 100) -> Tuple[n
         model: Trained model
         env: Environment instance
         n_episodes: Number of evaluation episodes
+        seed: Random seed for reproducibility (optional)
 
     Returns:
         Tuple of (episode_rewards, statistics_dict)
@@ -132,7 +133,10 @@ def evaluate_algorithm_performance(model, env, n_episodes: int = 100) -> Tuple[n
     episode_lengths = []
 
     for episode in range(n_episodes):
-        obs, info = env.reset()
+        if seed is not None:
+            obs, info = env.reset(seed=seed + episode)
+        else:
+            obs, info = env.reset()
         episode_reward = 0
         episode_length = 0
         done = False
@@ -203,19 +207,22 @@ class TestAlgorithmComparison:
         # ============================================================
         # EVALUATE BOTH ALGORITHMS
         # ============================================================
-        n_eval_episodes = 20  # Reduced from 100 for testing speed
+        n_eval_episodes = 100  # Academic standard for algorithm comparison
+        seed = 42  # Fixed seed for reproducibility
 
         print(f"\n  Evaluating PPO ({n_eval_episodes} episodes)...")
-        eval_env_ppo = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        np.random.seed(seed)
+        eval_env_ppo = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
         ppo_rewards, ppo_stats = evaluate_algorithm_performance(
-            pretrained_ppo_model, eval_env_ppo, n_episodes=n_eval_episodes
+            pretrained_ppo_model, eval_env_ppo, n_episodes=n_eval_episodes, seed=seed
         )
         eval_env_ppo.close()
 
         print(f"  Evaluating DDPG ({n_eval_episodes} episodes)...")
-        eval_env_ddpg = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        np.random.seed(seed)
+        eval_env_ddpg = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
         ddpg_rewards, ddpg_stats = evaluate_algorithm_performance(
-            pretrained_ddpg_model, eval_env_ddpg, n_episodes=n_eval_episodes
+            pretrained_ddpg_model, eval_env_ddpg, n_episodes=n_eval_episodes, seed=seed
         )
         eval_env_ddpg.close()
 
@@ -309,7 +316,7 @@ class TestLearningStability:
         print(f"\n✓ Testing learning stability")
 
         # Create environment with monitoring
-        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
         log_dir = tmp_path / "stability_logs"
         log_dir.mkdir(exist_ok=True)
 
@@ -335,7 +342,7 @@ class TestLearningStability:
         n_eval_episodes = 20  # Simulating "last 100 episodes" with reduced count
 
         print(f"  Evaluating stability ({n_eval_episodes} episodes)...")
-        eval_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        eval_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
 
         episode_rewards = []
         for episode in range(n_eval_episodes):
@@ -432,7 +439,7 @@ class TestReproducibility:
         # FIRST TRAINING RUN
         # ============================================================
         print(f"\n  Training run 1 (seed={seed})...")
-        env1 = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        env1 = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
         log_dir1 = tmp_path / "run1"
         log_dir1.mkdir(exist_ok=True)
         env1 = Monitor(env1, str(log_dir1))
@@ -458,7 +465,7 @@ class TestReproducibility:
         # SECOND TRAINING RUN
         # ============================================================
         print(f"  Training run 2 (seed={seed})...")
-        env2 = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        env2 = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
         log_dir2 = tmp_path / "run2"
         log_dir2.mkdir(exist_ok=True)
         env2 = Monitor(env2, str(log_dir2))
@@ -485,7 +492,7 @@ class TestReproducibility:
         # ============================================================
         print(f"\n  Evaluating both models ({n_eval_episodes} episodes)...")
 
-        eval_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        eval_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
 
         # Evaluate model 1
         rewards1 = []

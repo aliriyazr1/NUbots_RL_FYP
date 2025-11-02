@@ -896,7 +896,7 @@ class SoccerEnv(gym.Env):
 
         # Check if ball went out of bounds (simple implementation)
         ball_out_of_bounds = self._check_ball_out_of_play()
-        
+
         # Check specific termination reasons for logging
         if terminated and not truncated:
             if self._check_goal():
@@ -905,6 +905,13 @@ class SoccerEnv(gym.Env):
                 print("OPPONENT SCORED - EPISODE LOST")
             elif self._check_ball_out_of_play():
                 print("BALL OUT OF BOUNDS - EPISODE TERMINATED")
+            else:
+                # Catch-all for terminated episodes without identified reason
+                print("EPISODE TERMINATED - UNIDENTIFIED REASON")
+
+        # Log timeout terminations
+        if truncated and not terminated:
+            print("TIMEOUT - EPISODE TRUNCATED (reached max steps)")
 
         if ball_out_of_bounds and not terminated:
             # Reset ball to center if it goes out of bounds
@@ -1062,7 +1069,7 @@ class SoccerEnv(gym.Env):
     def _calculate_reward(self):
         """
         Updated reward function that encourages aggressive dribbling around opponents.
-        
+
         Key changes:
         - Reduced collision fear near goal
         - Added aggression bonuses for forward movement when opponent is close
@@ -1070,7 +1077,10 @@ class SoccerEnv(gym.Env):
         - Smarter opponent proximity handling
         """
         reward = 0.0
-        
+
+        # Initialize reward components tracking for analysis
+        self.reward_components = {}
+
         # Load all parameters from config
         reward_params = self.field_config.config.get('reward_parameters', {})
         robot_params = self.field_config.config.get('robot_parameters', {})
@@ -1117,15 +1127,17 @@ class SoccerEnv(gym.Env):
         if robot_opponent_distance < collision_distance_threshold:
             # Check if we're in attacking zone - if so, reduce penalty
             robot_x_fraction = self.robot_pos[0] / self.field_width
-            
+
             if robot_x_fraction > attacking_third_start and robot_has_control:
                 # Near goal with ball - courage bonus instead of harsh penalty
                 collision_bonus = reward_params.get('collision_near_goal_bonus', 5.0)
                 reward += collision_bonus
+                self.reward_components['collision_bonus'] = collision_bonus
             else:
                 # Normal collision penalty, but reduced
                 collision_penalty = reward_params.get('robot_collision_penalty', -8.0)
                 reward += collision_penalty
+                self.reward_components['collision_penalty'] = collision_penalty
         
         # === AGGRESSIVE DRIBBLING SYSTEM ===
         opponent_proximity_threshold = self.field_config.meters_to_pixels(
@@ -1158,12 +1170,14 @@ class SoccerEnv(gym.Env):
                         # Scale by how well aligned with goal
                         scaled_bonus = aggressive_bonus * movement_toward_goal
                         reward += scaled_bonus
+                        self.reward_components['aggressive_dribbling'] = scaled_bonus
         
         # === PHASE 1: BALL ACQUISITION ===
         if robot_has_control:
             # Strong reward for ball contact
-            ball_contact_reward = reward_params.get('ball_contact_reward', 20.0)
+            ball_contact_reward = reward_params.get('ball_contact_reward', 3.0)
             reward += ball_contact_reward
+            self.reward_components['ball_contact'] = ball_contact_reward
             
             # Ball control and direction rewards
             ball_speed = np.linalg.norm(self.ball_vel)
@@ -1181,6 +1195,7 @@ class SoccerEnv(gym.Env):
                         direction_reward_rate = reward_params.get('ball_direction_reward_rate', 8.0)
                         direction_reward = direction_alignment * direction_reward_rate
                         reward += direction_reward
+                        self.reward_components['ball_direction'] = direction_reward
             
             # Goal progress reward
             if not hasattr(self, '_prev_ball_to_goal_distance'):
@@ -1191,6 +1206,7 @@ class SoccerEnv(gym.Env):
                 progress_rate = reward_params.get('goal_progress_reward_rate', 15.0)
                 ball_progress_reward = ball_progress * progress_rate
                 reward += ball_progress_reward
+                self.reward_components['goal_progress'] = ball_progress_reward
             
             self._prev_ball_to_goal_distance = ball_to_goal_distance
             
@@ -1201,6 +1217,7 @@ class SoccerEnv(gym.Env):
             distance_penalty_rate = reward_params.get('ball_distance_penalty_rate', 1.5)
             distance_penalty = min(robot_ball_distance / max_distance * distance_penalty_rate, distance_penalty_rate)
             reward -= distance_penalty
+            self.reward_components['ball_distance_penalty'] = -distance_penalty
             
             # Movement toward ball reward
             robot_speed = np.linalg.norm(self.robot_vel)
@@ -1216,9 +1233,10 @@ class SoccerEnv(gym.Env):
                     movement_threshold = reward_params.get('ball_seeking_threshold', 0.2)
                     
                     if movement_alignment > movement_threshold:
-                        ball_seeking_reward_rate = reward_params.get('ball_seeking_reward_rate', 6.0)
+                        ball_seeking_reward_rate = reward_params.get('ball_seeking_reward_rate', 3.0)
                         ball_seeking_reward = movement_alignment * ball_seeking_reward_rate
                         reward += ball_seeking_reward
+                        self.reward_components['ball_seeking'] = ball_seeking_reward
             
             # Competitive penalty (but reduced)
             if opponent_closer_to_ball:
@@ -1227,6 +1245,7 @@ class SoccerEnv(gym.Env):
                 max_penalty = reward_params.get('opponent_closer_max_penalty', 3.0)
                 competitive_penalty = min(closeness_difference * penalty_rate, max_penalty)
                 reward -= competitive_penalty
+                self.reward_components['competitive_penalty'] = -competitive_penalty
         
         # === POSITIONAL STRATEGY REWARDS ===
         # Robot progress toward goal when has control
@@ -1239,6 +1258,7 @@ class SoccerEnv(gym.Env):
                 progress_rate = reward_params.get('robot_progress_reward_rate', 8.0)
                 robot_progress_reward = robot_progress * progress_rate
                 reward += robot_progress_reward
+                self.reward_components['robot_progress'] = robot_progress_reward
             
             self._prev_robot_to_goal_distance = robot_to_goal_distance
         
@@ -1249,9 +1269,11 @@ class SoccerEnv(gym.Env):
             if robot_x_fraction > attacking_third_start:
                 attacking_bonus = reward_params.get('attacking_third_bonus', 5.0)
                 reward += attacking_bonus
+                self.reward_components['attacking_third_bonus'] = attacking_bonus
             elif robot_x_fraction > strategic_zones.get('middle_third_start', 0.3):
                 middle_bonus = reward_params.get('middle_third_bonus', 2.0)
                 reward += middle_bonus
+                self.reward_components['middle_third_bonus'] = middle_bonus
         
         # === OPPONENT PRESSURE MANAGEMENT ===
         # Courage bonus for staying near goal despite opponent
@@ -1259,17 +1281,19 @@ class SoccerEnv(gym.Env):
             reward_params.get('opponent_fear_distance', 0.8)
         )
         
-        if (robot_has_control and 
-            robot_x_fraction > 0.7 and 
+        if (robot_has_control and
+            robot_x_fraction > 0.7 and
             robot_opponent_distance < opponent_fear_distance):
-            
+
             courage_bonus = reward_params.get('opponent_near_goal_courage', 10.0)
             reward += courage_bonus
+            self.reward_components['courage_bonus'] = courage_bonus
         
         # Opponent possession penalty
         if self.opponent_has_ball:
             opponent_possession_penalty = reward_params.get('opponent_possession_penalty', 2.0)
             reward -= opponent_possession_penalty
+            self.reward_components['opponent_possession_penalty'] = -opponent_possession_penalty
         
         # Robot possession bonus
         min_possession_time = reward_params.get('robot_possession_min_time', 3)
@@ -1278,6 +1302,7 @@ class SoccerEnv(gym.Env):
             possession_bonus_cap = reward_params.get('robot_possession_bonus_cap', 5.0)
             possession_bonus = min(self.robot_possession_time * possession_bonus_rate, possession_bonus_cap)
             reward += possession_bonus
+            self.reward_components['robot_possession_bonus'] = possession_bonus
         
         # === BEHAVIORAL PENALTIES (REDUCED) ===
         # Boundary penalties (reduced)
@@ -1305,6 +1330,7 @@ class SoccerEnv(gym.Env):
                 max_boundary_penalty = reward_params.get('boundary_penalty_max', 1.5)
                 boundary_penalty = boundary_penalty_factor * max_boundary_penalty
                 reward -= boundary_penalty
+                self.reward_components['boundary_penalty'] = -boundary_penalty
         
         # === ANTI-SPINNING AND MOVEMENT ===
         robot_linear_speed = np.linalg.norm(self.robot_vel)
@@ -1315,14 +1341,16 @@ class SoccerEnv(gym.Env):
         min_linear_speed = reward_params.get('min_required_linear_speed', 0.3)
         max_rotation_without_translation = reward_params.get('max_rotation_without_translation', 0.15)
         
-        if (robot_linear_speed < min_linear_speed and 
+        if (robot_linear_speed < min_linear_speed and
             robot_rotational_speed > max_rotation_without_translation):
             spinning_penalty = reward_params.get('spinning_penalty', 5.0)
             reward -= spinning_penalty
+            self.reward_components['spinning_penalty'] = -spinning_penalty
         
         # === TIME AND EFFICIENCY ===
         time_penalty = reward_params.get('time_step_penalty', 0.01)
         reward -= time_penalty
+        self.reward_components['time_penalty'] = -time_penalty
         
         # === SAFETY AND BOUNDS ===
         if not np.isfinite(reward):

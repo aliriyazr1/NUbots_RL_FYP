@@ -10,7 +10,7 @@ import numpy as np
 from stable_baselines3 import PPO, DDPG
 import os
 import yaml
-from SoccerEnv.soccerenv import SoccerEnv
+from src.environments.soccerenv import SoccerEnv
 import onnx
 import onnxruntime as ort
 import time
@@ -43,16 +43,16 @@ class DeterministicPPOWrapper(torch.nn.Module):
 
         return mean_actions
             
-def get_model_input_shape(config_path="SoccerEnv/field_config.yaml"):
+def get_model_input_shape(config_path="configs/field_config.yaml"):
     """Get the correct input shape from the environment"""
     # Create a temporary environment to get observation space
-    env = SoccerEnv(difficulty="easy", config_path=config_path)
+    env = SoccerEnv(difficulty="easy")
     obs_space = env.observation_space
     input_shape = obs_space.shape
     env.close()
     return input_shape
 
-def convert_sb3_to_onnx(model_path, model_type="PPO", output_path=None, config_path="SoccerEnv/field_config.yaml"):
+def convert_sb3_to_onnx(model_path, model_type="PPO", output_path=None, config_path="configs/field_config.yaml"):
     """
     Convert Stable-Baselines3 model to ONNX format
     
@@ -90,7 +90,7 @@ def convert_sb3_to_onnx(model_path, model_type="PPO", output_path=None, config_p
     
     # CRITICAL FIX: For PPO, we need to extract only the deterministic action part
     if model_type.upper() == "PPO":
-        env = SoccerEnv(difficulty="easy", config_path=config_path) # Literally only here to use its action space for the wrapper
+        env = SoccerEnv(difficulty="easy") # Literally only here to use its action space for the wrapper
         # Create a wrapper that only returns the mean action (deterministic)
         policy_net = DeterministicPPOWrapper(model.policy, env.action_space)
         env.close()
@@ -144,7 +144,7 @@ def convert_sb3_to_onnx(model_path, model_type="PPO", output_path=None, config_p
         print("💡 This might be due to unsupported PyTorch operations in the model")
         return None
 
-def validate_onnx_model(onnx_path, original_model, model_type="PPO", config_path="SoccerEnv/field_config.yaml"):
+def validate_onnx_model(onnx_path, original_model, model_type="PPO", config_path="configs/field_config.yaml"):
     """
     Validate that ONNX model produces similar outputs to original model
     """
@@ -200,7 +200,7 @@ def validate_onnx_model(onnx_path, original_model, model_type="PPO", config_path
                 print(f"✅ Difference: {difference:.6f}")
 
             # Add this test in validation function:
-            env = SoccerEnv(difficulty="easy", config_path=config_path) # Literally only here to use its action space for the wrapper
+            env = SoccerEnv(difficulty="easy") # Literally only here to use its action space for the wrapper
             wrapper = DeterministicPPOWrapper(original_model.policy, env.action_space)
             env.close()
             wrapper.eval()
@@ -260,7 +260,7 @@ def create_onnx_config(onnx_path, input_shape, output_shape):
     print(f"📝 Configuration saved to: {config_path}")
     return config_path
 
-def convert_all_models(config_path="SoccerEnv/field_config.yaml"):
+def convert_all_models(config_path="configs/field_config.yaml"):
     """
     Convert all trained models to ONNX format
     """
@@ -309,7 +309,7 @@ def convert_all_models(config_path="SoccerEnv/field_config.yaml"):
                     input_shape = get_model_input_shape(config_path)
                     
                     # Get output shape from model
-                    env = SoccerEnv(difficulty="easy", config_path=config_path)
+                    env = SoccerEnv(difficulty="easy")
                     output_shape = env.action_space.shape
                     env.close()
                     
@@ -354,7 +354,7 @@ def convert_all_models(config_path="SoccerEnv/field_config.yaml"):
     
     return successful_conversions
 
-def test_onnx_inference_speed(onnx_path, config_path="SoccerEnv/field_config.yaml"):
+def test_onnx_inference_speed(onnx_path, config_path="configs/field_config.yaml"):
     """
     Test ONNX model inference speed to ensure it meets 50Hz requirement
     """

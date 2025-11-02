@@ -921,8 +921,8 @@ def compare_pretrained_models(ddpg_model_path, ppo_model_path,
         n_episodes=n_episodes,
         output_dir=str(output_dir),
         logger=None,  # test_trained_model.py doesn't have logger
-        debug_display=debug_display,  # Pass debug_display flag
-        handcoded_policy="OPPONENT_POLICY"  # Placeholder - will create OpponentAsPolicy inside
+        debug_display=debug_display  # Pass debug_display flag
+        # handcoded_policy="OPPONENT_POLICY"  # Placeholder - will create OpponentAsPolicy inside
     )
 
     # Optional: Demonstrate with rendering

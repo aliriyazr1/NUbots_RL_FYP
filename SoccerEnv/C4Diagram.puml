@@ -31,9 +31,9 @@ System_Boundary(rl_system, "RL Soccer Training System") {
     Container(visualization, "Visualisation System", "Matplotlib + Python", "Generates training plots\nComparative analysis charts\nPerformance metrics graphs")
     
     ' Deployment Preparation Components
-    Container(onnx_converter, "ONNX Conversion Pipeline", "Python Scripts", "PyTorch → ONNX export\nDeterministicPPOWrapper\nNumerical validation\nCross-platform compatibility")
+    Container(onnx_converter, "ONNX Conversion Pipeline", "Python Scripts", "PyTorch → ONNX export\nDeterministic Algorithm Wrappers\nNumerical validation\nCross-platform compatibility")
     
-    Container(testing_suite, "Testing & Validation", "Pytest (66 tests)", "Unit tests (33): environment, physics\nIntegration tests (25): models, ONNX\nPerformance benchmarks (8)\n90.9% pass rate")
+    Container(testing_suite, "Testing & Validation", "Pytest (69 tests)", "Unit tests: environment, physics\nIntegration tests: models, ONNX\nSystem tests: end-to-end workflow, model evaluation and Performance tests")
 }
 
 ' ================================================================================

@@ -1,0 +1,81 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.4.2, pluggy-1.6.0 -- /home/aliriyazr1/NUbots_RL_FYP/venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/aliriyazr1/NUbots_RL_FYP
+collecting ... collected 1 item
+
+tests/integration/test_statistical_validation.py::TestAlgorithmComparison::test_ppo_vs_ddpg_statistical_comparison 
+[PPO Model] Using command-line path: experiments/archives/ppo_model_20251010/soccer_rl_ppo_20251010_202630.zip
+[PPO Model] Successfully loaded from experiments/archives/ppo_model_20251010/soccer_rl_ppo_20251010_202630.zip
+
+[DDPG Model] Using command-line path: experiments/archives/multi_model_training_20250910_213419/models/ddpg/retrained_ddpg_model_20250910_213419.zip
+[DDPG Model] Successfully loaded from experiments/archives/multi_model_training_20250910_213419/models/ddpg/retrained_ddpg_model_20250910_213419.zip
+
+✓ Testing PPO vs DDPG statistical comparison (using pretrained models)
+
+  Evaluating PPO (20 episodes)...
+Loaded configuration from configs/field_config.yaml
+Testing mode enabled: 3.0x speed
+BALL OUT OF BOUNDS - EPISODE TERMINATED
+  Evaluating DDPG (20 episodes)...
+Loaded configuration from configs/field_config.yaml
+Testing mode enabled: 3.0x speed
+BALL OUT OF BOUNDS - EPISODE TERMINATED
+BALL OUT OF BOUNDS - EPISODE TERMINATED
+BALL OUT OF BOUNDS - EPISODE TERMINATED
+BALL OUT OF BOUNDS - EPISODE TERMINATED
+BALL OUT OF BOUNDS - EPISODE TERMINATED
+BALL OUT OF BOUNDS - EPISODE TERMINATED
+BALL OUT OF BOUNDS - EPISODE TERMINATED
+BALL OUT OF BOUNDS - EPISODE TERMINATED
+BALL OUT OF BOUNDS - EPISODE TERMINATED
+BALL OUT OF BOUNDS - EPISODE TERMINATED
+BALL OUT OF BOUNDS - EPISODE TERMINATED
+BALL OUT OF BOUNDS - EPISODE TERMINATED
+BALL OUT OF BOUNDS - EPISODE TERMINATED
+BALL OUT OF BOUNDS - EPISODE TERMINATED
+BALL OUT OF BOUNDS - EPISODE TERMINATED
+BALL OUT OF BOUNDS - EPISODE TERMINATED
+BALL OUT OF BOUNDS - EPISODE TERMINATED
+BALL OUT OF BOUNDS - EPISODE TERMINATED
+
+  Statistical Analysis:
+
+  PPO Performance:
+    Mean:      -760.62 ± 672.39
+    Median:    -891.13
+    Range:    [-1569.21, 1115.16]
+    CV:       -0.8840
+
+  DDPG Performance:
+    Mean:     27622.94 ± 9031.27
+    Median:   29394.13
+    Range:    [8243.42, 43704.42]
+    CV:       0.3269
+
+  Statistical Comparison:
+    t-statistic:    -13.6614
+    p-value:          0.0000
+    Significance:   Yes (p < 0.05)
+    Cohen's d:       -4.3201
+    Effect size:    large
+
+  Mean Difference:
+    PPO - DDPG:     -28383.56
+    95% CI:         [-32483.05, -24284.08]
+
+✓ Algorithm comparison test completed
+  Academic note: Results suitable for publication with full statistical reporting
+PASSED
+
+=============================== warnings summary ===============================
+venv/lib/python3.12/site-packages/pygame/pkgdata.py:25
+  /home/aliriyazr1/NUbots_RL_FYP/venv/lib/python3.12/site-packages/pygame/pkgdata.py:25: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+    from pkg_resources import resource_stream, resource_exists
+
+tests/integration/test_statistical_validation.py:176
+  /home/aliriyazr1/NUbots_RL_FYP/tests/integration/test_statistical_validation.py:176: PytestUnknownMarkWarning: Unknown pytest.mark.slow - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.slow  # Algorithm comparison is time-intensive
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=================== 1 passed, 2 warnings in 66.84s (0:01:06) ===================

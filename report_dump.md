@@ -261,3 +261,31 @@ The rewards for the goal progress component of the movements were contributing t
 
 12) Appendices (Optional)
     Supplementary materials such as raw data, detailed calculations, questionnaires, or additional figures and tables.
+
+
+
+    Please help me to write the following sections more than good enough to score full marks according to the SENG4001B Assessment4.pdf
+
+"Evaluation Methods and Criteria: Outline the methods, criteria, and metrics used to evaluate the software solution, including testing strategies, user feedback, and performance metrics.     Testing: Describe the testing methodology and results. " 
+
+
+
+Please use the 28OCT_Testing_Methodology_For_Thesis.md to help. If needed 28OCT_Performance_statistical_model_eval_test_results.md is also there from another run of the performance benchamarking, statistical validation and model evaluation test cases.
+
+
+
+Also include the results and methodology of using the compare mode to compare DDPG and PPO based on some other performance metrics from 2way_comparison_bar_charts.png, 2way_comparison_results.json, 2way_comparison_table.md, 2way_goal_over_time.png, ddpg_vs_ppo_comparison_summary.txt, ddpg_vs_ppo_reward_histograms.png in the section for the report
+
+
+
+
+
+
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////
+Actually when I wrote all these file names in my prompt, i was referring to the project context within Claude not my file system that Claude code has access to in only this specific prompt, so I will prompt again (I know for a fact that all the files I mentioned including but not limited to statistical_validation_final.txt is in the project context so please don't mess around): episode_lengths_over_time_DDPG.png, episode_outcomes_DDPG.png, game_performance_DDPG.png, learning_metrics_DDPG.png, test_metrics_DDPG_easy.json,  episode_lengths_over_time_PPO.png, episode_outcomes_PPO.png, game_performance_PPO.png, learning_metrics_DDPG.png, test_metrics_PPO_easy.json are results from running DDPG and PPO models separately for 100 episodes on easy difficulty 2way_comparison_table.md,  2way_comparison_results.json, ddpg_vs_ppo_reward_histograms.png, ddpg_vs_ppo_comparison_summary.txt, 2way_comparison_bar_charts.png, (Not ALL need to be used since some of them may say the same information in different ways but the bar charts will definitely need to be used) are results from comparing DDPG and PPO on performance metrics directly for 100 episodes on easy difficulty (these results are separate from the separately run DDPG and PPO results I mentioned earlier Also this is the correct data from the statistical comparison and the performance validation (I think the tables are correct, idk about the paragraphs of information) performance_benchmarks_PPO_100ep_results.txt and performance_benchmarks_100ep_results.txt for the performance benchmarks stuff and the statistical_validation_final.txt for the statistical comparison between PPO and DDPG But I noticed that the data you gave me was a bit mixed up between runs for the "Results and Discussion" section. I liked the Contributions to Software Engineering and Robotics, Comparison with Existing Literature, Limitations sections (Maybe even the test suite result summary) but the other stuff at the start (I liked that it was concise however it was wrong and mixed up data) So by giving you all the data/graphs, etc and the tables in latex, I want your help to fix the "Presentation of Data" and the "Analysis and Interpretation" (which would be related to the research objectives) sections. please and thank you This is the research question (unsure if this is what they meant by research objectives) "How can reinforcement learning effectively enable soccer-playing robots to autonomously learn optimal soccer strategies that adapt to dynamic opponent behaviours?" But there were project objectives: 1. Developing a modular RL training pipeline that leverages open-source libraries like Gymnasium and Stable-Baselines3, to enable robots to make optimal high-level game decisions and coordinate team behaviours 2. Creating a custom 2-D soccer simulation environment (SoccerEnv) and expose standard step() and observe() interfaces to enable fast training and debugging for robot soccer plays 3. Training and comparing RL algorithms (PPO, DDPG) to identify the most effective approach for strategic decision-making on benchmark control tasks and the custom ‘SoccerEnv’ 4. Integrating the RL policy with the existing NUbots architecture by implementing a C++ inference module that publishes high-level actions commands to the walking and vision subsystems in realtime (Out of scope). 5. Evaluating performance of the RL policies in performance metrics in simulation. I've also added some more graphs (these are during training runs from a long time ago so they weren't done with the current reward function or training pipeline but still) medium_difficulty_training.png, hard_difficulty_training.png, image.png, training_ppo_ddpg_comparison.png (I thought some of them could show the similar rewards both algorithms were getting but one could perform better than the other)
+

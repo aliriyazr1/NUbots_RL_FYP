@@ -79,7 +79,7 @@ class TestMinimalTraining:
         print(f"  Temporary directory: {tmp_path}")
 
         # Create environment
-        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
 
         # Create log directory
         log_dir = tmp_path / "ppo_logs"
@@ -138,7 +138,7 @@ class TestMinimalTraining:
         print(f"\n✓ Testing monitor log generation")
 
         # Create environment with Monitor
-        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original")
+        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
 
         log_dir = tmp_path / "monitor_logs"
         log_dir.mkdir(exist_ok=True)
@@ -200,7 +200,7 @@ class TestCheckpointCreation:
         """
         print(f"\n✓ Testing checkpoint creation")
 
-        env = SoccerEnv(render_mode=None, difficulty="easy")
+        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
         env = Monitor(env, str(tmp_path))
 
         # Train minimal model
@@ -240,10 +240,10 @@ class TestCheckpointCreation:
         print(f"\n✓ Testing evaluations.npz creation")
 
         # Create training and evaluation environments
-        train_env = SoccerEnv(render_mode=None, difficulty="easy")
+        train_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
         train_env = Monitor(train_env, str(tmp_path / "train"))
 
-        eval_env = SoccerEnv(render_mode=None, difficulty="easy")
+        eval_env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
 
         # Create evaluation callback
         eval_dir = tmp_path / "evaluations"
@@ -323,7 +323,8 @@ class TestRewardTypeTraining:
         env = SoccerEnv(
             render_mode=None,
             difficulty="easy",
-            reward_type=reward_type
+            reward_type=reward_type,
+            testing_mode=False
         )
 
         log_dir = tmp_path / f"logs_{reward_type}"
@@ -402,7 +403,8 @@ class TestDifficultyProgression:
             env = SoccerEnv(
                 render_mode=None,
                 difficulty=difficulty,
-                reward_type="original"
+                reward_type="original", 
+                testing_mode=False
             )
 
             log_dir = tmp_path / f"logs_{difficulty}"
@@ -427,7 +429,8 @@ class TestDifficultyProgression:
             eval_env = SoccerEnv(
                 render_mode=None,
                 difficulty=difficulty,
-                reward_type="original"
+                reward_type="original", 
+                testing_mode=False
             )
 
             episode_rewards = []
@@ -503,7 +506,7 @@ class TestTrainingCleanup:
         print(f"\n✓ Testing environment cleanup")
 
         # Create and use environment
-        env = SoccerEnv(render_mode=None, difficulty="easy")
+        env = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
         env = Monitor(env, str(tmp_path))
 
         model = PPO("MlpPolicy", env, verbose=0, device="cpu")
@@ -513,7 +516,7 @@ class TestTrainingCleanup:
         env.close()
 
         # Verify we can create new environment (no resource conflicts)
-        env2 = SoccerEnv(render_mode=None, difficulty="easy")
+        env2 = SoccerEnv(render_mode=None, difficulty="easy", reward_type="original", testing_mode=False)
         env2.close()
 
         print(f"  Cleanup successful - no resource conflicts")
